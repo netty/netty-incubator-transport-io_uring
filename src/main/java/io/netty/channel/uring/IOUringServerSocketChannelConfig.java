@@ -5,7 +5,7 @@
  * version 2.0 (the "License"); you may not use this file except in compliance
  * with the License. You may obtain a copy of the License at:
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *   https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
@@ -243,7 +243,7 @@ public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig
     }
 
     /**
-     * Returns {@code true} if <a href="http://man7.org/linux/man-pages/man7/ip.7.html">IP_FREEBIND</a> is enabled,
+     * Returns {@code true} if <a href="https://man7.org/linux/man-pages/man7/ip.7.html">IP_FREEBIND</a> is enabled,
      * {@code false} otherwise.
      */
     public boolean isFreeBind() {
@@ -255,7 +255,7 @@ public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig
     }
 
     /**
-     * If {@code true} is used <a href="http://man7.org/linux/man-pages/man7/ip.7.html">IP_FREEBIND</a> is enabled,
+     * If {@code true} is used <a href="https://man7.org/linux/man-pages/man7/ip.7.html">IP_FREEBIND</a> is enabled,
      * {@code false} for disable it. Default is disabled.
      */
     public IOUringServerSocketChannelConfig setFreeBind(boolean freeBind) {
@@ -268,7 +268,7 @@ public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig
     }
 
     /**
-     * Returns {@code true} if <a href="http://man7.org/linux/man-pages/man7/ip.7.html">IP_TRANSPARENT</a> is enabled,
+     * Returns {@code true} if <a href="https://man7.org/linux/man-pages/man7/ip.7.html">IP_TRANSPARENT</a> is enabled,
      * {@code false} otherwise.
      */
     public boolean isIpTransparent() {
@@ -280,7 +280,7 @@ public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig
     }
 
     /**
-     * If {@code true} is used <a href="http://man7.org/linux/man-pages/man7/ip.7.html">IP_TRANSPARENT</a> is enabled,
+     * If {@code true} is used <a href="https://man7.org/linux/man-pages/man7/ip.7.html">IP_TRANSPARENT</a> is enabled,
      * {@code false} for disable it. Default is disabled.
      */
     public IOUringServerSocketChannelConfig setIpTransparent(boolean transparent) {
@@ -305,7 +305,7 @@ public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig
     }
 
     /**
-     * Returns a positive value if <a href="http://linux.die.net/man/7/tcp">TCP_DEFER_ACCEPT</a> is enabled.
+     * Returns a positive value if <a href="https://linux.die.net/man/7/tcp">TCP_DEFER_ACCEPT</a> is enabled.
      */
     public int getTcpDeferAccept() {
         try {
