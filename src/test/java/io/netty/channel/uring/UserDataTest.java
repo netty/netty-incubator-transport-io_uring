@@ -24,15 +24,15 @@ public class UserDataTest {
     public void testUserData() {
         // Ensure userdata works with negative and positive values
         for (int fd : new int[] { -10, -1, 0, 1, 10, Short.MAX_VALUE, Integer.MAX_VALUE }) {
-            for (int op = 0; op < 20; op++) {
+            for (byte op = 0; op < 20; op++) {
                 for (int data = Short.MIN_VALUE; data <= Short.MAX_VALUE; data++) {
                     final int expectedFd = fd;
-                    final int expectedOp = op;
+                    final byte expectedOp = op;
                     final short expectedData = (short) data;
                     long udata = UserData.encode(expectedFd, expectedOp, expectedData);
                     UserData.decode(0, 0, udata, new IOUringCompletionQueueCallback() {
                         @Override
-                        public void handle(int actualFd, int res, int flags, int actualOp, short actualData) {
+                        public void handle(int actualFd, int res, int flags, byte actualOp, short actualData) {
                             assertEquals(expectedFd, actualFd);
                             assertEquals(expectedOp, actualOp);
                             assertEquals(expectedData, actualData);
