@@ -59,16 +59,20 @@
 #include <sys/eventfd.h>
 #include <poll.h>
 
+#define NATIVE_CLASSNAME "io/netty/channel/uring/Native"
+#define STATICALLY_CLASSNAME "io/netty/channel/uring/NativeStaticallyReferencedJniMethods"
+
 static jclass longArrayClass = NULL;
+static char* staticPackagePrefix = NULL;
 
-static void netty_io_uring_native_JNI_OnUnLoad(JNIEnv* env) {
-    netty_unix_limits_JNI_OnUnLoad(env);
-    netty_unix_errors_JNI_OnUnLoad(env);
-    netty_unix_filedescriptor_JNI_OnUnLoad(env);
-    netty_unix_socket_JNI_OnUnLoad(env);
-    netty_unix_buffer_JNI_OnUnLoad(env);
+static void netty_io_uring_native_JNI_OnUnLoad(JNIEnv* env, const char* packagePrefix) {
+    netty_unix_limits_JNI_OnUnLoad(env, packagePrefix);
+    netty_unix_errors_JNI_OnUnLoad(env, packagePrefix);
+    netty_unix_filedescriptor_JNI_OnUnLoad(env, packagePrefix);
+    netty_unix_socket_JNI_OnUnLoad(env, packagePrefix);
+    netty_unix_buffer_JNI_OnUnLoad(env, packagePrefix);
 
-    longArrayClass = NULL;
+    NETTY_UNLOAD_CLASS(env, longArrayClass);
 }
 
 void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq) {
@@ -542,6 +546,8 @@ static const jint method_table_size =
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     int ret = JNI_ERR;
+    int nativeRegistered = 0;
+    int staticallyRegistered = 0;
     int limitsOnLoadCalled = 0;
     int errorsOnLoadCalled = 0;
     int filedescriptorOnLoadCalled = 0;
@@ -561,7 +567,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 
     if (!dladdr((void *)netty_io_uring_native_JNI_OnUnLoad, &dlinfo)) {
         fprintf(stderr,
-            "FATAL: transport-native-epoll JNI call to dladdr failed!\n");
+            "FATAL: transport-native-io_uring JNI call to dladdr failed!\n");
         return JNI_ERR;
     }
     packagePrefix = netty_unix_util_parse_package_prefix(
@@ -577,17 +583,19 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     // We must register the statically referenced methods first!
     if (netty_unix_util_register_natives(env,
             packagePrefix,
-            "io/netty/channel/uring/NativeStaticallyReferencedJniMethods",
+            STATICALLY_CLASSNAME,
             statically_referenced_fixed_method_table,
             statically_referenced_fixed_method_table_size) != 0) {
         goto done;
     }
+    nativeRegistered = 1;
 
     if (netty_unix_util_register_natives(env, packagePrefix,
-                                       "io/netty/channel/uring/Native",
+                                       NATIVE_CLASSNAME,
                                        method_table, method_table_size) != 0) {
         goto done;
     }
+    staticallyRegistered = 1;
 
     // Load all c modules that we depend upon
     if (netty_unix_limits_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
@@ -621,30 +629,42 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     linuxsocketOnLoadCalled = 1;
 
     NETTY_LOAD_CLASS(env, longArrayClass, "[J", done);
+
+    staticPackagePrefix = packagePrefix;
+
     ret = NETTY_JNI_VERSION;
 done:
     //unload
     free(nettyClassName);
 
     if (ret == JNI_ERR) {
+        if (nativeRegistered == 1) {
+            netty_unix_util_unregister_natives(env, packagePrefix, NATIVE_CLASSNAME);
+        }
+        if (staticallyRegistered == 1) {
+            netty_unix_util_unregister_natives(env, packagePrefix, STATICALLY_CLASSNAME);
+        }
         if (limitsOnLoadCalled == 1) {
-            netty_unix_limits_JNI_OnUnLoad(env);
+            netty_unix_limits_JNI_OnUnLoad(env, packagePrefix);
         }
         if (errorsOnLoadCalled == 1) {
-            netty_unix_errors_JNI_OnUnLoad(env);
+            netty_unix_errors_JNI_OnUnLoad(env, packagePrefix);
         }
         if (filedescriptorOnLoadCalled == 1) {
-            netty_unix_filedescriptor_JNI_OnUnLoad(env);
+            netty_unix_filedescriptor_JNI_OnUnLoad(env, packagePrefix);
         }
         if (socketOnLoadCalled == 1) {
-            netty_unix_socket_JNI_OnUnLoad(env);
+            netty_unix_socket_JNI_OnUnLoad(env, packagePrefix);
         }
         if (bufferOnLoadCalled == 1) {
-            netty_unix_buffer_JNI_OnUnLoad(env);
+            netty_unix_buffer_JNI_OnUnLoad(env, packagePrefix);
         }
         if (linuxsocketOnLoadCalled == 1) {
-            netty_io_uring_linuxsocket_JNI_OnUnLoad(env);
+            netty_io_uring_linuxsocket_JNI_OnUnLoad(env, packagePrefix);
         }
+
+        free(packagePrefix);
+        staticPackagePrefix = NULL;
     }
     return ret;
 }
@@ -656,5 +676,11 @@ JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* reserved) {
         // Something is wrong but nothing we can do about this :(
         return;
     }
-    netty_io_uring_native_JNI_OnUnLoad(env);
+
+    netty_unix_util_unregister_natives(env, staticPackagePrefix, NATIVE_CLASSNAME);
+    netty_unix_util_unregister_natives(env, staticPackagePrefix, STATICALLY_CLASSNAME);
+
+    netty_io_uring_native_JNI_OnUnLoad(env, staticPackagePrefix);
+    free(staticPackagePrefix);
+    staticPackagePrefix = NULL;
 }

@@ -34,6 +34,8 @@
 #include "netty_unix_socket.h"
 #include "netty_unix_util.h"
 
+#define LINUXSOCKET_CLASSNAME "io/netty/channel/uring/LinuxSocket"
+
 // TCP_FASTOPEN is defined in linux 3.7. We define this here so older kernels can compile.
 #ifndef TCP_FASTOPEN
 #define TCP_FASTOPEN 23
@@ -698,6 +700,8 @@ error:
 jint netty_io_uring_linuxsocket_JNI_OnLoad(JNIEnv* env, const char* packagePrefix) {
     int ret = JNI_ERR;
     char* nettyClassName = NULL;
+    int linuxSocketRegistered = 0;
+
     // Register the methods which are not referenced by static member variables
     JNINativeMethod* dynamicMethods = createDynamicMethodsTable(packagePrefix);
     if (dynamicMethods == NULL) {
@@ -705,11 +709,12 @@ jint netty_io_uring_linuxsocket_JNI_OnLoad(JNIEnv* env, const char* packagePrefi
     }
     if (netty_unix_util_register_natives(env,
             packagePrefix,
-            "io/netty/channel/uring/LinuxSocket",
+            LINUXSOCKET_CLASSNAME,
             dynamicMethods,
             dynamicMethodsTableSize()) != 0) {
         goto done;
     }
+    linuxSocketRegistered = 1;
 
     NETTY_PREPEND(packagePrefix, "io/netty/channel/unix/PeerCredentials", nettyClassName, done);
     NETTY_LOAD_CLASS(env, peerCredentialsClass, nettyClassName, done);
@@ -719,12 +724,18 @@ jint netty_io_uring_linuxsocket_JNI_OnLoad(JNIEnv* env, const char* packagePrefi
 
     ret = NETTY_JNI_VERSION;
 done:
+    if (ret == JNI_ERR) {
+        if (linuxSocketRegistered == 1) {
+            netty_unix_util_unregister_natives(env, packagePrefix, LINUXSOCKET_CLASSNAME);
+        }
+    }
     netty_unix_util_free_dynamic_methods_table(dynamicMethods, fixed_method_table_size, dynamicMethodsTableSize());
     free(nettyClassName);
 
     return ret;
 }
 
-void netty_io_uring_linuxsocket_JNI_OnUnLoad(JNIEnv* env) {
+void netty_io_uring_linuxsocket_JNI_OnUnLoad(JNIEnv* env, const char* packagePrefix) {
+    netty_unix_util_unregister_natives(env, packagePrefix, LINUXSOCKET_CLASSNAME);
     NETTY_UNLOAD_CLASS(env, peerCredentialsClass);
 }
