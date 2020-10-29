@@ -34,7 +34,7 @@
 #include "netty_unix_socket.h"
 #include "netty_unix_util.h"
 
-#define LINUXSOCKET_CLASSNAME "io/netty/channel/uring/LinuxSocket"
+#define LINUXSOCKET_CLASSNAME "io/netty/incubator/channel/uring/LinuxSocket"
 
 // TCP_FASTOPEN is defined in linux 3.7. We define this here so older kernels can compile.
 #ifndef TCP_FASTOPEN

@@ -59,8 +59,8 @@
 #include <sys/eventfd.h>
 #include <poll.h>
 
-#define NATIVE_CLASSNAME "io/netty/channel/uring/Native"
-#define STATICALLY_CLASSNAME "io/netty/channel/uring/NativeStaticallyReferencedJniMethods"
+#define NATIVE_CLASSNAME "io/netty/incubator/channel/uring/Native"
+#define STATICALLY_CLASSNAME "io/netty/incubator/channel/uring/NativeStaticallyReferencedJniMethods"
 
 static jclass longArrayClass = NULL;
 static char* staticPackagePrefix = NULL;
