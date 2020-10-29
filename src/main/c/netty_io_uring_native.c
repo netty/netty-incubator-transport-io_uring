@@ -63,7 +63,6 @@
 #define STATICALLY_CLASSNAME "io/netty/incubator/channel/uring/NativeStaticallyReferencedJniMethods"
 
 static jclass longArrayClass = NULL;
-static char* staticPackagePrefix = NULL;
 
 static void netty_io_uring_native_JNI_OnUnLoad(JNIEnv* env, const char* packagePrefix) {
     netty_unix_limits_JNI_OnUnLoad(env, packagePrefix);
@@ -72,7 +71,7 @@ static void netty_io_uring_native_JNI_OnUnLoad(JNIEnv* env, const char* packageP
     netty_unix_socket_JNI_OnUnLoad(env, packagePrefix);
     netty_unix_buffer_JNI_OnUnLoad(env, packagePrefix);
 
-    NETTY_UNLOAD_CLASS(env, longArrayClass);
+    NETTY_JNI_UTIL_UNLOAD_CLASS(env, longArrayClass);
 }
 
 void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq) {
@@ -544,7 +543,7 @@ static const jint method_table_size =
     sizeof(method_table) / sizeof(method_table[0]);
 // JNI Method Registration Table End
 
-JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
+static jint netty_iouring_native_JNI_OnLoad(JNIEnv* env, const char* packagePrefix) {
     int ret = JNI_ERR;
     int nativeRegistered = 0;
     int staticallyRegistered = 0;
@@ -554,34 +553,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     int socketOnLoadCalled = 0;
     int bufferOnLoadCalled = 0;
     int linuxsocketOnLoadCalled = 0;
-    JNIEnv *env;
-    char *nettyClassName = NULL;
-
-    if ((*vm)->GetEnv(vm, (void **)&env, NETTY_JNI_VERSION) != JNI_OK) {
-        return JNI_ERR;
-    }
-    char *packagePrefix = NULL;
-
-    Dl_info dlinfo;
-    jint status = 0;
-
-    if (!dladdr((void *)netty_io_uring_native_JNI_OnUnLoad, &dlinfo)) {
-        fprintf(stderr,
-            "FATAL: transport-native-io_uring JNI call to dladdr failed!\n");
-        return JNI_ERR;
-    }
-    packagePrefix = netty_unix_util_parse_package_prefix(
-      dlinfo.dli_fname, "netty_transport_native_io_uring", &status);
-    if (status == JNI_ERR) {
-        fprintf(stderr,
-            "FATAL: netty_transport_native_io_uring JNI encountered unexpected "
-            "dlinfo.dli_fname: %s\n",
-            dlinfo.dli_fname);
-        return JNI_ERR;
-    }
 
     // We must register the statically referenced methods first!
-    if (netty_unix_util_register_natives(env,
+    if (netty_jni_util_register_natives(env,
             packagePrefix,
             STATICALLY_CLASSNAME,
             statically_referenced_fixed_method_table,
@@ -590,7 +564,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     }
     nativeRegistered = 1;
 
-    if (netty_unix_util_register_natives(env, packagePrefix,
+    if (netty_jni_util_register_natives(env, packagePrefix,
                                        NATIVE_CLASSNAME,
                                        method_table, method_table_size) != 0) {
         goto done;
@@ -628,21 +602,16 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     }
     linuxsocketOnLoadCalled = 1;
 
-    NETTY_LOAD_CLASS(env, longArrayClass, "[J", done);
+    NETTY_JNI_UTIL_LOAD_CLASS(env, longArrayClass, "[J", done);
 
-    staticPackagePrefix = packagePrefix;
-
-    ret = NETTY_JNI_VERSION;
+    ret = NETTY_JNI_UTIL_JNI_VERSION;
 done:
-    //unload
-    free(nettyClassName);
-
     if (ret == JNI_ERR) {
         if (nativeRegistered == 1) {
-            netty_unix_util_unregister_natives(env, packagePrefix, NATIVE_CLASSNAME);
+            netty_jni_util_unregister_natives(env, packagePrefix, NATIVE_CLASSNAME);
         }
         if (staticallyRegistered == 1) {
-            netty_unix_util_unregister_natives(env, packagePrefix, STATICALLY_CLASSNAME);
+            netty_jni_util_unregister_natives(env, packagePrefix, STATICALLY_CLASSNAME);
         }
         if (limitsOnLoadCalled == 1) {
             netty_unix_limits_JNI_OnUnLoad(env, packagePrefix);
@@ -662,25 +631,20 @@ done:
         if (linuxsocketOnLoadCalled == 1) {
             netty_io_uring_linuxsocket_JNI_OnUnLoad(env, packagePrefix);
         }
-
-        free(packagePrefix);
-        staticPackagePrefix = NULL;
     }
     return ret;
 }
 
+static void netty_iouring_native_JNI_OnUnload(JNIEnv* env, const char* packagePrefix) {
+    netty_jni_util_unregister_natives(env, packagePrefix, NATIVE_CLASSNAME);
+    netty_jni_util_unregister_natives(env, packagePrefix, STATICALLY_CLASSNAME);
+    netty_io_uring_native_JNI_OnUnLoad(env, packagePrefix);
+}
+
+JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
+    return netty_jni_util_JNI_OnLoad(vm, reserved, "netty_transport_native_io_uring", netty_iouring_native_JNI_OnLoad);
+}
+
 JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* reserved) {
-    // Todo OnUnLoad
-    JNIEnv* env;
-    if ((*vm)->GetEnv(vm, (void**) &env, NETTY_JNI_VERSION) != JNI_OK) {
-        // Something is wrong but nothing we can do about this :(
-        return;
-    }
-
-    netty_unix_util_unregister_natives(env, staticPackagePrefix, NATIVE_CLASSNAME);
-    netty_unix_util_unregister_natives(env, staticPackagePrefix, STATICALLY_CLASSNAME);
-
-    netty_io_uring_native_JNI_OnUnLoad(env, staticPackagePrefix);
-    free(staticPackagePrefix);
-    staticPackagePrefix = NULL;
+    netty_jni_util_JNI_OnUnload(vm, reserved, netty_iouring_native_JNI_OnUnload);
 }
