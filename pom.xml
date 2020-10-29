@@ -18,19 +18,56 @@
          xsi:schemaLocation="https://maven.apache.org/POM/4.0.0 https://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>io.netty</groupId>
-    <artifactId>netty-parent</artifactId>
-    <version>4.1.54.Final-SNAPSHOT</version>
+    <groupId>org.sonatype.oss</groupId>
+    <artifactId>oss-parent</artifactId>
+    <version>9</version>
   </parent>
-  <artifactId>netty-transport-native-io_uring</artifactId>
 
-  <name>Netty/Transport/Native/io_uring</name>
+  <groupId>io.netty.incubator</groupId>
+  <artifactId>netty-incubator-transport-native-io_uring</artifactId>
+  <version>0.0.1.Final-SNAPSHOT</version>
+  <name>Netty/Incubator/Transport/Native/io_uring</name>
   <packaging>jar</packaging>
+  <url>https://netty.io/</url>
+  <description>
+    Netty is an asynchronous event-driven network application framework for
+    rapid development of maintainable high performance protocol servers and
+    clients.
+  </description>
+
+  <organization>
+    <name>The Netty Project</name>
+    <url>https://netty.io/</url>
+  </organization>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+    </license>
+  </licenses>
+  <inceptionYear>2020</inceptionYear>
+
+  <scm>
+    <url>https://github.com/netty/netty-incubator-transport-io_uring</url>
+    <connection>scm:git:git://github.com/netty/netty-incubator-transport-io_uring.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/netty/netty-incubator-transport-io_uring.git</developerConnection>
+    <tag>HEAD</tag>
+  </scm>
+
+  <developers>
+    <developer>
+      <id>netty.io</id>
+      <name>The Netty Project Contributors</name>
+      <email>netty@googlegroups.com</email>
+      <url>https://netty.io/</url>
+      <organization>The Netty Project</organization>
+      <organizationUrl>https://netty.io/</organizationUrl>
+    </developer>
+  </developers>
 
   <properties>
-    <javaModuleName>io.netty.transport.io_uring</javaModuleName>
-    <!-- Needed as we use SelfSignedCertificate in our tests -->
-    <argLine.java9.extras>--add-exports java.base/sun.security.x509=ALL-UNNAMED</argLine.java9.extras>
+    <javaModuleName>io.netty.incubator.transport.io_uring</javaModuleName>
     <unix.common.lib.name>netty-unix-common</unix.common.lib.name>
     <unix.common.lib.dir>${project.build.directory}/unix-common-lib</unix.common.lib.dir>
     <unix.common.lib.unpacked.dir>${unix.common.lib.dir}/META-INF/native/lib</unix.common.lib.unpacked.dir>
@@ -41,7 +78,252 @@
     </jni.compiler.args.ldflags>
     <nativeSourceDirectory>${project.basedir}/src/main/c</nativeSourceDirectory>
     <skipTests>true</skipTests>
+    <netty.version>4.1.54.Final-SNAPSHOT</netty.version>
+    <netty.build.version>26</netty.build.version>
+    <jni.classifier>${os.detected.name}-${os.detected.arch}</jni.classifier>
   </properties>
+
+  <build>
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.6.2</version>
+      </extension>
+    </extensions>
+    <plugins>
+      <!-- Also include c files in source jar -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+	<version>3.2.0</version>
+        <executions>
+          <execution>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${nativeSourceDirectory}</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <!-- Generate the fallback JAR that does not contain the native library. -->
+          <execution>
+            <id>default-jar</id>
+            <configuration>
+              <excludes>
+                <exclude>META-INF/native/**</exclude>
+              </excludes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.0</version>
+        <configuration>
+          <compilerVersion>1.8</compilerVersion>
+          <fork>true</fork>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
+          <debug>true</debug>
+          <optimize>true</optimize>
+          <showDeprecation>true</showDeprecation>
+          <showWarnings>true</showWarnings>
+          <compilerArgument>-Xlint:-options</compilerArgument>
+          <!-- XXX: maven-release-plugin complains - MRELEASE-715 -->
+          <!--
+          <compilerArguments>
+            <Xlint:-options />
+            <Xlint:unchecked />
+            <Xlint:deprecation />
+          </compilerArguments>
+          -->
+          <meminitial>256m</meminitial>
+          <maxmem>1024m</maxmem>
+          <excludes>
+            <exclude>**/package-info.java</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>check-style</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+            <configuration>
+              <consoleOutput>true</consoleOutput>
+              <logViolationsToConsole>true</logViolationsToConsole>
+              <failsOnError>true</failsOnError>
+              <failOnViolation>true</failOnViolation>
+              <configLocation>io/netty/checkstyle.xml</configLocation>
+              <sourceDirectories>
+                <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
+                <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
+              </sourceDirectories>
+            </configuration>
+            <inherited>false</inherited>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>8.29</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-build</artifactId>
+	    <version>${netty.build.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.22.1</version>
+        <configuration>
+          <includes>
+            <include>**/*Test*.java</include>
+          </includes>
+          <excludes>
+            <exclude>**/Abstract*</exclude>
+          </excludes>
+          <runOrder>random</runOrder>
+          <systemPropertyVariables>
+            <logback.configurationFile>src/test/resources/logback-test.xml</logback.configurationFile>
+            <logLevel>debug</logLevel>
+          </systemPropertyVariables>
+          <properties>
+            <property>
+              <name>listener</name>
+              <value>io.netty.build.junit.TimedOutTestsListener</value>
+            </property>
+          </properties>
+           <!-- Ensure the whole stacktrace is preserved when an exception is thrown. See https://issues.apache.org/jira/browse/SUREFIRE-1457 -->
+          <trimStackTrace>false</trimStackTrace>
+        </configuration>
+      </plugin>
+      <!-- always produce osgi bundles -->
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <version>2.5.4</version>
+        <executions>
+          <execution>
+            <id>generate-manifest</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>manifest</goal>
+            </goals>
+            <configuration>
+              <supportedProjectTypes>
+                <supportedProjectType>jar</supportedProjectType>
+                <supportedProjectType>bundle</supportedProjectType>
+              </supportedProjectTypes>
+              <instructions>
+                <Export-Package>${project.groupId}.*</Export-Package>
+                <!-- enforce JVM vendor package as optional -->
+                <Import-Package>sun.misc.*;resolution:=optional,sun.nio.ch;resolution:=optional,sun.security.*;resolution:=optional</Import-Package>
+                <!-- override "internal" private package convention -->
+                <Private-Package>!*</Private-Package>
+              </instructions>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.2.0</version>
+        <!-- Eclipse-related OSGi manifests
+             See https://github.com/netty/netty/issues/3886
+             More information: https://rajakannappan.blogspot.ie/2010/03/automating-eclipse-source-bundle.html -->
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Bundle-ManifestVersion>2</Bundle-ManifestVersion>
+              <Bundle-Name>${project.name}</Bundle-Name>
+              <Bundle-SymbolicName>${project.groupId}.${project.artifactId}.source</Bundle-SymbolicName>
+              <Bundle-Vendor>${project.organization.name}</Bundle-Vendor>
+              <Bundle-Version>${parsedVersion.osgiVersion}</Bundle-Version>
+              <Eclipse-SourceBundle>${project.groupId}.${project.artifactId};version="${parsedVersion.osgiVersion}";roots:="."</Eclipse-SourceBundle>
+            </manifestEntries>
+          </archive>
+        </configuration>
+
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>attach-test-sources</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>test-jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.10.4</version>
+        <configuration>
+          <detectOfflineLinks>false</detectOfflineLinks>
+          <breakiterator>true</breakiterator>
+          <version>false</version>
+          <author>false</author>
+          <keywords>true</keywords>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>2.8.2</version>
+        <configuration>
+          <retryFailedDeploymentCount>10</retryFailedDeploymentCount>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-release-plugin</artifactId>
+        <version>2.5.3</version>
+        <configuration>
+          <useReleaseProfile>false</useReleaseProfile>
+          <arguments>-P restricted-release,sonatype-oss-release,full</arguments>
+          <autoVersionSubmodules>true</autoVersionSubmodules>
+          <allowTimestampedSnapshots>false</allowTimestampedSnapshots>
+          <tagNameFormat>@{project.name}-@{project.version}</tagNameFormat>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>org.apache.maven.scm</groupId>
+            <artifactId>maven-scm-api</artifactId>
+            <version>1.9.4</version>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.maven.scm</groupId>
+            <artifactId>maven-scm-provider-gitexe</artifactId>
+            <version>1.9.4</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+    </plugins>
+  </build>
 
   <profiles>
     <profile>
@@ -58,6 +340,7 @@
         <plugins>
           <plugin>
             <artifactId>maven-dependency-plugin</artifactId>
+            <version>2.10</version>
             <executions>
               <!-- unpack the unix-common static library and include files -->
               <execution>
@@ -67,7 +350,7 @@
                   <goal>unpack-dependencies</goal>
                 </goals>
                 <configuration>
-                  <includeGroupIds>${project.groupId}</includeGroupIds>
+                  <includeGroupIds>io.netty</includeGroupIds>
                   <includeArtifactIds>netty-transport-native-unix-common</includeArtifactIds>
                   <classifier>${jni.classifier}</classifier>
                   <outputDirectory>${unix.common.lib.dir}</outputDirectory>
@@ -82,6 +365,7 @@
           <plugin>
             <groupId>org.fusesource.hawtjni</groupId>
             <artifactId>maven-hawtjni-plugin</artifactId>
+            <version>1.14</version>
             <executions>
               <execution>
                 <id>build-native-lib</id>
@@ -108,6 +392,7 @@
           </plugin>
           <plugin>
             <artifactId>maven-jar-plugin</artifactId>
+            <version>3.2.0</version>
             <executions>
               <!-- Generate the JAR that contains the native library in it. -->
               <execution>
@@ -139,7 +424,7 @@
         <dependency>
           <groupId>io.netty</groupId>
           <artifactId>netty-transport-native-unix-common</artifactId>
-          <version>${project.version}</version>
+	  <version>${netty.version}</version>
           <classifier>${jni.classifier}</classifier>
           <!--
             The unix-common with classifier dependency is optional because it is not a runtime dependency, but a build time
@@ -155,79 +440,52 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-common</artifactId>
-      <version>${project.version}</version>
+      <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-buffer</artifactId>
-      <version>${project.version}</version>
+      <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-transport</artifactId>
-      <version>${project.version}</version>
+      <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-transport-native-unix-common</artifactId>
-      <version>${project.version}</version>
+      <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-testsuite</artifactId>
-      <version>${project.version}</version>
+      <version>${netty.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-transport-native-unix-common-tests</artifactId>
-      <version>${project.version}</version>
+      <version>${netty.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>${tcnative.artifactId}</artifactId>
-      <classifier>${tcnative.classifier}</classifier>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-tcnative-boringssl-static</artifactId>
+      <version>2.0.34.Final</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-build</artifactId>
+      <version>${netty.build.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
-
-
-  <build>
-    <plugins>
-      <!-- Also include c files in source jar -->
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>add-source</goal>
-            </goals>
-            <configuration>
-              <sources>
-                <source>${nativeSourceDirectory}</source>
-              </sources>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <artifactId>maven-jar-plugin</artifactId>
-        <executions>
-          <!-- Generate the fallback JAR that does not contain the native library. -->
-          <execution>
-            <id>default-jar</id>
-            <configuration>
-              <excludes>
-                <exclude>META-INF/native/**</exclude>
-              </excludes>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
-
 </project>
