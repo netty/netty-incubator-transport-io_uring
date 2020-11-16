@@ -307,7 +307,7 @@
           <arguments>-P restricted-release,sonatype-oss-release,full</arguments>
           <autoVersionSubmodules>true</autoVersionSubmodules>
           <allowTimestampedSnapshots>false</allowTimestampedSnapshots>
-          <tagNameFormat>@{project.name}-@{project.version}</tagNameFormat>
+          <tagNameFormat>${project.artifactId}-@{project.version}</tagNameFormat>
         </configuration>
         <dependencies>
           <dependency>
