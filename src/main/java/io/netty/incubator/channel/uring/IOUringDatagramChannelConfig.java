@@ -97,6 +97,9 @@ public final class IOUringDatagramChannelConfig extends DefaultChannelConfig imp
         if (option == IOUringChannelOption.IP_FREEBIND) {
             return (T) Boolean.valueOf(isFreeBind());
         }
+        if (option == IOUringChannelOption.IP_RECVORIGDSTADDR) {
+            return (T) Boolean.valueOf(isIpRecvOrigDestAddr());
+        }
         if (option == IOUringChannelOption.MAX_DATAGRAM_PAYLOAD_SIZE) {
             return (T) Integer.valueOf(getMaxDatagramPayloadSize());
         }
@@ -134,6 +137,8 @@ public final class IOUringDatagramChannelConfig extends DefaultChannelConfig imp
             setFreeBind((Boolean) value);
         } else if (option == IOUringChannelOption.IP_TRANSPARENT) {
             setIpTransparent((Boolean) value);
+        } else if (option == IOUringChannelOption.IP_RECVORIGDSTADDR) {
+            setIpRecvOrigDestAddr((Boolean) value);
         } else if (option == IOUringChannelOption.MAX_DATAGRAM_PAYLOAD_SIZE) {
             setMaxDatagramPayloadSize((Integer) value);
         } else {
@@ -466,6 +471,31 @@ public final class IOUringDatagramChannelConfig extends DefaultChannelConfig imp
     public IOUringDatagramChannelConfig setFreeBind(boolean freeBind) {
         try {
             ((AbstractIOUringChannel) channel).socket.setIpFreeBind(freeBind);
+            return this;
+        } catch (IOException e) {
+            throw new ChannelException(e);
+        }
+    }
+
+    /**
+     * Returns {@code true} if <a href="https://man7.org/linux/man-pages/man7/ip.7.html">IP_RECVORIGDSTADDR</a> is enabled,
+     * {@code false} otherwise.
+     */
+    public boolean isIpRecvOrigDestAddr() {
+        try {
+            return ((AbstractIOUringChannel) channel).socket.isIpRecvOrigDestAddr();
+        } catch (IOException e) {
+            throw new ChannelException(e);
+        }
+    }
+
+    /**
+     * If {@code true} is used <a href="https://man7.org/linux/man-pages/man7/ip.7.html">IP_RECVORIGDSTADDR</a> is enabled,
+     * {@code false} for disable it. Default is disabled.
+     */
+    public IOUringDatagramChannelConfig setIpRecvOrigDestAddr(boolean ipRecvOrigDestAddr) {
+        try {
+            ((AbstractIOUringChannel) channel).socket.setIpRecvOrigDestAddr(ipRecvOrigDestAddr);
             return this;
         } catch (IOException e) {
             throw new ChannelException(e);
