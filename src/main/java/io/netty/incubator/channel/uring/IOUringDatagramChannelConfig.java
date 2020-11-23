@@ -478,8 +478,8 @@ public final class IOUringDatagramChannelConfig extends DefaultChannelConfig imp
     }
 
     /**
-     * Returns {@code true} if <a href="https://man7.org/linux/man-pages/man7/ip.7.html">IP_RECVORIGDSTADDR</a> is enabled,
-     * {@code false} otherwise.
+     * Returns {@code true} if <a href="https://man7.org/linux/man-pages/man7/ip.7.html">IP_RECVORIGDSTADDR</a>
+     * is enabled, {@code false} otherwise.
      */
     public boolean isIpRecvOrigDestAddr() {
         try {
@@ -490,8 +490,8 @@ public final class IOUringDatagramChannelConfig extends DefaultChannelConfig imp
     }
 
     /**
-     * If {@code true} is used <a href="https://man7.org/linux/man-pages/man7/ip.7.html">IP_RECVORIGDSTADDR</a> is enabled,
-     * {@code false} for disable it. Default is disabled.
+     * If {@code true} is used <a href="https://man7.org/linux/man-pages/man7/ip.7.html">IP_RECVORIGDSTADDR</a>
+     * is enabled, {@code false} for disable it. Default is disabled.
      */
     public IOUringDatagramChannelConfig setIpRecvOrigDestAddr(boolean ipRecvOrigDestAddr) {
         try {
