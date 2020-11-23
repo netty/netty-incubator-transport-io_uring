@@ -39,12 +39,11 @@ public final class IOUringServerSocketChannel extends AbstractIOUringServerChann
         final InetSocketAddress address;
         if (socket.isIpv6()) {
             byte[] addressArray = ((IOUringEventLoop) eventLoop()).inet6AddressArray();
-            address = SockaddrIn.readIPv6(acceptedAddressLengthMemoryAddress, addressArray);
+            address = SockaddrIn.readIPv6(acceptedAddressMemoryAddress, addressArray);
         } else {
             byte[] addressArray = ((IOUringEventLoop) eventLoop()).inet4AddressArray();
-            address = SockaddrIn.readIPv4(acceptedAddressLengthMemoryAddress, addressArray);
+            address = SockaddrIn.readIPv4(acceptedAddressMemoryAddress, addressArray);
         }
-
         return new IOUringSocketChannel(this, new LinuxSocket(fd), address);
     }
 
