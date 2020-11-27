@@ -20,6 +20,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.nio.charset.Charset;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.netty.buffer.ByteBufAllocator;
@@ -227,6 +228,7 @@ public class NativeTest {
         submissionQueue.addPollRemove(eventFd.intValue(), Native.POLLIN);
         submissionQueue.submit();
 
+        final CountDownLatch latch = new CountDownLatch(2);
         final AtomicReference<AssertionError> errorRef = new AtomicReference<AssertionError>();
         Thread waitingCqe = new Thread() {
             private final IOUringCompletionQueueCallback verifyCallback =
@@ -235,8 +237,10 @@ public class NativeTest {
                 public void handle(int fd, int res, int flags, byte op, short mask) {
                     if (op == Native.IORING_OP_POLL_ADD) {
                         assertEquals(Native.ERRNO_ECANCELED_NEGATIVE, res);
+                        latch.countDown();
                     } else if (op == Native.IORING_OP_POLL_REMOVE) {
                         assertEquals(0, res);
+                        latch.countDown();
                     } else {
                         fail("op " + op);
                     }
@@ -256,6 +260,7 @@ public class NativeTest {
         waitingCqe.start();
         waitingCqe.join();
         try {
+            latch.await();
             eventFd.close();
             AssertionError error = errorRef.get();
             if (error != null) {
