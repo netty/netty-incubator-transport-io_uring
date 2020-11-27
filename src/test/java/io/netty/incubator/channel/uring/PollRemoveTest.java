@@ -38,11 +38,10 @@ public class PollRemoveTest {
     private void io_uring_test() throws Exception {
         Class<? extends ServerSocketChannel> clazz = IOUringServerSocketChannel.class;
         final EventLoopGroup bossGroup = new IOUringEventLoopGroup(1);
-        final EventLoopGroup workerGroup = new IOUringEventLoopGroup(1);
 
         try {
             ServerBootstrap b = new ServerBootstrap();
-            b.group(bossGroup, workerGroup)
+            b.group(bossGroup)
                     .channel(clazz)
                     .handler(new LoggingHandler(LogLevel.TRACE))
                     .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -51,22 +50,17 @@ public class PollRemoveTest {
                     });
 
             Channel sc = b.bind(2020).sync().channel();
-            Thread.sleep(1500);
 
             // close ServerChannel
             sc.close().sync();
         } finally {
-            bossGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
+            bossGroup.shutdownGracefully().sync();
         }
     }
 
-    @Test
+    @Test(timeout = 10000)
     public void test() throws Exception {
         io_uring_test();
-
-        Thread.sleep(1000);
-
         io_uring_test();
     }
 }

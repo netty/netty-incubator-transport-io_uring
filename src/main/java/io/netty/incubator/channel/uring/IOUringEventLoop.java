@@ -29,6 +29,7 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 import java.io.IOException;
 import java.util.Queue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
 final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCompletionQueueCallback {
@@ -89,6 +90,9 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
     }
 
     void add(AbstractIOUringChannel ch) {
+        if (isShuttingDown()) {
+            throw new RejectedExecutionException("IoEventLoop is shutting down");
+        }
         logger.trace("Add Channel: {} ", ch.socket.intValue());
         int fd = ch.socket.intValue();
 
@@ -286,16 +290,20 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
 
     @Override
     protected void cleanup() {
+        IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
+        IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
         if (pendingWakeup) {
             // Another thread is in the process of writing to the eventFd. We must wait to
             // receive the corresponding CQE before closing it or else the fd int may be
             // reassigned by the kernel in the meantime.
-            IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
             IOUringCompletionQueueCallback callback = new IOUringCompletionQueueCallback() {
                 @Override
                 public void handle(int fd, int res, int flags, byte op, short data) {
                     if (op == Native.IORING_OP_READ && eventfd.intValue() == fd) {
                         pendingWakeup = false;
+                    } else {
+                        // Delegate to the original handle(...) method so we not miss some completions.
+                        IOUringEventLoop.this.handle(fd, res, flags, op, data);
                     }
                 }
             };
@@ -305,13 +313,27 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
                 completionQueue.process(callback);
             }
         }
+
+        // Call closeAll() one last time
+        closeAll();
+
+        // If we still have channels in the map we need to continue process tasks as we may have something in the
+        // task queue that needs to be executed to make the deregistration complete.
+
+        while (!channels.isEmpty()) {
+            if (!runAllTasks()) {
+
+                submissionQueue.submitAndWait();
+                completionQueue.process(IOUringEventLoop.this);
+            }
+        }
         try {
             eventfd.close();
         } catch (IOException e) {
             logger.warn("Failed to close the event fd.", e);
         }
-        ringBuffer.close();
         PlatformDependent.freeMemory(eventfdReadBuf);
+        ringBuffer.close();
     }
 
     RingBuffer getRingBuffer() {
