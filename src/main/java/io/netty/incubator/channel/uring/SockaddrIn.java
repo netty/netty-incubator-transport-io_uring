@@ -17,6 +17,7 @@ package io.netty.incubator.channel.uring;
 
 import io.netty.util.internal.PlatformDependent;
 
+import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -124,6 +125,21 @@ final class SockaddrIn {
         int scopeId = PlatformDependent.getInt(memory + Native.SOCKADDR_IN6_OFFSETOF_SIN6_SCOPE_ID);
         try {
             return new InetSocketAddress(Inet6Address.getByAddress(null, tmpArray, scopeId), port);
+        } catch (UnknownHostException ignore) {
+            return null;
+        }
+    }
+
+    static InetSocketAddress readIPv6MappedIpv4(long memory, byte[] tmpArray) {
+        assert tmpArray.length == 4;
+        int port = handleNetworkOrder(PlatformDependent.getShort(
+                memory + Native.SOCKADDR_IN6_OFFSETOF_SIN6_PORT)) & 0xFFFF;
+        PlatformDependent.copyMemory(
+                // We skip the first 12 bytes, as it's ipv6-mapped-ipv4
+                memory + Native.SOCKADDR_IN6_OFFSETOF_SIN6_ADDR + Native.IN6_ADDRESS_OFFSETOF_S6_ADDR + 12,
+                tmpArray, 0, 4);
+        try {
+            return new InetSocketAddress(Inet4Address.getByAddress(tmpArray), port);
         } catch (UnknownHostException ignore) {
             return null;
         }
