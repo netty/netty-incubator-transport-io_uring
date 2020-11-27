@@ -25,6 +25,7 @@ import io.netty.util.concurrent.ImmediateEventExecutor;
 import io.netty.util.concurrent.Promise;
 import org.junit.Test;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -34,7 +35,16 @@ import static org.junit.Assert.assertEquals;
 public class IOUringRemoteIpTest {
 
     @Test
-    public void testRemoteAddress() throws Exception {
+    public void testRemoteAddressIpv4() throws Exception {
+        testRemoteAddress(NetUtil.LOCALHOST4);
+    }
+
+    @Test
+    public void testRemoteAddressIpv6() throws Exception {
+        testRemoteAddress(NetUtil.LOCALHOST6);
+    }
+
+    private static void testRemoteAddress(InetAddress address) throws Exception {
         final Promise<SocketAddress> promise = ImmediateEventExecutor.INSTANCE.newPromise();
         EventLoopGroup bossGroup = new IOUringEventLoopGroup(1);
         try {
@@ -50,9 +60,9 @@ public class IOUringRemoteIpTest {
                     });
 
             // Start the server.
-            ChannelFuture f = b.bind(NetUtil.LOCALHOST, 0).sync();
+            ChannelFuture f = b.bind(address, 0).sync();
             Socket socket = new Socket();
-            socket.bind(new InetSocketAddress(NetUtil.LOCALHOST, 0));
+            socket.bind(new InetSocketAddress(address, 0));
             socket.connect(f.channel().localAddress());
 
             InetSocketAddress addr = (InetSocketAddress) promise.get();
