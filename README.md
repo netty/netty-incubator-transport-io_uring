@@ -36,23 +36,8 @@ When you tried to use io_uring but saw an exception that looked like this please
 ```
 Exception in thread "main" java.lang.UnsatisfiedLinkError: failed to load the required native library
 	at io.netty.incubator.channel.uring.IOUring.ensureAvailability(IOUring.java:63)
-	at io.netty.incubator.channel.uring.IOUringEventLoop.<init>(IOUringEventLoop.java:64)
-	at io.netty.incubator.channel.uring.IOUringEventLoopGroup.newChild(IOUringEventLoopGroup.java:117)
-	at io.netty.incubator.channel.uring.IOUringEventLoopGroup.newChild(IOUringEventLoopGroup.java:31)
-	at io.netty.util.concurrent.MultithreadEventExecutorGroup.<init>(MultithreadEventExecutorGroup.java:84)
-	at io.netty.channel.MultithreadEventLoopGroup.<init>(MultithreadEventLoopGroup.java:68)
-	at io.netty.incubator.channel.uring.IOUringEventLoopGroup.<init>(IOUringEventLoopGroup.java:100)
-	at io.netty.incubator.channel.uring.IOUringEventLoopGroup.<init>(IOUringEventLoopGroup.java:93)
-	at io.netty.incubator.channel.uring.IOUringEventLoopGroup.<init>(IOUringEventLoopGroup.java:86)
-	at io.netty.incubator.channel.uring.IOUringEventLoopGroup.<init>(IOUringEventLoopGroup.java:75)
-	at io.netty.incubator.channel.uring.IOUringEventLoopGroup.<init>(IOUringEventLoopGroup.java:58)
-	at io.netty.incubator.channel.uring.IOUringEventLoopGroup.<init>(IOUringEventLoopGroup.java:44)
-	at ...............NettyServerStart.main(NettyServerStart.java:27)
-	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
-	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:64)
-	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:564)
-	at com.intellij.rt.execution.application.AppMainV2.main(AppMainV2.java:128)
+        ...
+        ...
 Caused by: java.lang.RuntimeException: failed to create io_uring ring fd Cannot allocate memory
 	at io.netty.incubator.channel.uring.Native.ioUringSetup(Native Method)
 	at io.netty.incubator.channel.uring.Native.createRingBuffer(Native.java:141)
