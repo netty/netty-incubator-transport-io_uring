@@ -115,33 +115,30 @@ final class SockaddrIn {
         }
     }
 
-    static InetSocketAddress readIPv6(long memory, byte[] tmpArray) {
-        assert tmpArray.length == 16;
+    static InetSocketAddress readIPv6(long memory, byte[] ipv6Array, byte[] ipv4Array) {
+        assert ipv6Array.length == 16;
+        assert ipv4Array.length == 4;
+
         int port = handleNetworkOrder(PlatformDependent.getShort(
                 memory + Native.SOCKADDR_IN6_OFFSETOF_SIN6_PORT)) & 0xFFFF;
         PlatformDependent.copyMemory(
                 memory + Native.SOCKADDR_IN6_OFFSETOF_SIN6_ADDR + Native.IN6_ADDRESS_OFFSETOF_S6_ADDR,
-                tmpArray, 0, 16);
-        int scopeId = PlatformDependent.getInt(memory + Native.SOCKADDR_IN6_OFFSETOF_SIN6_SCOPE_ID);
-        try {
-            return new InetSocketAddress(Inet6Address.getByAddress(null, tmpArray, scopeId), port);
-        } catch (UnknownHostException ignore) {
-            return null;
-        }
-    }
-
-    static InetSocketAddress readIPv6MappedIpv4(long memory, byte[] tmpArray) {
-        assert tmpArray.length == 4;
-        int port = handleNetworkOrder(PlatformDependent.getShort(
-                memory + Native.SOCKADDR_IN6_OFFSETOF_SIN6_PORT)) & 0xFFFF;
-        PlatformDependent.copyMemory(
-                // We skip the first 12 bytes, as it's ipv6-mapped-ipv4
-                memory + Native.SOCKADDR_IN6_OFFSETOF_SIN6_ADDR + Native.IN6_ADDRESS_OFFSETOF_S6_ADDR + 12,
-                tmpArray, 0, 4);
-        try {
-            return new InetSocketAddress(Inet4Address.getByAddress(tmpArray), port);
-        } catch (UnknownHostException ignore) {
-            return null;
+                ipv6Array, 0, 16);
+        if (PlatformDependent.equals(
+                ipv6Array, 0, IPV4_MAPPED_IPV6_PREFIX, 0, IPV4_MAPPED_IPV6_PREFIX.length)) {
+            System.arraycopy(ipv6Array, 12, ipv4Array, 0, ipv4Array.length);
+            try {
+                return new InetSocketAddress(Inet4Address.getByAddress(ipv4Array), port);
+            } catch (UnknownHostException ignore) {
+                return null;
+            }
+        } else {
+            int scopeId = PlatformDependent.getInt(memory + Native.SOCKADDR_IN6_OFFSETOF_SIN6_SCOPE_ID);
+            try {
+                return new InetSocketAddress(Inet6Address.getByAddress(null, ipv6Array, scopeId), port);
+            } catch (UnknownHostException ignore) {
+                return null;
+            }
         }
     }
 

@@ -24,7 +24,6 @@ import java.net.SocketAddress;
 
 public final class IOUringServerSocketChannel extends AbstractIOUringServerChannel implements ServerSocketChannel {
     private final IOUringServerSocketChannelConfig config;
-    private boolean ipv4;
 
     public IOUringServerSocketChannel() {
         super(LinuxSocket.newSocketStream(), false);
@@ -40,13 +39,9 @@ public final class IOUringServerSocketChannel extends AbstractIOUringServerChann
     Channel newChildChannel(int fd, long acceptedAddressMemoryAddress, long acceptedAddressLengthMemoryAddress) {
         final InetSocketAddress address;
         if (socket.isIpv6()) {
-            if (ipv4) {
-                byte[] addressArray = ((IOUringEventLoop) eventLoop()).inet4AddressArray();
-                address = SockaddrIn.readIPv6MappedIpv4(acceptedAddressMemoryAddress, addressArray);
-            } else {
-                byte[] addressArray = ((IOUringEventLoop) eventLoop()).inet6AddressArray();
-                address = SockaddrIn.readIPv6(acceptedAddressMemoryAddress, addressArray);
-            }
+            byte[] ipv6Array = ((IOUringEventLoop) eventLoop()).inet6AddressArray();
+            byte[] ipv4Array = ((IOUringEventLoop) eventLoop()).inet4AddressArray();
+            address = SockaddrIn.readIPv6(acceptedAddressMemoryAddress, ipv6Array, ipv4Array);
         } else {
             byte[] addressArray = ((IOUringEventLoop) eventLoop()).inet4AddressArray();
             address = SockaddrIn.readIPv4(acceptedAddressMemoryAddress, addressArray);
@@ -67,10 +62,6 @@ public final class IOUringServerSocketChannel extends AbstractIOUringServerChann
     @Override
     public void doBind(SocketAddress localAddress) throws Exception {
         super.doBind(localAddress);
-        SocketAddress local = localAddress0();
-        if (local != null && ((InetSocketAddress) local).getAddress() instanceof Inet4Address) {
-            ipv4 = true;
-        }
         socket.listen(config.getBacklog());
         active = true;
     }

@@ -51,8 +51,10 @@ final class MsgHdrMemory {
         IOUringEventLoop eventLoop = (IOUringEventLoop) channel.eventLoop();
         InetSocketAddress sender;
         if (channel.socket.isIpv6()) {
-            byte[] bytes = eventLoop.inet6AddressArray();
-            sender = SockaddrIn.readIPv6(sockAddress, bytes);
+            byte[] ipv6Bytes = eventLoop.inet6AddressArray();
+            byte[] ipv4bytes = eventLoop.inet4AddressArray();
+
+            sender = SockaddrIn.readIPv6(sockAddress, ipv6Bytes, ipv4bytes);
         } else {
             byte[] bytes = eventLoop.inet4AddressArray();
             sender = SockaddrIn.readIPv4(sockAddress, bytes);
