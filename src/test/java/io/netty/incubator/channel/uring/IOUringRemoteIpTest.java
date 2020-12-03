@@ -23,9 +23,10 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.util.NetUtil;
 import io.netty.util.concurrent.ImmediateEventExecutor;
 import io.netty.util.concurrent.Promise;
+import org.junit.Assume;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -34,6 +35,11 @@ import java.net.SocketAddress;
 import static org.junit.Assert.assertEquals;
 
 public class IOUringRemoteIpTest {
+
+    @BeforeClass
+    public static void loadJNI() {
+        Assume.assumeTrue(IOUring.isAvailable());
+    }
 
     @Test
     public void testRemoteAddressIpv4() throws Exception {
