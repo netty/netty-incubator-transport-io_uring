@@ -633,7 +633,7 @@
         <dependency>
           <groupId>io.netty</groupId>
           <artifactId>netty-transport-native-unix-common</artifactId>
-          <version>${project.version}</version>
+          <version>${netty.version}</version>
           <classifier>${jni.classifier}</classifier>
           <!--
             The unix-common with classifier dependency is optional because it is not a runtime dependency, but a build time
