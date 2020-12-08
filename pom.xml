@@ -559,7 +559,7 @@
                   <goal>unpack-dependencies</goal>
                 </goals>
                 <configuration>
-                  <includeGroupIds>${project.groupId}</includeGroupIds>
+                  <includeGroupIds>io.netty</includeGroupIds>
                   <includeArtifactIds>netty-transport-native-unix-common</includeArtifactIds>
                   <classifier>${jni.classifier}</classifier>
                   <outputDirectory>${unix.common.lib.dir}</outputDirectory>
