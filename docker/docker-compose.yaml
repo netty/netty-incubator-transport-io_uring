@@ -68,6 +68,5 @@ services:
       - ~/.gnupg:/root/.gnupg:delegated
       - ..:/code:delegated
       - ~/.m2:/root/.m2:delegated
-    # Since we are cross compiling netty-transport-native-epoll as aarch64 which cannot be loaded on x86_64, we add `skipTests` here to skip the test.
-    command: /bin/bash -cl "./mvnw clean install -Plinux-aarch64 -DskipTests"
+    command: /bin/bash -cl "./mvnw clean install -Plinux-aarch64"
     working_dir: /code
