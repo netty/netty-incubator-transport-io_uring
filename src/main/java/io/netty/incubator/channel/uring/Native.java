@@ -134,11 +134,11 @@ final class Native {
     };
 
     static RingBuffer createRingBuffer(int ringSize) {
-        return createRingBuffer(ringSize, DEFAULT_IOSEQ_ASYNC_THRESHOLD);
+        return createRingBuffer(ringSize, DEFAULT_IOSEQ_ASYNC_THRESHOLD, -1);
     }
 
-    static RingBuffer createRingBuffer(int ringSize, int iosqeAsyncThreshold) {
-        long[][] values = ioUringSetup(ringSize);
+    static RingBuffer createRingBuffer(int ringSize, int iosqeAsyncThreshold, int wqFd) {
+        long[][] values = ioUringSetup(ringSize, wqFd);
         assert values.length == 2;
         long[] submissionQueueArgs = values[0];
         assert submissionQueueArgs.length == 11;
@@ -171,7 +171,7 @@ final class Native {
     }
 
     static RingBuffer createRingBuffer() {
-        return createRingBuffer(DEFAULT_RING_SIZE, DEFAULT_IOSEQ_ASYNC_THRESHOLD);
+        return createRingBuffer(DEFAULT_RING_SIZE, DEFAULT_IOSEQ_ASYNC_THRESHOLD, -1);
     }
 
     static void checkAllIOSupported(int ringFd) {
@@ -182,7 +182,7 @@ final class Native {
     }
 
     private static native boolean ioUringProbe(int ringFd, int[] ios);
-    private static native long[][] ioUringSetup(int entries);
+    private static native long[][] ioUringSetup(int entries, int wqFd);
 
     public static native int ioUringEnter(int ringFd, int toSubmit, int minComplete, int flags);
 

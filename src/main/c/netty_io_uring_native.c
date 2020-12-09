@@ -218,10 +218,13 @@ done:
     return supported;
 }
 
-
-static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries) {
-    struct io_uring_params p;
-    memset(&p, 0, sizeof(p));
+static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries, jint wqFd) {
+    struct io_uring_params params;
+    memset(&params, 0, sizeof(params));
+    if (wqFd > 0) {
+        params.flags = IORING_SETUP_ATTACH_WQ;
+        params.wq_fd = wqFd;
+    }
 
     jobjectArray array = (*env)->NewObjectArray(env, 2, longArrayClass, NULL);
     if (array == NULL) {
@@ -240,14 +243,14 @@ static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries
         return NULL;
     }
 
-    int ring_fd = sys_io_uring_setup((int)entries, &p);
+    int ring_fd = sys_io_uring_setup((int)entries, &params);
 
     if (ring_fd < 0) {
         netty_unix_errors_throwRuntimeExceptionErrorNo(env, "failed to create io_uring ring fd ", errno);
         return NULL;
     }
     struct io_uring io_uring_ring;
-    int ret = setup_io_uring(ring_fd, &io_uring_ring, &p);
+    int ret = setup_io_uring(ring_fd, &io_uring_ring, &params);
 
     if (ret != 0) {
         netty_unix_errors_throwRuntimeExceptionErrorNo(env, "failed to mmap io_uring ring buffer", ret);
@@ -531,7 +534,7 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
 static const jint statically_referenced_fixed_method_table_size = sizeof(statically_referenced_fixed_method_table) / sizeof(statically_referenced_fixed_method_table[0]);
 
 static const JNINativeMethod method_table[] = {
-    {"ioUringSetup", "(I)[[J", (void *) netty_io_uring_setup},
+    {"ioUringSetup", "(II)[[J", (void *) netty_io_uring_setup},
     {"ioUringProbe", "(I[I)Z", (void *) netty_io_uring_probe},
     {"ioUringExit", "(JIJIJII)V", (void *) netty_io_uring_ring_buffer_exit},
     {"createFile", "()I", (void *) netty_create_file},

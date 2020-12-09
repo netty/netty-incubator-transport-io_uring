@@ -34,6 +34,12 @@ public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
         IOUring.ensureAvailability();
     }
 
+    private int childWorkerPoolCounter;
+    private int lastRingFd;
+
+    //the number of eventLoop which are associated to one work queue
+    private final int MAX_EVENTLOOPS_WQ = 2;
+
     /**
      * Create a new instance using the default number of threads and the default {@link ThreadFactory}.
      */
@@ -118,7 +124,18 @@ public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
         int iosqeAsyncThreshold =  ObjectUtil.checkPositiveOrZero((Integer) args[1], "iosqeAsyncThreshold");
         RejectedExecutionHandler rejectedExecutionHandler = (RejectedExecutionHandler) args[2];
         EventLoopTaskQueueFactory taskQueueFactory = (EventLoopTaskQueueFactory) args[3];
-        return new IOUringEventLoop(this, executor, ringSize, iosqeAsyncThreshold,
+        RingBuffer ringBuffer;
+
+        if (childWorkerPoolCounter > MAX_EVENTLOOPS_WQ) {
+            ringBuffer = Native.createRingBuffer(ringSize, iosqeAsyncThreshold, lastRingFd);
+            childWorkerPoolCounter++;
+        } else {
+            ringBuffer = Native.createRingBuffer(ringSize, iosqeAsyncThreshold, -1);
+            childWorkerPoolCounter++;
+            lastRingFd = ringBuffer.fd();
+        }
+
+        return new IOUringEventLoop(this, executor, ringBuffer,
                 rejectedExecutionHandler, taskQueueFactory);
     }
 }

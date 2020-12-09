@@ -57,14 +57,14 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
     private long prevDeadlineNanos = NONE;
     private boolean pendingWakeup;
 
-    IOUringEventLoop(IOUringEventLoopGroup parent, Executor executor, int ringSize, int iosqeAsyncThreshold,
+    IOUringEventLoop(IOUringEventLoopGroup parent, Executor executor, RingBuffer ringBuffer,
                      RejectedExecutionHandler rejectedExecutionHandler, EventLoopTaskQueueFactory queueFactory) {
         super(parent, executor, false, newTaskQueue(queueFactory), newTaskQueue(queueFactory),
                 rejectedExecutionHandler);
         // Ensure that we load all native bits as otherwise it may fail when try to use native methods in IovArray
         IOUring.ensureAvailability();
 
-        ringBuffer = Native.createRingBuffer(ringSize, iosqeAsyncThreshold);
+        this.ringBuffer = ringBuffer;
 
         eventfd = Native.newBlockingEventFd();
         logger.trace("New EventLoop: {}", this.toString());
