@@ -37,9 +37,6 @@ public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
     private int childWorkerPoolCounter;
     private int lastRingFd;
 
-    //the number of eventLoop which are associated to one work queue
-    private final int MAX_EVENTLOOPS_WQ = 2;
-
     /**
      * Create a new instance using the default number of threads and the default {@link ThreadFactory}.
      */
@@ -126,13 +123,13 @@ public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
         EventLoopTaskQueueFactory taskQueueFactory = (EventLoopTaskQueueFactory) args[3];
         RingBuffer ringBuffer;
 
-        if (childWorkerPoolCounter > MAX_EVENTLOOPS_WQ) {
+        if (childWorkerPoolCounter < Native.DEFAULT_MAX_EVENTLOOPS_WQ) {
             ringBuffer = Native.createRingBuffer(ringSize, iosqeAsyncThreshold, lastRingFd);
             childWorkerPoolCounter++;
         } else {
             ringBuffer = Native.createRingBuffer(ringSize, iosqeAsyncThreshold, -1);
-            childWorkerPoolCounter++;
             lastRingFd = ringBuffer.fd();
+            childWorkerPoolCounter = 1;
         }
 
         return new IOUringEventLoop(this, executor, ringBuffer,
