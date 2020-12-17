@@ -65,11 +65,11 @@
 static jclass longArrayClass = NULL;
 
 static void netty_io_uring_native_JNI_OnUnLoad(JNIEnv* env, const char* packagePrefix) {
-    netty_unix_limits_JNI_OnUnLoad(env, packagePrefix);
-    netty_unix_errors_JNI_OnUnLoad(env, packagePrefix);
-    netty_unix_filedescriptor_JNI_OnUnLoad(env, packagePrefix);
-    netty_unix_socket_JNI_OnUnLoad(env, packagePrefix);
-    netty_unix_buffer_JNI_OnUnLoad(env, packagePrefix);
+    netty_unix_limits_JNI_OnUnLoad(env, packagePrefix, 0);
+    netty_unix_errors_JNI_OnUnLoad(env, packagePrefix, 0);
+    netty_unix_filedescriptor_JNI_OnUnLoad(env, packagePrefix, 0);
+    netty_unix_socket_JNI_OnUnLoad(env, packagePrefix, 0);
+    netty_unix_buffer_JNI_OnUnLoad(env, packagePrefix, 0);
 
     NETTY_JNI_UTIL_UNLOAD_CLASS(env, longArrayClass);
 }
@@ -572,27 +572,27 @@ static jint netty_iouring_native_JNI_OnLoad(JNIEnv* env, const char* packagePref
     staticallyRegistered = 1;
 
     // Load all c modules that we depend upon
-    if (netty_unix_limits_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
+    if (netty_unix_limits_JNI_OnLoad(env, packagePrefix, 0) == JNI_ERR) {
         goto done;
     }
     limitsOnLoadCalled = 1;
 
-    if (netty_unix_errors_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
+    if (netty_unix_errors_JNI_OnLoad(env, packagePrefix, 0) == JNI_ERR) {
         goto done;
     }
     errorsOnLoadCalled = 1;
 
-    if (netty_unix_filedescriptor_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
+    if (netty_unix_filedescriptor_JNI_OnLoad(env, packagePrefix, 0) == JNI_ERR) {
         goto done;
     }
     filedescriptorOnLoadCalled = 1;
 
-    if (netty_unix_socket_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
+    if (netty_unix_socket_JNI_OnLoad(env, packagePrefix, 0) == JNI_ERR) {
         goto done;
     }
     socketOnLoadCalled = 1;
 
-    if (netty_unix_buffer_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
+    if (netty_unix_buffer_JNI_OnLoad(env, packagePrefix, 0) == JNI_ERR) {
         goto done;
     }
     bufferOnLoadCalled = 1;
@@ -614,19 +614,19 @@ done:
             netty_jni_util_unregister_natives(env, packagePrefix, STATICALLY_CLASSNAME);
         }
         if (limitsOnLoadCalled == 1) {
-            netty_unix_limits_JNI_OnUnLoad(env, packagePrefix);
+            netty_unix_limits_JNI_OnUnLoad(env, packagePrefix, 0);
         }
         if (errorsOnLoadCalled == 1) {
-            netty_unix_errors_JNI_OnUnLoad(env, packagePrefix);
+            netty_unix_errors_JNI_OnUnLoad(env, packagePrefix, 0);
         }
         if (filedescriptorOnLoadCalled == 1) {
-            netty_unix_filedescriptor_JNI_OnUnLoad(env, packagePrefix);
+            netty_unix_filedescriptor_JNI_OnUnLoad(env, packagePrefix, 0);
         }
         if (socketOnLoadCalled == 1) {
-            netty_unix_socket_JNI_OnUnLoad(env, packagePrefix);
+            netty_unix_socket_JNI_OnUnLoad(env, packagePrefix, 0);
         }
         if (bufferOnLoadCalled == 1) {
-            netty_unix_buffer_JNI_OnUnLoad(env, packagePrefix);
+            netty_unix_buffer_JNI_OnUnLoad(env, packagePrefix, 0);
         }
         if (linuxsocketOnLoadCalled == 1) {
             netty_io_uring_linuxsocket_JNI_OnUnLoad(env, packagePrefix);
