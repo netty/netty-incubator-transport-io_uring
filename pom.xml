@@ -641,6 +641,23 @@
         </dependency>
       </dependencies>
     </profile>
+    <profile>
+      <!--
+        For non-classifier native builds we should depend on netty-transport-native-unix-common without the
+        classifier. This profile will be disabled by the other profiles when the native bits will be build.
+      -->
+      <id>non-native</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-transport-native-unix-common</artifactId>
+          <version>${netty.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
   </profiles>
 
   <dependencies>
@@ -657,11 +674,6 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-transport</artifactId>
-      <version>${netty.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-transport-native-unix-common</artifactId>
       <version>${netty.version}</version>
     </dependency>
     <dependency>
