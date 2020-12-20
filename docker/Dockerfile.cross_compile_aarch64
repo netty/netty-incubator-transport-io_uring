@@ -41,4 +41,4 @@ ENV PATH /opt/apache-maven-3.6.3/bin/:$PATH
 
 COPY ./pom.xml $SOURCE_DIR/pom.xml
 WORKDIR $SOURCE_DIR
-RUN /bin/bash -c 'source $HOME/.bashrc && mvn dependency:go-offline surefire:test -ntp'
+RUN /bin/bash -c 'source $HOME/.bashrc && mvn dependency:go-offline checkstyle:check surefire:test -ntp'
