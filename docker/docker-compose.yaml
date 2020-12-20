@@ -5,7 +5,7 @@ services:
   runtime-setup:
     image: netty-io_uring:default
     build:
-      context: .
+      context: ../
       dockerfile: Dockerfile.centos6
 
   common: &common
