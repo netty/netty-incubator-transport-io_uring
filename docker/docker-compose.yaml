@@ -19,15 +19,15 @@ services:
 
   test-leak:
     <<: *common
-    command: /bin/bash -cl "mvnw -Pleak clean test -Dio.netty.testsuite.badHost=netty.io"
+    command: /bin/bash -cl "mvn -Pleak clean test -Dio.netty.testsuite.badHost=netty.io"
 
   test:
     <<: *common
-    command: /bin/bash -cl "mvnw clean test -Dio.netty.testsuite.badHost=netty.io"
+    command: /bin/bash -cl "mvn clean test -Dio.netty.testsuite.badHost=netty.io"
 
   build: 
     <<: *common
-    command: /bin/bash -cl "mvnw clean package -Dio.netty.testsuite.badHost=netty.io"
+    command: /bin/bash -cl "mvn clean package -Dio.netty.testsuite.badHost=netty.io"
 
   shell:
     <<: *common
