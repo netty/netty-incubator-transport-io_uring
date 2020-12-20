@@ -3,6 +3,8 @@ FROM centos:7.9.2009
 ARG gcc_version=4.9-2016.02
 ENV GCC_VERSION $gcc_version
 
+ENV SOURCE_DIR /root/source
+
 # Install requirements
 RUN yum install -y \
 	apr-devel \
@@ -29,3 +31,14 @@ RUN set -x && \
 
 ENV PATH="/gcc-linaro-$GCC_VERSION-x86_64_aarch64-linux-gnu/bin:${PATH}"
 ENV JAVA_HOME="/usr/lib/jvm/java-1.8.0-openjdk/"
+
+WORKDIR /opt
+RUN curl https://downloads.apache.org/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz | tar -xz
+RUN echo 'PATH=/opt/apache-maven-3.6.3/bin/:$PATH' >> ~/.bashrc
+
+# Prepare our own build
+ENV PATH /opt/apache-maven-3.6.3/bin/:$PATH
+
+COPY ./pom.xml $SOURCE_DIR/pom.xml
+WORKDIR $SOURCE_DIR
+RUN /bin/bash -c 'source $HOME/.bashrc && mvn dependency:go-offline surefire:test -ntp'

@@ -32,8 +32,8 @@ services:
   shell:
     <<: *common
     environment:
-      - SANOTYPE_USER
-      - SANOTYPE_PASSWORD
+      - SONATYPE_USER
+      - SONATYPE_PASSWORD
     volumes:
       - ~/.ssh:/root/.ssh:delegated
       - ~/.gnupg:/root/.gnupg:delegated
@@ -68,5 +68,5 @@ services:
       - ~/.gnupg:/root/.gnupg:delegated
       - ..:/code:delegated
       - ~/.m2:/root/.m2:delegated
-    command: /bin/bash -cl "./mvnw clean install -Plinux-aarch64"
+    command: /bin/bash -cl "mvn clean package -Plinux-aarch64"
     working_dir: /code
