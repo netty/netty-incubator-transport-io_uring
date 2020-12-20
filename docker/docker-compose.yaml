@@ -6,7 +6,7 @@ services:
     image: netty-io_uring:default
     build:
       context: .
-      dockerfile: Dockerfile.centos
+      dockerfile: Dockerfile.centos6
 
   common: &common
     image: netty-io_uring:default
@@ -19,15 +19,15 @@ services:
 
   test-leak:
     <<: *common
-    command: /bin/bash -cl "./mvnw -Pleak clean test -Dio.netty.testsuite.badHost=netty.io -Dmaven.wagon.http.pool=false"
+    command: /bin/bash -cl "mvnw -Pleak clean test -Dio.netty.testsuite.badHost=netty.io"
 
   test:
     <<: *common
-    command: /bin/bash -cl "./mvnw clean test -Dio.netty.testsuite.badHost=netty.io -Dmaven.wagon.http.pool=false"
+    command: /bin/bash -cl "mvnw clean test -Dio.netty.testsuite.badHost=netty.io"
 
   build: 
     <<: *common
-    command: /bin/bash -cl "./mvnw clean package -Dio.netty.testsuite.badHost=netty.io -Dmaven.wagon.http.pool=false"
+    command: /bin/bash -cl "mvnw clean package -Dio.netty.testsuite.badHost=netty.io"
 
   shell:
     <<: *common
