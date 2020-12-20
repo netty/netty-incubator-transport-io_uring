@@ -281,7 +281,7 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
     }
 
     private void addEventFdRead(IOUringSubmissionQueue submissionQueue) {
-        submissionQueue.addRead(eventfd.intValue(), eventfdReadBuf, 0, 8, (short) 0);
+        submissionQueue.addEventFdRead(eventfd.intValue(), eventfdReadBuf, 0, 8, (short) 0);
     }
 
     private void handleConnect(AbstractIOUringChannel channel, int res) {
