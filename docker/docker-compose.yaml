@@ -29,6 +29,15 @@ services:
     <<: *common
     command: /bin/bash -cl "mvn clean package -Dio.netty.testsuite.badHost=netty.io"
 
+  deploy:
+    <<: *common
+    command: /bin/bash -cl "mvn clean deploy -DskipTests=true"
+    volumes:
+      - ~/.ssh:/root/.ssh
+      - ~/.gnupg:/root/.gnupg
+      - ~/.m2/settings.xml:/root/.m2/settings.xml
+      - ..:/code
+
   shell:
     <<: *common
     environment:
