@@ -221,7 +221,7 @@ done:
 static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries, jint wqFd) {
     struct io_uring_params params;
     memset(&params, 0, sizeof(params));
-    if (wqFd > 0) {
+    if (wqFd > -1) {
         params.flags = IORING_SETUP_ATTACH_WQ;
         params.wq_fd = wqFd;
     }
