@@ -11,16 +11,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy-x86_64:
+  deploy-linx-x86_64:
     runs-on: ubuntu-latest
     steps:
-      # http://man7.org/linux/man-pages/man1/date.1.html
-      - name: Create Cache Key
-        id: cache-key
-        run: |
-          echo "::set-output name=key::$(/bin/date -u "+%Y%U")"
-        shell: bash
-
       - uses: s4u/maven-settings-action@v2.2.0
         with:
           servers: |
@@ -36,9 +29,9 @@ jobs:
       - uses: satackey/action-docker-layer-caching@v0.0.8
         continue-on-error: true
         with:
-          key: docker-cache-${{ steps.cache-key.outputs.key }}-{hash}
+          key: deploy-linx-x86_64-docker-cache-{hash}
           restore-keys: |
-            docker-cache-${{ steps.cache-key.outputs.key }}-
+            deploy-linx-x86_64-docker-cache-
 
       - name: Build docker image
         run: docker-compose -f docker/docker-compose.centos-6.yaml -f docker/docker-compose.centos-6.18.yaml build
@@ -52,16 +45,9 @@ jobs:
           name: target_x86_64
           path: target/ # or path/to/artifact
 
-  deploy-aarch64:
+  deploy-linux-aarch64:
     runs-on: ubuntu-latest
     steps:
-      # http://man7.org/linux/man-pages/man1/date.1.html
-      - name: Create Cache Key
-        id: cache-key
-        run: |
-          echo "::set-output name=key::$(/bin/date -u "+%Y%U")"
-        shell: bash
-
       - uses: s4u/maven-settings-action@v2.2.0
         with:
           servers: |
@@ -77,9 +63,9 @@ jobs:
       - uses: satackey/action-docker-layer-caching@v0.0.8
         continue-on-error: true
         with:
-          key: docker-cache-${{ steps.cache-key.outputs.key }}-{hash}
+          key: deploy-linux-aarch64-docker-cache-{hash}
           restore-keys: |
-            docker-cache-${{ steps.cache-key.outputs.key }}-
+            deploy-linux-aarch64-docker-cache-
 
       - name: Build docker image
         run: docker-compose -f docker/docker-compose.centos-7.yaml build
