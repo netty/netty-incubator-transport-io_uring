@@ -79,6 +79,7 @@
     <skipTests>true</skipTests>
     <netty.build.version>28</netty.build.version>
     <jni.classifier>${os.detected.name}-${os.detected.arch}</jni.classifier>
+    <test.argLine>-D_</test.argLine>
 
     <checkstyle.version>8.38</checkstyle.version>
     <junit.version>4.13.1</junit.version>
@@ -306,6 +307,7 @@
           </properties>
            <!-- Ensure the whole stacktrace is preserved when an exception is thrown. See https://issues.apache.org/jira/browse/SUREFIRE-1457 -->
           <trimStackTrace>false</trimStackTrace>
+          <argLine>${test.argLine}</argLine>
         </configuration>
       </plugin>
       <!-- always produce osgi bundles -->
@@ -664,6 +666,12 @@
           <version>${netty.version}</version>
         </dependency>
       </dependencies>
+    </profile>
+    <profile>
+      <id>leak</id>
+      <properties>
+        <test.argLine>-Dio.netty.leakDetectionLevel=paranoid -Dio.netty.leakDetection.targetRecords=32</test.argLine>
+      </properties>
     </profile>
   </profiles>
 
