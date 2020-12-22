@@ -35,7 +35,7 @@ public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
     }
 
     private int childWorkerPoolCounter;
-    private int lastRingFd;
+    private int lastRingFd = -1;
 
     /**
      * Create a new instance using the default number of threads and the default {@link ThreadFactory}.
