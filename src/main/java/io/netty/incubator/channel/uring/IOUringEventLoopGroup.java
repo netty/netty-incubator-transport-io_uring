@@ -123,7 +123,7 @@ public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
         EventLoopTaskQueueFactory taskQueueFactory = (EventLoopTaskQueueFactory) args[3];
         RingBuffer ringBuffer;
 
-        if (childWorkerPoolCounter < Native.DEFAULT_MAX_EVENTLOOPS_WQ) {
+        if (childWorkerPoolCounter < Native.DEFAULT_MAX_EVENTLOOPS_WQ && lastRingFd != 0) {
             ringBuffer = Native.createRingBuffer(ringSize, iosqeAsyncThreshold, lastRingFd);
             childWorkerPoolCounter++;
         } else {
