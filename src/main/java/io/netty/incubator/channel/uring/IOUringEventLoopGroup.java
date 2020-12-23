@@ -29,6 +29,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 
 public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
+    static {
+        // Ensure JNI is initialized as soon as this class is loaded
+        IOUring.ensureAvailability();
+    }
 
     /**
      * Create a new instance using the default number of threads and the default {@link ThreadFactory}.
