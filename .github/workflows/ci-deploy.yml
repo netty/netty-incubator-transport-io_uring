@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy-linx-x86_64:
+  deploy-linux-x86_64:
     runs-on: ubuntu-latest
     steps:
       - uses: s4u/maven-settings-action@v2.2.0
@@ -29,9 +29,9 @@ jobs:
       - uses: satackey/action-docker-layer-caching@v0.0.8
         continue-on-error: true
         with:
-          key: deploy-linx-x86_64-docker-cache-{hash}
+          key: deploy-linux-x86_64-docker-cache-{hash}
           restore-keys: |
-            deploy-linx-x86_64-docker-cache-
+            deploy-linux-x86_64-docker-cache-
 
       - name: Build docker image
         run: docker-compose -f docker/docker-compose.centos-6.yaml -f docker/docker-compose.centos-6.18.yaml build
@@ -41,6 +41,8 @@ jobs:
 
   deploy-linux-aarch64:
     runs-on: ubuntu-latest
+    # Skip for now until we figured out how to deploy SNAPSHOTS with the the same timestamps
+    if: ${{ false }}
     steps:
       - uses: s4u/maven-settings-action@v2.2.0
         with:

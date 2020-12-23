@@ -60,6 +60,8 @@ jobs:
 
   build-linux-aarch64:
     runs-on: ubuntu-latest
+    # Skip for now until we figured out how to deploy SNAPSHOTS with the the same timestamps
+    if: ${{ false }}
     needs: verify
     steps:
       - uses: actions/checkout@v2
