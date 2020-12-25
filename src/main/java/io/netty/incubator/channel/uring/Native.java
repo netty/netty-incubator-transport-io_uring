@@ -35,7 +35,7 @@ final class Native {
     static final int DEFAULT_IOSEQ_ASYNC_THRESHOLD =
             Math.max(0, SystemPropertyUtil.getInt("io.netty.uring.iosqeAsyncThreshold", 25));
 
-    //the number of eventLoops which are associated to one work queue
+    // The number of eventLoops which are associated to one work queue
     static final int DEFAULT_MAX_EVENTLOOPS_WQ =
             Math.max(0, SystemPropertyUtil.getInt("io.netty.uring.maxEventLoopsWq", 1));
 
