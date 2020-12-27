@@ -1,3 +1,5 @@
+![Build project](https://github.com/netty/netty-incubator-transport-io_uring/workflows/Build%20project/badge.svg)
+
 # Netty io_uring
 
 The new io_uring interface added to the Linux Kernel 5.1 is a high I/O performance scalable interface for fully asynchronous Linux syscalls
