@@ -33,7 +33,7 @@ jobs:
         if: steps.check_kernel_image_exists.outputs.files_exists == 'false'
         run: |
           wget https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.16.tar.xz
-          tar xfj linux-5.9.16.tar.xz
+          tar xf linux-5.9.16.tar.xz
           cd linux-5.9.16 && cp /boot/config-`uname -r`* .config
           make ARCH=x86_64 olddefconfig
           make -j$(nproc)
