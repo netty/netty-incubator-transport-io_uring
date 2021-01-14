@@ -18,10 +18,9 @@ jobs:
           cache-name: build-cache-kernel
         with:
           path: ~/kernel/
-          key: ${{ runner.os }}-pr-${{ env.cache-name }}-5.9.16 }
+          key: ${{ runner.os }}-pr-${{ env.cache-name }}-5.9.16 
           restore-keys: |
-            ${{ runner.os }}-pr-${{ env.cache-name }}-
-            ${{ runner.os }}-pr-
+            ${{ runner.os }}-pr-${{ env.cache-name }}-5.9.16
 
       - name: Check file existence
         id: check_kernel_image_exists
