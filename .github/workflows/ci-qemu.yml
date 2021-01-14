@@ -42,7 +42,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -q -y
-          sudo apt-get install -q -y install qemu-system
+          sudo apt-get install -q -y qemu-system
 
       - name: Build qemu image
         run: |
