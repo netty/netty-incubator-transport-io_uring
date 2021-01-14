@@ -39,3 +39,8 @@ jobs:
           make -j$(nproc)
           cp arch/x86/boot/bzImage ~/kernel/bzImage-5.9.16
 
+      - name: Install dependencies
+        run: |
+          apt-get update -q -y
+          apt-get install -q -y install qemu-system
+          
