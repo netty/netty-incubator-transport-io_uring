@@ -42,9 +42,40 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -q -y
-          sudo apt-get install -q -y qemu-system
+          sudo apt-get install -q -y qemu-system genisoimage
 
       - name: Build qemu image
         run: |
           wget -q https://download.fedoraproject.org/pub/fedora/linux/releases/33/Cloud/x86_64/images/Fedora-Cloud-Base-33-1.2.x86_64.qcow2
           qemu-img create -f qcow2 -b Fedora-Cloud-Base-33-1.2.x86_64.qcow2 my-disk.qcow2 20G
+          cat > meta-data << EOF
+          instance-id: io-uring-00
+          local-hostname: io-uring-00
+          EOF
+          cat > user-data << EOF
+          #cloud-config
+          # Set the default user
+          system_info:
+            default_user:
+              name: netty
+
+          # Unlock the default user
+          chpasswd:
+            list: |
+               netty:netty
+            expire: False
+
+          # Other settings
+          resize_rootfs: True
+          ssh_pwauth: True
+          timezone: Europe/Berlin
+
+          bootcmd:
+           - [ sh, -c, echo "=========bootcmd=========" ]
+
+          runcmd:
+           - [ sh, -c, echo "=========runcmd=========" ]
+
+          # For pexpect to know when to log in and begin tests
+          final_message: "SYSTEM READY TO LOG IN"
+          EOF
