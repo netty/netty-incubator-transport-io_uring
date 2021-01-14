@@ -15,7 +15,6 @@
  */
 package io.netty.incubator.channel.uring;
 
-import io.netty.channel.unix.Unix;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.SystemPropertyUtil;
 
@@ -34,7 +33,6 @@ public final class IOUring {
             if (unsafeCause == null) {
                 RingBuffer ringBuffer = null;
                 try {
-                    Unix.ensureAvailability();
                     ringBuffer = Native.createRingBuffer();
                     Native.checkAllIOSupported(ringBuffer.fd());
                 } catch (Throwable t) {
