@@ -41,6 +41,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt-get update -q -y
-          apt-get install -q -y install qemu-system
-          
+          sudo apt-get update -q -y
+          sudo apt-get install -q -y install qemu-system
+
+      - name: Build qemu image
+        run: |
+          wget -q https://download.fedoraproject.org/pub/fedora/linux/releases/33/Cloud/x86_64/images/Fedora-Cloud-Base-33-1.2.x86_64.qcow2
+          qemu-img create -f qcow2 -b Fedora-Cloud-Base-33-1.2.x86_64.qcow2 my-disk.qcow2 20G
