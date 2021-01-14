@@ -18,11 +18,11 @@ jobs:
           cache-name: build-cache-kernel
         with:
           path: ~/kernel/
-          key: ${{ runner.os }}-pr-${{ env.cache-name }}-5.9.16 
+          key: ${{ runner.os }}-pr-${{ env.cache-name }}-5.9.16
           restore-keys: |
             ${{ runner.os }}-pr-${{ env.cache-name }}-5.9.16
 
-      - name: Check file existence
+      - name: Check kernel already exists
         id: check_kernel_image_exists
         uses: andstor/file-existence-action@v1
         with:
@@ -31,7 +31,8 @@ jobs:
       - name: Build kernel
         if: steps.check_kernel_image_exists.outputs.files_exists == 'false'
         run: |
-          wget https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.16.tar.xz
+          mkdir ~/kernel/
+          wget -q https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.16.tar.xz
           tar xf linux-5.9.16.tar.xz
           cd linux-5.9.16 && cp /boot/config-`uname -r`* .config
           make ARCH=x86_64 olddefconfig
