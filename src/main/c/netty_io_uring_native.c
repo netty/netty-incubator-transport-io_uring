@@ -63,6 +63,8 @@
 #define STATICALLY_CLASSNAME "io/netty/incubator/channel/uring/NativeStaticallyReferencedJniMethods"
 
 static jclass longArrayClass = NULL;
+static const char* staticPackagePrefix = NULL;
+static int register_unix_called = 0;
 
 static void netty_io_uring_native_JNI_OnUnLoad(JNIEnv* env, const char* packagePrefix) {
     netty_unix_limits_JNI_OnUnLoad(env, packagePrefix);
@@ -289,6 +291,12 @@ static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries
 
 static jint netty_create_file(JNIEnv *env, jclass class) {
     return open("io-uring-test.txt", O_RDWR | O_TRUNC | O_CREAT, 0644);
+}
+
+
+static jint netty_io_uring_registerUnix(JNIEnv* env, jclass clazz) {
+    register_unix_called = 1;
+    return netty_unix_register(env, staticPackagePrefix);
 }
 
 static jint netty_io_uring_sockNonblock(JNIEnv* env, jclass clazz) {
@@ -537,7 +545,8 @@ static const JNINativeMethod method_table[] = {
     {"createFile", "()I", (void *) netty_create_file},
     {"ioUringEnter", "(IIII)I", (void *) netty_io_uring_enter},
     {"blockingEventFd", "()I", (void *) netty_epoll_native_blocking_event_fd},
-    {"eventFdWrite", "(IJ)V", (void *) netty_io_uring_eventFdWrite }
+    {"eventFdWrite", "(IJ)V", (void *) netty_io_uring_eventFdWrite },
+    {"registerUnix", "()I", (void *) netty_io_uring_registerUnix }
 };
 static const jint method_table_size =
     sizeof(method_table) / sizeof(method_table[0]);
@@ -547,11 +556,6 @@ static jint netty_iouring_native_JNI_OnLoad(JNIEnv* env, const char* packagePref
     int ret = JNI_ERR;
     int nativeRegistered = 0;
     int staticallyRegistered = 0;
-    int limitsOnLoadCalled = 0;
-    int errorsOnLoadCalled = 0;
-    int filedescriptorOnLoadCalled = 0;
-    int socketOnLoadCalled = 0;
-    int bufferOnLoadCalled = 0;
     int linuxsocketOnLoadCalled = 0;
 
     // We must register the statically referenced methods first!
@@ -571,32 +575,6 @@ static jint netty_iouring_native_JNI_OnLoad(JNIEnv* env, const char* packagePref
     }
     staticallyRegistered = 1;
 
-    // Load all c modules that we depend upon
-    if (netty_unix_limits_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
-        goto done;
-    }
-    limitsOnLoadCalled = 1;
-
-    if (netty_unix_errors_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
-        goto done;
-    }
-    errorsOnLoadCalled = 1;
-
-    if (netty_unix_filedescriptor_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
-        goto done;
-    }
-    filedescriptorOnLoadCalled = 1;
-
-    if (netty_unix_socket_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
-        goto done;
-    }
-    socketOnLoadCalled = 1;
-
-    if (netty_unix_buffer_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
-        goto done;
-    }
-    bufferOnLoadCalled = 1;
-
     if (netty_io_uring_linuxsocket_JNI_OnLoad(env, packagePrefix) == JNI_ERR) {
         goto done;
     }
@@ -604,6 +582,9 @@ static jint netty_iouring_native_JNI_OnLoad(JNIEnv* env, const char* packagePref
 
     NETTY_JNI_UTIL_LOAD_CLASS(env, longArrayClass, "[J", done);
 
+    if (packagePrefix != NULL) {
+        staticPackagePrefix = strdup(packagePrefix);
+    }
     ret = NETTY_JNI_UTIL_JNI_VERSION;
 done:
     if (ret == JNI_ERR) {
@@ -612,21 +593,6 @@ done:
         }
         if (staticallyRegistered == 1) {
             netty_jni_util_unregister_natives(env, packagePrefix, STATICALLY_CLASSNAME);
-        }
-        if (limitsOnLoadCalled == 1) {
-            netty_unix_limits_JNI_OnUnLoad(env, packagePrefix);
-        }
-        if (errorsOnLoadCalled == 1) {
-            netty_unix_errors_JNI_OnUnLoad(env, packagePrefix);
-        }
-        if (filedescriptorOnLoadCalled == 1) {
-            netty_unix_filedescriptor_JNI_OnUnLoad(env, packagePrefix);
-        }
-        if (socketOnLoadCalled == 1) {
-            netty_unix_socket_JNI_OnUnLoad(env, packagePrefix);
-        }
-        if (bufferOnLoadCalled == 1) {
-            netty_unix_buffer_JNI_OnUnLoad(env, packagePrefix);
         }
         if (linuxsocketOnLoadCalled == 1) {
             netty_io_uring_linuxsocket_JNI_OnUnLoad(env, packagePrefix);
@@ -639,6 +605,15 @@ static void netty_iouring_native_JNI_OnUnload(JNIEnv* env, const char* packagePr
     netty_jni_util_unregister_natives(env, packagePrefix, NATIVE_CLASSNAME);
     netty_jni_util_unregister_natives(env, packagePrefix, STATICALLY_CLASSNAME);
     netty_io_uring_native_JNI_OnUnLoad(env, packagePrefix);
+
+    if (register_unix_called == 1) {
+        register_unix_called = 0;
+        netty_unix_unregister(env, staticPackagePrefix);
+    }
+    if (staticPackagePrefix != NULL) {
+        free((void *) staticPackagePrefix);
+        staticPackagePrefix = NULL;
+    }
 }
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {

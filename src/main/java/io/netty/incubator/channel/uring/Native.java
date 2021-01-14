@@ -16,7 +16,7 @@
 package io.netty.incubator.channel.uring;
 
 import io.netty.channel.unix.FileDescriptor;
-import io.netty.channel.unix.Socket;
+import io.netty.channel.unix.Unix;
 import io.netty.util.internal.NativeLibraryLoader;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.SystemPropertyUtil;
@@ -62,7 +62,12 @@ final class Native {
                 // Just ignore
             }
         }
-        Socket.initialize();
+        Unix.registerInternal(new Runnable() {
+            @Override
+            public void run() {
+                registerUnix();
+            }
+        });
     }
     static final int SOCK_NONBLOCK = NativeStaticallyReferencedJniMethods.sockNonblock();
     static final int SOCK_CLOEXEC = NativeStaticallyReferencedJniMethods.sockCloexec();
@@ -201,6 +206,8 @@ final class Native {
 
     // for testing(it is only temporary)
     public static native int createFile();
+
+    private static native int registerUnix();
 
     private Native() {
         // utility
