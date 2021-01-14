@@ -1,0 +1,41 @@
+name: Build PR
+
+on:
+  pull_request:
+    branches: [ main ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+
+      # Cache .kernel
+      - uses: actions/cache@v2
+        env:
+          cache-name: build-cache-kernel
+        with:
+          path: ~/kernel/
+          key: ${{ runner.os }}-pr-${{ env.cache-name }}-5.9.16 }
+          restore-keys: |
+            ${{ runner.os }}-pr-${{ env.cache-name }}-
+            ${{ runner.os }}-pr-
+
+      - name: Check file existence
+        id: check_kernel_image_exists
+        uses: andstor/file-existence-action@v1
+        with:
+          files: "/home/runner/kernel/bzImage-5.9.16"
+
+      - name: Build kernel
+        if: steps.check_kernel_image_exists.outputs.files_exists == 'false'
+        run: |
+          wget https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.16.tar.xz
+          tar xfj linux-5.9.16.tar.xz
+          cd linux-5.9.16 && cp /boot/config-`uname -r`* .config
+          make ARCH=x86_64 olddefconfig
+          make -j$(nproc)
+          cp arch/x86/boot/bzImage ~/kernel/bzImage-5.9.16
+
