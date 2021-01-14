@@ -11,6 +11,7 @@ jobs:
   build:
     runs-on: ubuntu-20.04
     steps:
+      - uses: actions/checkout@v2
 
       # Cache .kernel
       - uses: actions/cache@v2
@@ -46,6 +47,8 @@ jobs:
 
       - name: Build qemu image
         run: |
+          mkdir -p workdir
+          cd workdir
           wget -q https://download.fedoraproject.org/pub/fedora/linux/releases/33/Cloud/x86_64/images/Fedora-Cloud-Base-33-1.2.x86_64.qcow2
           qemu-img create -f qcow2 -b Fedora-Cloud-Base-33-1.2.x86_64.qcow2 my-disk.qcow2 20G
           cat > meta-data << EOF
@@ -79,3 +82,4 @@ jobs:
           # For pexpect to know when to log in and begin tests
           final_message: "SYSTEM READY TO LOG IN"
           EOF
+          genisoimage -output my-seed.iso -volid cidata -joliet -rock user-data meta-data
