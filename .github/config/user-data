@@ -1,0 +1,32 @@
+#cloud-config
+# Set the default user
+system_info:
+  default_user:
+    name: netty
+
+# Unlock the default user
+chpasswd:
+  list: |
+     netty:netty
+  expire: False
+
+# Other settings
+resize_rootfs: True
+ssh_pwauth: True
+timezone: Europe/Berlin
+
+packages:
+ - java-11-openjdk-devel
+ - autoconf
+ - automake
+ - libtool
+ - make
+ - tar
+ - cifs-utils
+ - expect
+
+bootcmd:
+ - [ mount, -t, cifs, -o, sec=none, //10.0.2.4/qemu/, /mnt ]
+
+# For expect to know when to log in and begin tests
+final_message: "SYSTEM READY TO LOG IN"

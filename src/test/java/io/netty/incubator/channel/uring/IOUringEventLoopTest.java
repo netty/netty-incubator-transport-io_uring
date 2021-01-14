@@ -25,6 +25,7 @@ import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
@@ -47,6 +48,12 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
     @Override
     protected Class<? extends ServerChannel> serverChannelClass() {
         return IOUringServerSocketChannel.class;
+    }
+
+    @Test
+    public void shutdownGracefullyZeroQuietBeforeStart() throws Exception {
+        EventLoopGroup group = newEventLoopGroup();
+        assertTrue(group.shutdownGracefully(0L, 2L, TimeUnit.SECONDS).await(1500L));
     }
 
     @Test

@@ -6,10 +6,10 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-if grep -q 'LEAK:' $1 ; then
-    echo "Leak detected, please inspect build log"
+if grep -q 'BUILD FAILURE' $1 ; then
+    echo "Build failure detected, please inspect build log"
     exit 1
 else
-    echo "No Leak detected"
+    echo "Build successful"
     exit 0
 fi
