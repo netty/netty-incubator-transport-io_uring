@@ -23,7 +23,7 @@ As an example this is how you would include the dependency in maven:
 <dependency>
     <groupId>io.netty.incubator</groupId>
     <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-    <version>0.0.2.Final</version>
+    <version>0.0.3.Final</version>
     <classifier>linux-x86_64</classifier>
 </dependency>
 ```
