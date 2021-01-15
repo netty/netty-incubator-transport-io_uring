@@ -12,8 +12,11 @@ set seed [lindex $argv 1];
 # Start up our VM
 spawn qemu-system-x86_64 -m 1024  -hda $disk  -cdrom $seed  -nographic -net nic -net user,smb=${workspace}
 
-# Wait till the VM is completely up. The string here (and the user / password) is configured in user-data
-expect -timeout 600 "SYSTEM READY TO LOG IN"
+expect_before timeout { exit 1 }
+
+# Wait till the VM is completely up. The string here (and the user / password) is configured in user-data.
+// We give it 20 minutes as this can be slow (as we also need to install packages etc).
+expect -timeout 1200 "SYSTEM READY TO LOG IN"
 send "netty\r"
 
 expect "Password: "
