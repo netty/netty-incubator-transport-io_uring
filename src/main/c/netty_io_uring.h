@@ -24,6 +24,7 @@
 #include "netty_unix_limits.h"
 #include "netty_unix_socket.h"
 #include "netty_unix_util.h"
+#include "netty_unix.h"
 
 #ifndef NETTY_IO_URING
 #define NETTY_IO_URING
