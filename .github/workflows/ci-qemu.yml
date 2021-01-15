@@ -52,7 +52,7 @@ jobs:
           genisoimage -output my-seed.iso -volid cidata -joliet -rock ./.github/config/user-data ./.github/config/meta-data
 
       - name: Build project via QEMU
-        run: ./.github/scripts/qemu-build.exp | tee build.output
+        run: expect -f ./.github/scripts/qemu-build.exp | tee build.output
 
       - name: Checking for detected leak
         run: ./.github/scripts/check_build_result.sh build.output
