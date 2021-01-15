@@ -4,7 +4,7 @@ set timeout -1
 set workspace "$env(GITHUB_WORKSPACE)"
 set console {netty@io-uring-00}
 
-spawn qemu-system-x86_64 -m 1024  -hda my-disk.qcow2  -cdrom my-seed.iso  -nographic -net nic -net user,smb=${qemuDirectory}
+spawn qemu-system-x86_64 -m 1024  -hda my-disk.qcow2  -cdrom my-seed.iso  -nographic -net nic -net user,smb=${workspace}
 
 expect "SYSTEM READY TO LOG IN"
 send "netty\r"
