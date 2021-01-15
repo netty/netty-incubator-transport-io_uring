@@ -57,6 +57,9 @@ jobs:
       - name: Checking for build result
         run: ./.github/scripts/check_build_result.sh build.output
 
+      - name: Checking for detected leak
+        run: ./.github/scripts/check_leak.sh build.output
+
       - uses: actions/upload-artifact@v2
         if: ${{ failure() }}
         with:
