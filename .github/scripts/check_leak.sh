@@ -12,4 +12,3 @@ else
     echo "No Leak detected"
     exit 0
 fi
-

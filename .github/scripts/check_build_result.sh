@@ -12,4 +12,3 @@ else
     echo "Build successful"
     exit 0
 fi
-

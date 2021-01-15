@@ -46,21 +46,16 @@ jobs:
           sudo apt-get install -q -y qemu-system genisoimage expect samba
 
       - name: Build qemu image
-        run: |
-          wget -q https://download.fedoraproject.org/pub/fedora/linux/releases/33/Cloud/x86_64/images/Fedora-Cloud-Base-33-1.2.x86_64.qcow2
-          qemu-img create -f qcow2 -b Fedora-Cloud-Base-33-1.2.x86_64.qcow2 my-disk.qcow2 20G
-          cp ./.github/config/user-data .
-          cp ./.github/config/meta-data .
-          genisoimage -output my-seed.iso -volid cidata -joliet -rock user-data meta-data
+        run: bash ./.github/scripts/build_qemu_image.sh my-disk.qcow2 my-seed.iso
 
       - name: Build project via QEMU
-        run: expect -f ./.github/scripts/qemu-build.exp | tee build.output
+        run: expect -f ./.github/scripts/qemu_build.exp my-disk.qcow2 my-seed.iso | tee build.output
 
       - name: Checking for build result
-        run: ./.github/scripts/check_build_result.sh build.output
+        run: bash ./.github/scripts/check_build_result.sh build.output
 
       - name: Checking for detected leak
-        run: ./.github/scripts/check_leak.sh build.output
+        run: bash ./.github/scripts/check_leak.sh build.output
 
       - uses: actions/upload-artifact@v2
         if: ${{ failure() }}

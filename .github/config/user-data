@@ -13,7 +13,7 @@ chpasswd:
 # Other settings
 resize_rootfs: True
 ssh_pwauth: True
-timezone: America/San_Francisco
+timezone: Europe/Berlin
 
 packages:
  - java-11-openjdk-devel
