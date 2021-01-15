@@ -1,0 +1,27 @@
+#!/usr/bin/expect -f
+
+set timeout -1
+set workspace "$env(GITHUB_WORKSPACE)"
+set console {netty@io-uring-00}
+
+spawn qemu-system-x86_64 -m 1024  -hda my-disk.qcow2  -cdrom my-seed.iso  -nographic -net nic -net user,smb=${qemuDirectory}
+
+expect "SYSTEM READY TO LOG IN"
+send "netty\r"
+
+expect "Password: "
+send "netty\r"
+
+expect $console
+send "sudo -s\r"
+
+expect $console
+send "cd /mnt/\r"
+
+expect $console
+send "JAVA_HOME=/usr/lib/jvm/java-11 ./mvnw clean package\r"
+
+expect $console
+send "shutdown -h now\r"
+
+sleep 5
