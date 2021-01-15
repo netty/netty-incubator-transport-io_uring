@@ -49,7 +49,9 @@ jobs:
         run: |
           wget -q https://download.fedoraproject.org/pub/fedora/linux/releases/33/Cloud/x86_64/images/Fedora-Cloud-Base-33-1.2.x86_64.qcow2
           qemu-img create -f qcow2 -b Fedora-Cloud-Base-33-1.2.x86_64.qcow2 my-disk.qcow2 20G
-          genisoimage -output my-seed.iso -volid cidata -joliet -rock ./.github/config/user-data ./.github/config/meta-data
+          cp ./.github/config/user-data .
+          cp ./.github/config/meta-data .
+          genisoimage -output my-seed.iso -volid cidata -joliet -rock user-data meta-data
 
       - name: Build project via QEMU
         run: expect -f ./.github/scripts/qemu-build.exp | tee build.output
