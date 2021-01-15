@@ -54,7 +54,7 @@ jobs:
       - name: Build project via QEMU
         run: expect -f ./.github/scripts/qemu-build.exp | tee build.output
 
-      - name: Checking for detected leak
+      - name: Checking for build result
         run: ./.github/scripts/check_build_result.sh build.output
 
       - uses: actions/upload-artifact@v2
