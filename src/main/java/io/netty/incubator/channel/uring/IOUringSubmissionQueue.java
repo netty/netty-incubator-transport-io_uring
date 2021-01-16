@@ -142,10 +142,12 @@ final class IOUringSubmissionQueue {
         long userData = encode(fd, op, data);
         PlatformDependent.putLong(sqe + SQE_USER_DATA_FIELD, userData);
 
-        logger.trace("UserDataField: {}", userData);
-        logger.trace("BufferAddress: {}", bufferAddress);
-        logger.trace("Length: {}", length);
-        logger.trace("Offset: {}", offset);
+        if (logger.isTraceEnabled()) {
+            logger.trace("UserDataField: {}", userData);
+            logger.trace("BufferAddress: {}", bufferAddress);
+            logger.trace("Length: {}", length);
+            logger.trace("Offset: {}", offset);
+        }
     }
 
     boolean addTimeout(long nanoSeconds, short extraData) {
