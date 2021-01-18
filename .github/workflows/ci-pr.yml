@@ -100,11 +100,6 @@ jobs:
         with:
           files: "/home/runner/.qemu/my-disk.qcow2, /home/runner/.qemu/my-seed.iso, /home/runner/.qemu/Fedora-Cloud-Base-33-1.2.x86_64.qcow2"
 
-      # We don't need a custom kernel atm.
-      #- name: Build kernel
-      #  if: steps.check_kernel_image_exists.outputs.files_exists == 'false'
-      #  run: bash ./.github/scripts/build_kernel.sh /home/runner/kernel/bzImage-5.9.16
-
       - name: Build qemu image
         if: steps.check_qemu_image_exists.outputs.files_exists == 'false'
         run: bash ./.github/scripts/build_qemu_image.sh /home/runner/.qemu/ my-disk.qcow2 my-seed.iso ./.github/config/user-data ./.github/config/meta-data
@@ -112,8 +107,10 @@ jobs:
       - name: Build project via QEMU
         run: expect -f ./.github/scripts/qemu_build.exp /home/runner/.qemu my-disk.qcow2 my-seed.iso | tee build.output
 
-      - name: Checking for build result
-        run: bash ./.github/scripts/check_build_result.sh build.output
+      - name: build-pr-qemu test-report
+        uses: scacap/action-surefire-report@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checking for detected leak
         run: bash ./.github/scripts/check_leak.sh build.output
