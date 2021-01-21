@@ -24,6 +24,8 @@ import java.net.SocketAddress;
 
 public class IOUringDomainSocketChannel extends AbstractIOUringStreamChannel implements DomainSocketChannel {
     private final IOUringDomainSocketChannelConfig config;
+    private volatile DomainSocketAddress local;
+    private volatile DomainSocketAddress remote;
 
     public IOUringDomainSocketChannel() {
         super(null, LinuxSocket.newSocketDomain(), false);
@@ -41,12 +43,36 @@ public class IOUringDomainSocketChannel extends AbstractIOUringStreamChannel imp
     }
 
     @Override
+    protected void doBind(SocketAddress localAddress) throws Exception {
+        socket.bind(localAddress);
+        local = (DomainSocketAddress) localAddress;
+    }
+
+    @Override
+    protected void doConnect(SocketAddress remoteAddress, SocketAddress localAddress) throws Exception {
+        super.doConnect(remoteAddress, localAddress);
+
+        local = (DomainSocketAddress) localAddress;
+        remote = (DomainSocketAddress) remoteAddress;
+    }
+
+    @Override
     public DomainSocketAddress remoteAddress() {
         return (DomainSocketAddress) super.remoteAddress();
     }
 
     @Override
+    protected SocketAddress remoteAddress0() {
+        return remote;
+    }
+
+    @Override
     public DomainSocketAddress localAddress() {
         return (DomainSocketAddress) super.localAddress();
+    }
+
+    @Override
+    protected SocketAddress localAddress0() {
+        return local;
     }
 }

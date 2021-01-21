@@ -31,8 +31,9 @@ public class IOUringServerDomainSocketChannel extends AbstractIOUringServerChann
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(
             IOUringServerDomainSocketChannel.class);
     private final IOUringServerSocketChannelConfig config;
+    private volatile DomainSocketAddress local;
 
-    protected IOUringServerDomainSocketChannel() {
+    public IOUringServerDomainSocketChannel() {
         super(LinuxSocket.newSocketDomain(), false);
         this.config = new IOUringServerSocketChannelConfig(this);
     }
@@ -60,9 +61,15 @@ public class IOUringServerDomainSocketChannel extends AbstractIOUringServerChann
 
     @Override
     protected void doBind(SocketAddress localAddress) throws Exception {
-        super.doBind(localAddress);
+        socket.bind(localAddress);
         socket.listen(config.getBacklog());
+        local = (DomainSocketAddress) localAddress;
         active = true;
+    }
+
+    @Override
+    protected SocketAddress localAddress0() {
+        return local;
     }
 
     @Override
@@ -70,7 +77,7 @@ public class IOUringServerDomainSocketChannel extends AbstractIOUringServerChann
         try {
             super.doClose();
         } finally {
-            DomainSocketAddress local = this.localAddress();
+            DomainSocketAddress local = this.local;
             if (local != null) {
                 // Delete the socket file if possible.
                 File socketFile = new File(local.path());

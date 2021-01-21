@@ -25,10 +25,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.CharsetEncoder;
-import java.nio.charset.CoderResult;
 
 import static io.netty.util.internal.PlatformDependent.BIG_ENDIAN_NATIVE_ORDER;
 
@@ -37,7 +33,7 @@ final class SockaddrIn {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, (byte) 0xff, (byte) 0xff };
     static final int IPV4_ADDRESS_LENGTH = 4;
     static final int IPV6_ADDRESS_LENGTH = 16;
-    static final int DOMAIN_ADDRESS_LENGTH = Character.BYTES * 108;
+    static final int DOMAIN_ADDRESS_LENGTH = 108;
 
     private SockaddrIn() { }
 
@@ -173,21 +169,12 @@ final class SockaddrIn {
         PlatformDependent.setMemory(memory, Native.SIZEOF_SOCKADDR_UN, (byte) 0);
         PlatformDependent.putShort(memory + Native.SOCKADDR_UN_OFFSETOF_SIN_FAMILY, Native.AF_UNIX);
 
-        CharBuffer originalPath = CharBuffer.wrap(path);
-
-        ByteBuffer nativePathBuf = PlatformDependent.directBuffer(
-                memory + Native.SOCKADDR_UN_OFFSETOF_SUN_PATH, DOMAIN_ADDRESS_LENGTH);
-        CharsetEncoder encoder = CharsetUtil.encoder(CharsetUtil.UTF_8);
-        CoderResult cr = encoder.encode(originalPath, nativePathBuf, true);
-        if (!cr.isUnderflow()) {
-            throw new Error();
-        }
-        cr = encoder.flush(nativePathBuf);
-        if (!cr.isUnderflow()) {
-            throw new Error();
-        }
-
-        return nativePathBuf.position() << 8 | Native.SIZEOF_SOCKADDR_UN;
+        // It would be nice to avoid the memory copy and allocation here, but we can't.
+        byte[] pathAsBytes = path.getBytes(CharsetUtil.UTF_8);
+        PlatformDependent.copyMemory(pathAsBytes, pathAsBytes.length,
+                memory + Native.SOCKADDR_UN_OFFSETOF_SUN_PATH,
+                Math.min(DOMAIN_ADDRESS_LENGTH, pathAsBytes.length));
+        return Native.SOCKADDR_UN_OFFSETOF_SIN_FAMILY + pathAsBytes.length;
     }
 
     private static short handleNetworkOrder(short v) {
