@@ -16,12 +16,9 @@
 
 package io.netty.incubator.channel.uring;
 
-import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.unix.Buffer;
 import io.netty.channel.unix.tests.UnixTestUtils;
-import io.netty.incubator.channel.uring.IOUringSocketTestPermutation;
-import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.TestsuitePermutation.BootstrapFactory;
 import io.netty.testsuite.transport.socket.AbstractSocketShutdownOutputByPeerTest;
 

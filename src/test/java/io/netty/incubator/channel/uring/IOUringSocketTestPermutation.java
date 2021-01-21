@@ -164,7 +164,6 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
         return combo(bfs, bfs);
     }
 
-
     public List<TestsuitePermutation.BootstrapComboFactory<ServerBootstrap, Bootstrap>> domainSocket() {
 
         List<TestsuitePermutation.BootstrapComboFactory<ServerBootstrap, Bootstrap>> list =

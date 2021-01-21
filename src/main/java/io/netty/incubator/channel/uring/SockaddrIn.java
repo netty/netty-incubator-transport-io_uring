@@ -15,16 +15,18 @@
  */
 package io.netty.incubator.channel.uring;
 
-import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.unix.DomainSocketAddress;
 import io.netty.util.CharsetUtil;
 import io.netty.util.internal.PlatformDependent;
 
-import java.net.*;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 
@@ -43,7 +45,7 @@ final class SockaddrIn {
         if (address instanceof DomainSocketAddress) {
             return SockaddrIn.writeDomain(memory, ((DomainSocketAddress) address).path());
         } else if (address instanceof InetSocketAddress) {
-            InetSocketAddress inetSocketAddress = ((InetSocketAddress) address);
+            InetSocketAddress inetSocketAddress = (InetSocketAddress) address;
             boolean ipv6 = ((InetSocketAddress) address).getAddress() instanceof Inet6Address;
             if (ipv6) {
                 return SockaddrIn.writeIPv6(memory, inetSocketAddress.getAddress(), inetSocketAddress.getPort());
@@ -174,7 +176,7 @@ final class SockaddrIn {
         CharBuffer originalPath = CharBuffer.wrap(path);
 
         ByteBuffer nativePathBuf = PlatformDependent.directBuffer(
-                memory + Native.SOCKADDR_UN_OFFSETOF_SUN_PATH, DOMAIN_ADDRESS_LENGTH );
+                memory + Native.SOCKADDR_UN_OFFSETOF_SUN_PATH, DOMAIN_ADDRESS_LENGTH);
         CharsetEncoder encoder = CharsetUtil.encoder(CharsetUtil.UTF_8);
         CoderResult cr = encoder.encode(originalPath, nativePathBuf, true);
         if (!cr.isUnderflow()) {
