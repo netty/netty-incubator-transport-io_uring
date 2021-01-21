@@ -315,12 +315,20 @@ static jint netty_io_uring_afInet6(JNIEnv* env, jclass clazz) {
     return AF_INET6;
 }
 
+static jint netty_io_uring_afUnix(JNIEnv* env, jclass clazz) {
+    return AF_UNIX;
+}
+
 static jint netty_io_uring_sizeofSockaddrIn(JNIEnv* env, jclass clazz) {
     return sizeof(struct sockaddr_in);
 }
 
 static jint netty_io_uring_sizeofSockaddrIn6(JNIEnv* env, jclass clazz) {
     return sizeof(struct sockaddr_in6);
+}
+
+static jint netty_io_uring_sizeofSockaddrUn(JNIEnv* env, jclass clazz) {
+    return sizeof(struct sockaddr_un);
 }
 
 static jint netty_io_uring_sockaddrInOffsetofSinFamily(JNIEnv* env, jclass clazz) {
@@ -357,6 +365,14 @@ static jint netty_io_uring_sockaddrIn6OffsetofSin6Addr(JNIEnv* env, jclass clazz
 
 static jint netty_io_uring_sockaddrIn6OffsetofSin6ScopeId(JNIEnv* env, jclass clazz) {
     return offsetof(struct sockaddr_in6, sin6_scope_id);
+}
+
+static jint netty_io_uring_sockaddrUnOffsetofSunFamily(JNIEnv* env, jclass clazz) {
+    return offsetof(struct sockaddr_un, sun_family);
+}
+
+static jint netty_io_uring_sockaddrUnOffsetofSunPath(JNIEnv* env, jclass clazz) {
+    return offsetof(struct sockaddr_un, sun_path);
 }
 
 static jint netty_io_uring_in6AddressOffsetofS6Addr(JNIEnv* env, jclass clazz) {
@@ -492,8 +508,10 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
   { "sockCloexec", "()I", (void *) netty_io_uring_sockCloexec },
   { "afInet", "()I", (void *) netty_io_uring_afInet },
   { "afInet6", "()I", (void *) netty_io_uring_afInet6 },
+  { "afUnix", "()I", (void *) netty_io_uring_afUnix },
   { "sizeofSockaddrIn", "()I", (void *) netty_io_uring_sizeofSockaddrIn },
   { "sizeofSockaddrIn6", "()I", (void *) netty_io_uring_sizeofSockaddrIn6 },
+  { "sizeofSockaddrUn", "()I", (void *) netty_io_uring_sizeofSockaddrUn },
   { "sockaddrInOffsetofSinFamily", "()I", (void *) netty_io_uring_sockaddrInOffsetofSinFamily },
   { "sockaddrInOffsetofSinPort", "()I", (void *) netty_io_uring_sockaddrInOffsetofSinPort },
   { "sockaddrInOffsetofSinAddr", "()I", (void *) netty_io_uring_sockaddrInOffsetofSinAddr },
@@ -503,6 +521,8 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
   { "sockaddrIn6OffsetofSin6Flowinfo", "()I", (void *) netty_io_uring_sockaddrIn6OffsetofSin6Flowinfo },
   { "sockaddrIn6OffsetofSin6Addr", "()I", (void *) netty_io_uring_sockaddrIn6OffsetofSin6Addr },
   { "sockaddrIn6OffsetofSin6ScopeId", "()I", (void *) netty_io_uring_sockaddrIn6OffsetofSin6ScopeId },
+  { "sockaddrUnOffsetofSunFamily", "()I", (void *) netty_io_uring_sockaddrUnOffsetofSunFamily },
+  { "sockaddrUnOffsetofSunPath", "()I", (void *) netty_io_uring_sockaddrUnOffsetofSunPath },
   { "in6AddressOffsetofS6Addr", "()I", (void *) netty_io_uring_in6AddressOffsetofS6Addr },
   { "sizeofSockaddrStorage", "()I", (void *) netty_io_uring_sizeofSockaddrStorage },
   { "sizeofSizeT", "()I", (void *) netty_io_uring_sizeofSizeT },

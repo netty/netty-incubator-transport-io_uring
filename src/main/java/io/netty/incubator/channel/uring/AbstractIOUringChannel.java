@@ -35,11 +35,7 @@ import io.netty.channel.RecvByteBufAllocator;
 import io.netty.channel.socket.ChannelInputShutdownEvent;
 import io.netty.channel.socket.ChannelInputShutdownReadComplete;
 import io.netty.channel.socket.SocketChannelConfig;
-import io.netty.channel.unix.Buffer;
-import io.netty.channel.unix.Errors;
-import io.netty.channel.unix.FileDescriptor;
-import io.netty.channel.unix.UnixChannel;
-import io.netty.channel.unix.UnixChannelUtil;
+import io.netty.channel.unix.*;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
@@ -672,16 +668,19 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
                 }
 
                 doConnect(remoteAddress, localAddress);
-                InetSocketAddress inetSocketAddress = (InetSocketAddress) remoteAddress;
 
                 remoteAddressMemory = Buffer.allocateDirectWithNativeOrder(Native.SIZEOF_SOCKADDR_STORAGE);
                 long remoteAddressMemoryAddress = Buffer.memoryAddress(remoteAddressMemory);
 
-                SockaddrIn.write(socket.isIpv6(), remoteAddressMemoryAddress, inetSocketAddress);
+                int addrLen = SockaddrIn.write(remoteAddressMemoryAddress, remoteAddress);
+                short extraData = (short) 0;
+                if (remoteAddress instanceof DomainSocketAddress) {
+                    extraData = (short) (addrLen >> 8);
+                }
 
                 final IOUringSubmissionQueue ioUringSubmissionQueue = submissionQueue();
                 ioUringSubmissionQueue.addConnect(socket.intValue(), remoteAddressMemoryAddress,
-                        Native.SIZEOF_SOCKADDR_STORAGE, (short) 0);
+                        Native.SIZEOF_SOCKADDR_STORAGE, extraData);
                 ioState |= CONNECT_SCHEDULED;
             } catch (Throwable t) {
                 closeIfClosed();

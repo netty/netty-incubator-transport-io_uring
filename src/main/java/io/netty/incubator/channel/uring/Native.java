@@ -73,9 +73,11 @@ final class Native {
     static final int SOCK_CLOEXEC = NativeStaticallyReferencedJniMethods.sockCloexec();
     static final short AF_INET = (short) NativeStaticallyReferencedJniMethods.afInet();
     static final short AF_INET6 = (short) NativeStaticallyReferencedJniMethods.afInet6();
+    static final short AF_UNIX = (short) NativeStaticallyReferencedJniMethods.afUnix();
     static final int SIZEOF_SOCKADDR_STORAGE = NativeStaticallyReferencedJniMethods.sizeofSockaddrStorage();
     static final int SIZEOF_SOCKADDR_IN = NativeStaticallyReferencedJniMethods.sizeofSockaddrIn();
     static final int SIZEOF_SOCKADDR_IN6 = NativeStaticallyReferencedJniMethods.sizeofSockaddrIn6();
+    static final int SIZEOF_SOCKADDR_UN = NativeStaticallyReferencedJniMethods.sizeofSockaddrUn();
     static final int SOCKADDR_IN_OFFSETOF_SIN_FAMILY =
             NativeStaticallyReferencedJniMethods.sockaddrInOffsetofSinFamily();
     static final int SOCKADDR_IN_OFFSETOF_SIN_PORT = NativeStaticallyReferencedJniMethods.sockaddrInOffsetofSinPort();
@@ -91,6 +93,9 @@ final class Native {
             NativeStaticallyReferencedJniMethods.sockaddrIn6OffsetofSin6Addr();
     static final int SOCKADDR_IN6_OFFSETOF_SIN6_SCOPE_ID =
             NativeStaticallyReferencedJniMethods.sockaddrIn6OffsetofSin6ScopeId();
+    static final int SOCKADDR_UN_OFFSETOF_SIN_FAMILY =
+            NativeStaticallyReferencedJniMethods.sockaddrUnOffsetofSunFamily();
+    static final int SOCKADDR_UN_OFFSETOF_SUN_PATH = NativeStaticallyReferencedJniMethods.sockaddrUnOffsetofSunPath();
     static final int IN6_ADDRESS_OFFSETOF_S6_ADDR = NativeStaticallyReferencedJniMethods.in6AddressOffsetofS6Addr();
     static final int SIZEOF_SIZE_T = NativeStaticallyReferencedJniMethods.sizeofSizeT();
     static final int SIZEOF_IOVEC = NativeStaticallyReferencedJniMethods.sizeofIovec();

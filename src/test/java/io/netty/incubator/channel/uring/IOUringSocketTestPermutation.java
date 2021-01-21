@@ -20,6 +20,8 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFactory;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.EpollDomainSocketChannel;
+import io.netty.channel.epoll.EpollServerDomainSocketChannel;
 import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -39,6 +41,7 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class IOUringSocketTestPermutation extends SocketTestPermutation {
@@ -49,6 +52,10 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
             new IOUringEventLoopGroup(BOSSES, new DefaultThreadFactory("testsuite-io_uring-boss", true));
     static final EventLoopGroup IO_URING_WORKER_GROUP =
             new IOUringEventLoopGroup(WORKERS, new DefaultThreadFactory("testsuite-io_uring-worker", true));
+    static final EventLoopGroup EPOLL_BOSS_GROUP =
+            new IOUringEventLoopGroup(BOSSES, new DefaultThreadFactory("testsuite-epoll-boss", true));
+    static final EventLoopGroup EPOLL_WORKER_GROUP =
+            new IOUringEventLoopGroup(WORKERS, new DefaultThreadFactory("testsuite-epoll-worker", true));
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(IOUringSocketTestPermutation.class);
 
@@ -155,6 +162,51 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
         );
 
         return combo(bfs, bfs);
+    }
+
+
+    public List<TestsuitePermutation.BootstrapComboFactory<ServerBootstrap, Bootstrap>> domainSocket() {
+
+        List<TestsuitePermutation.BootstrapComboFactory<ServerBootstrap, Bootstrap>> list =
+                combo(serverDomainSocket(), clientDomainSocket());
+        return list;
+    }
+
+    public List<BootstrapFactory<ServerBootstrap>> serverDomainSocket() {
+        return Arrays.<BootstrapFactory<ServerBootstrap>>asList(
+                new BootstrapFactory<ServerBootstrap>() {
+                    @Override
+                    public ServerBootstrap newInstance() {
+                        return new ServerBootstrap().group(IO_URING_BOSS_GROUP, IO_URING_WORKER_GROUP)
+                                .channel(IOUringServerDomainSocketChannel.class);
+                    }
+                },
+                new BootstrapFactory<ServerBootstrap>() {
+                    @Override
+                    public ServerBootstrap newInstance() {
+                        return new ServerBootstrap().group(EPOLL_BOSS_GROUP, EPOLL_WORKER_GROUP)
+                                .channel(EpollServerDomainSocketChannel.class);
+                    }
+                }
+        );
+    }
+
+    public List<BootstrapFactory<Bootstrap>> clientDomainSocket() {
+        return Arrays.<BootstrapFactory<Bootstrap>>asList(
+                new BootstrapFactory<Bootstrap>() {
+                    @Override
+                    public Bootstrap newInstance() {
+                        return new Bootstrap().group(IO_URING_WORKER_GROUP).channel(IOUringDomainSocketChannel.class);
+                    }
+                },
+                new BootstrapFactory<Bootstrap>() {
+                    @Override
+                    public Bootstrap newInstance() {
+                        return new Bootstrap().group(EPOLL_WORKER_GROUP)
+                                .channel(EpollDomainSocketChannel.class);
+                    }
+                }
+        );
     }
 
     public boolean isServerFastOpen() {
