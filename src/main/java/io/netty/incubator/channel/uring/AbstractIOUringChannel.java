@@ -36,7 +36,6 @@ import io.netty.channel.socket.ChannelInputShutdownEvent;
 import io.netty.channel.socket.ChannelInputShutdownReadComplete;
 import io.netty.channel.socket.SocketChannelConfig;
 import io.netty.channel.unix.Buffer;
-import io.netty.channel.unix.DomainSocketAddress;
 import io.netty.channel.unix.Errors;
 import io.netty.channel.unix.FileDescriptor;
 import io.netty.channel.unix.UnixChannel;
@@ -677,7 +676,7 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
                 remoteAddressMemory = Buffer.allocateDirectWithNativeOrder(Native.SIZEOF_SOCKADDR_STORAGE);
                 long remoteAddressMemoryAddress = Buffer.memoryAddress(remoteAddressMemory);
 
-                int addrLen = SockaddrIn.write(remoteAddressMemoryAddress, remoteAddress);
+                int addrLen = Sockaddr.write(remoteAddressMemoryAddress, remoteAddress);
 
                 final IOUringSubmissionQueue ioUringSubmissionQueue = submissionQueue();
                 ioUringSubmissionQueue.addConnect(socket.intValue(), remoteAddressMemoryAddress, addrLen, (short) 0);

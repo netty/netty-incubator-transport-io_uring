@@ -18,7 +18,6 @@ package io.netty.incubator.channel.uring;
 import io.netty.channel.Channel;
 import io.netty.channel.socket.ServerSocketChannel;
 
-import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 
@@ -41,10 +40,10 @@ public final class IOUringServerSocketChannel extends AbstractIOUringServerChann
         if (socket.isIpv6()) {
             byte[] ipv6Array = ((IOUringEventLoop) eventLoop()).inet6AddressArray();
             byte[] ipv4Array = ((IOUringEventLoop) eventLoop()).inet4AddressArray();
-            address = SockaddrIn.readIPv6(acceptedAddressMemoryAddress, ipv6Array, ipv4Array);
+            address = Sockaddr.readIPv6(acceptedAddressMemoryAddress, ipv6Array, ipv4Array);
         } else {
             byte[] addressArray = ((IOUringEventLoop) eventLoop()).inet4AddressArray();
-            address = SockaddrIn.readIPv4(acceptedAddressMemoryAddress, addressArray);
+            address = Sockaddr.readIPv4(acceptedAddressMemoryAddress, addressArray);
         }
         return new IOUringSocketChannel(this, new LinuxSocket(fd), address);
     }

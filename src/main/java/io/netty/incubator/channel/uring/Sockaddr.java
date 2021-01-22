@@ -28,25 +28,25 @@ import java.net.UnknownHostException;
 
 import static io.netty.util.internal.PlatformDependent.BIG_ENDIAN_NATIVE_ORDER;
 
-final class SockaddrIn {
+final class Sockaddr {
     static final byte[] IPV4_MAPPED_IPV6_PREFIX = {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, (byte) 0xff, (byte) 0xff };
     static final int IPV4_ADDRESS_LENGTH = 4;
     static final int IPV6_ADDRESS_LENGTH = 16;
     static final int DOMAIN_ADDRESS_LENGTH = 108;
 
-    private SockaddrIn() { }
+    private Sockaddr() { }
 
     static int write(long memory, SocketAddress address) {
         if (address instanceof DomainSocketAddress) {
-            return SockaddrIn.writeDomain(memory, ((DomainSocketAddress) address).path());
+            return Sockaddr.writeDomain(memory, ((DomainSocketAddress) address).path());
         } else if (address instanceof InetSocketAddress) {
             InetSocketAddress inetSocketAddress = (InetSocketAddress) address;
             boolean ipv6 = ((InetSocketAddress) address).getAddress() instanceof Inet6Address;
             if (ipv6) {
-                return SockaddrIn.writeIPv6(memory, inetSocketAddress.getAddress(), inetSocketAddress.getPort());
+                return Sockaddr.writeIPv6(memory, inetSocketAddress.getAddress(), inetSocketAddress.getPort());
             } else {
-                return SockaddrIn.writeIPv4(memory, inetSocketAddress.getAddress(), inetSocketAddress.getPort());
+                return Sockaddr.writeIPv4(memory, inetSocketAddress.getAddress(), inetSocketAddress.getPort());
             }
         } else {
             throw new IllegalArgumentException("Unknown address family");

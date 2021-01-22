@@ -51,8 +51,8 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
     private final FileDescriptor eventfd;
 
     // The maximum number of bytes for an InetAddress / Inet6Address
-    private final byte[] inet4AddressArray = new byte[SockaddrIn.IPV4_ADDRESS_LENGTH];
-    private final byte[] inet6AddressArray = new byte[SockaddrIn.IPV6_ADDRESS_LENGTH];
+    private final byte[] inet4AddressArray = new byte[Sockaddr.IPV4_ADDRESS_LENGTH];
+    private final byte[] inet6AddressArray = new byte[Sockaddr.IPV6_ADDRESS_LENGTH];
 
     private long prevDeadlineNanos = NONE;
     private boolean pendingWakeup;

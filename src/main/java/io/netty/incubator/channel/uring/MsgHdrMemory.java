@@ -40,7 +40,7 @@ final class MsgHdrMemory {
             addressLength = socket.isIpv6() ? Native.SIZEOF_SOCKADDR_IN6 : Native.SIZEOF_SOCKADDR_IN;
             PlatformDependent.setMemory(sockAddress, Native.SIZEOF_SOCKADDR_STORAGE, (byte) 0);
         } else {
-            addressLength = SockaddrIn.write(sockAddress, address);
+            addressLength = Sockaddr.write(sockAddress, address);
         }
         Iov.write(iovAddress, bufferAddress, length);
         MsgHdr.write(memory, sockAddress, addressLength, iovAddress, 1);
@@ -54,10 +54,10 @@ final class MsgHdrMemory {
             byte[] ipv6Bytes = eventLoop.inet6AddressArray();
             byte[] ipv4bytes = eventLoop.inet4AddressArray();
 
-            sender = SockaddrIn.readIPv6(sockAddress, ipv6Bytes, ipv4bytes);
+            sender = Sockaddr.readIPv6(sockAddress, ipv6Bytes, ipv4bytes);
         } else {
             byte[] bytes = eventLoop.inet4AddressArray();
-            sender = SockaddrIn.readIPv4(sockAddress, bytes);
+            sender = Sockaddr.readIPv4(sockAddress, bytes);
         }
         long iovAddress = memory + Native.SIZEOF_MSGHDR + Native.SIZEOF_SOCKADDR_STORAGE;
         long bufferAddress = Iov.readBufferAddress(iovAddress);
