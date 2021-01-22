@@ -171,8 +171,7 @@ final class SockaddrIn {
 
         // It would be nice to avoid the memory copy and allocation here, but we can't.
         byte[] pathAsBytes = path.getBytes(CharsetUtil.UTF_8);
-        PlatformDependent.copyMemory(pathAsBytes, pathAsBytes.length,
-                memory + Native.SOCKADDR_UN_OFFSETOF_SUN_PATH,
+        PlatformDependent.copyMemory(pathAsBytes, 0, memory + Native.SOCKADDR_UN_OFFSETOF_SUN_PATH,
                 Math.min(DOMAIN_ADDRESS_LENGTH, pathAsBytes.length));
         return Native.SOCKADDR_UN_OFFSETOF_SIN_FAMILY + pathAsBytes.length;
     }
