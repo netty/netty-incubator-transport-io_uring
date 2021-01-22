@@ -173,7 +173,7 @@ final class SockaddrIn {
         byte[] pathAsBytes = path.getBytes(CharsetUtil.UTF_8);
         PlatformDependent.copyMemory(pathAsBytes, 0, memory + Native.SOCKADDR_UN_OFFSETOF_SUN_PATH,
                 Math.min(DOMAIN_ADDRESS_LENGTH, pathAsBytes.length));
-        return Native.SOCKADDR_UN_OFFSETOF_SIN_FAMILY + pathAsBytes.length;
+        return Native.SOCKADDR_UN_OFFSETOF_SUN_PATH + pathAsBytes.length;
     }
 
     private static short handleNetworkOrder(short v) {

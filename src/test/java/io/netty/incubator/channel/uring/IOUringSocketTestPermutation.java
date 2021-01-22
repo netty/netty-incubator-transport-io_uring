@@ -21,6 +21,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFactory;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.EpollDomainSocketChannel;
+import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerDomainSocketChannel;
 import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.channel.socket.nio.NioDatagramChannel;
@@ -53,9 +54,9 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
     static final EventLoopGroup IO_URING_WORKER_GROUP =
             new IOUringEventLoopGroup(WORKERS, new DefaultThreadFactory("testsuite-io_uring-worker", true));
     static final EventLoopGroup EPOLL_BOSS_GROUP =
-            new IOUringEventLoopGroup(BOSSES, new DefaultThreadFactory("testsuite-epoll-boss", true));
+            new EpollEventLoopGroup(BOSSES, new DefaultThreadFactory("testsuite-epoll-boss", true));
     static final EventLoopGroup EPOLL_WORKER_GROUP =
-            new IOUringEventLoopGroup(WORKERS, new DefaultThreadFactory("testsuite-epoll-worker", true));
+            new EpollEventLoopGroup(WORKERS, new DefaultThreadFactory("testsuite-epoll-worker", true));
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(IOUringSocketTestPermutation.class);
 
