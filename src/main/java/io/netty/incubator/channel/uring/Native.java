@@ -93,7 +93,7 @@ final class Native {
             NativeStaticallyReferencedJniMethods.sockaddrIn6OffsetofSin6Addr();
     static final int SOCKADDR_IN6_OFFSETOF_SIN6_SCOPE_ID =
             NativeStaticallyReferencedJniMethods.sockaddrIn6OffsetofSin6ScopeId();
-    static final int SOCKADDR_UN_OFFSETOF_SIN_FAMILY =
+    static final int SOCKADDR_UN_OFFSETOF_SUN_FAMILY =
             NativeStaticallyReferencedJniMethods.sockaddrUnOffsetofSunFamily();
     static final int SOCKADDR_UN_OFFSETOF_SUN_PATH = NativeStaticallyReferencedJniMethods.sockaddrUnOffsetofSunPath();
     static final int IN6_ADDRESS_OFFSETOF_S6_ADDR = NativeStaticallyReferencedJniMethods.in6AddressOffsetofS6Addr();

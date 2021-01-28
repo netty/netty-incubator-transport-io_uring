@@ -167,7 +167,7 @@ final class Sockaddr {
      */
     private static int writeDomain(long memory, String path) {
         PlatformDependent.setMemory(memory, Native.SIZEOF_SOCKADDR_UN, (byte) 0);
-        PlatformDependent.putShort(memory + Native.SOCKADDR_UN_OFFSETOF_SIN_FAMILY, Native.AF_UNIX);
+        PlatformDependent.putShort(memory + Native.SOCKADDR_UN_OFFSETOF_SUN_FAMILY, Native.AF_UNIX);
 
         // It would be nice to avoid the memory copy and allocation here, but we can't.
         byte[] pathAsBytes = path.getBytes(CharsetUtil.UTF_8);
