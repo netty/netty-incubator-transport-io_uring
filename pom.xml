@@ -71,14 +71,16 @@
     <unix.common.lib.dir>${project.build.directory}/unix-common-lib</unix.common.lib.dir>
     <unix.common.lib.unpacked.dir>${unix.common.lib.dir}/META-INF/native/lib</unix.common.lib.unpacked.dir>
     <unix.common.include.unpacked.dir>${unix.common.lib.dir}/META-INF/native/include</unix.common.include.unpacked.dir>
-    <jni.compiler.args.cflags>CFLAGS=-O3 -Werror -fno-omit-frame-pointer -Wunused-variable -fvisibility=hidden -I${unix.common.include.unpacked.dir}
-    </jni.compiler.args.cflags>
-    <jni.compiler.args.ldflags>LDFLAGS=-L${unix.common.lib.unpacked.dir} -Wl,--no-as-needed -lrt -ldl -Wl,--whole-archive -l${unix.common.lib.name} -Wl,--no-whole-archive
-    </jni.compiler.args.ldflags>
+    <jni.compiler.args.cflags>CFLAGS=-O3 -Werror -fno-omit-frame-pointer -Wunused-variable -fvisibility=hidden -I${unix.common.include.unpacked.dir}</jni.compiler.args.cflags>
+    <jni.compiler.args.ldflags>LDFLAGS=-L${unix.common.lib.unpacked.dir} -Wl,--no-as-needed -lrt -ldl -Wl,--whole-archive -l${unix.common.lib.name} -Wl,--no-whole-archive</jni.compiler.args.ldflags>
     <nativeSourceDirectory>${project.basedir}/src/main/c</nativeSourceDirectory>
     <skipTests>true</skipTests>
     <netty.build.version>28</netty.build.version>
-    <jni.classifier>${os.detected.name}-${os.detected.arch}</jni.classifier>
+    <jniArch>${os.detected.arch}</jniArch>
+    <jni.classifier>${os.detected.name}-${jniArch}</jni.classifier>
+    <jniLibName>netty_transport_native_io_uring_${jniArch}</jniLibName>
+    <nativeLibOnlyDir>${project.build.directory}/native-lib-only</nativeLibOnlyDir>
+    <extraConfigureArg/>
     <test.argLine>-D_</test.argLine>
 
     <checkstyle.version>8.38</checkstyle.version>
@@ -92,7 +94,7 @@
     <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
     <maven-dependency-plugin.version>3.1.2</maven-dependency-plugin.version>
     <maven-enforcer-plugin.version>1.4.1</maven-enforcer-plugin.version>
-    <maven-hawtjni-plugin.version>1.15</maven-hawtjni-plugin.version>
+    <hawtjni-maven-plugin.version>1.18</hawtjni-maven-plugin.version>
     <maven-jar-plugin.version>3.2.0</maven-jar-plugin.version>
     <maven-source-plugin.version>3.2.1</maven-source-plugin.version>
     <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
@@ -184,8 +186,8 @@
         </plugin>
         <plugin>
           <groupId>org.fusesource.hawtjni</groupId>
-          <artifactId>maven-hawtjni-plugin</artifactId>
-          <version>${maven-hawtjni-plugin.version}</version>
+          <artifactId>hawtjni-maven-plugin</artifactId>
+          <version>${hawtjni-maven-plugin.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -406,6 +408,47 @@
       <build>
         <plugins>
           <plugin>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>1.8</version>
+            <dependencies>
+              <dependency>
+                <groupId>org.apache.ant</groupId>
+                <artifactId>ant</artifactId>
+                <version>1.9.15</version>
+              </dependency>
+              <dependency>
+                <groupId>org.apache.ant</groupId>
+                <artifactId>ant-commons-net</artifactId>
+                <version>1.9.6</version>
+              </dependency>
+              <dependency>
+                <groupId>ant-contrib</groupId>
+                <artifactId>ant-contrib</artifactId>
+                <version>1.0b3</version>
+              </dependency>
+            </dependencies>
+            <executions>
+              <!-- Copy the native lib that was generated -->
+              <execution>
+                <id>copy-native-lib</id>
+                <phase>process-test-resources</phase>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <target>
+                    <taskdef resource="net/sf/antcontrib/antcontrib.properties" />
+
+                    <copy todir="${project.build.outputDirectory}" includeEmptyDirs="false">
+                      <zipfileset dir="${nativeLibOnlyDir}/META-INF/native" />
+                      <regexpmapper handledirsep="yes" from="^(?:[^/]+/)*([^/]+)$" to="META-INF/native/\1" />
+                    </copy>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-dependency-plugin</artifactId>
             <executions>
@@ -431,22 +474,19 @@
 
           <plugin>
             <groupId>org.fusesource.hawtjni</groupId>
-            <artifactId>maven-hawtjni-plugin</artifactId>
+            <artifactId>hawtjni-maven-plugin</artifactId>
             <executions>
               <execution>
                 <id>build-native-lib</id>
                 <configuration>
-                  <name>netty_transport_native_io_uring_${os.detected.arch}</name>
+                  <name>${jniLibName}</name>
                   <nativeSourceDirectory>${nativeSourceDirectory}</nativeSourceDirectory>
-                  <libDirectory>${project.build.outputDirectory}</libDirectory>
-                  <!-- We use Maven's artifact classifier instead.
-                       This hack will make the hawtjni plugin to put the native library
-                       under 'META-INF/native' rather than 'META-INF/native/${platform}'. -->
-                  <platform>.</platform>
+                  <libDirectory>${nativeLibOnlyDir}</libDirectory>
                   <configureArgs>
                     <arg>${jni.compiler.args.ldflags}</arg>
                     <arg>${jni.compiler.args.cflags}</arg>
                     <configureArg>--libdir=${project.build.directory}/native-build/target/lib</configureArg>
+                    <configureArg>${extraConfigureArg}</configureArg>
                   </configureArgs>
                 </configuration>
                 <goals>
@@ -472,7 +512,7 @@
                       <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                     </manifest>
                     <manifestEntries>
-                      <Bundle-NativeCode>META-INF/native/libnetty_transport_native_io_uring_${os.detected.arch}.so; osname=Linux; processor=${os.detected.arch},*</Bundle-NativeCode>
+                      <Bundle-NativeCode>META-INF/native/libnetty_transport_native_io_uring_${jniArch}.so; osname=Linux; processor=${jniArch},*</Bundle-NativeCode>
                       <Automatic-Module-Name>${javaModuleName}</Automatic-Module-Name>
                     </manifestEntries>
                     <index>true</index>
@@ -504,130 +544,11 @@
       <id>linux-aarch64</id>
       <properties>
         <!-- use aarch_64 as this is also what os.detected.arch will use on an aarch64 system -->
-        <jni.classifier>${os.detected.name}-aarch_64</jni.classifier>
+        <jniArch>aarch_64</jniArch>
         <!-- As we cross-compile just skip the tests because we could not load this lib on the system anyway -->
         <skipTests>true</skipTests>
+        <extraConfigureArg>--host=aarch64-linux-gnu</extraConfigureArg>
       </properties>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-enforcer-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>enforce-release-environment</id>
-                <goals>
-                  <goal>enforce</goal>
-                </goals>
-                <configuration>
-                  <rules>
-                    <requireProperty>
-                      <regexMessage>
-                        Cross compile and Release process must be performed on linux-x86_64.
-                      </regexMessage>
-                      <property>os.detected.classifier</property>
-                      <regex>^linux-x86_64.*</regex>
-                    </requireProperty>
-                  </rules>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-dependency-plugin</artifactId>
-            <executions>
-              <!-- unpack the unix-common static library and include files -->
-              <execution>
-                <id>unpack</id>
-                <phase>generate-sources</phase>
-                <goals>
-                  <goal>unpack-dependencies</goal>
-                </goals>
-                <configuration>
-                  <includeGroupIds>io.netty</includeGroupIds>
-                  <includeArtifactIds>netty-transport-native-unix-common</includeArtifactIds>
-                  <classifier>${jni.classifier}</classifier>
-                  <outputDirectory>${unix.common.lib.dir}</outputDirectory>
-                  <includes>META-INF/native/**</includes>
-                  <overWriteReleases>false</overWriteReleases>
-                  <overWriteSnapshots>true</overWriteSnapshots>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-
-          <plugin>
-            <groupId>org.fusesource.hawtjni</groupId>
-            <artifactId>maven-hawtjni-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>build-native-lib</id>
-                <configuration>
-                  <name>netty_transport_native_io_uring_aarch_64</name>
-                  <nativeSourceDirectory>${nativeSourceDirectory}</nativeSourceDirectory>
-                  <libDirectory>${project.build.outputDirectory}</libDirectory>
-                  <!-- We use Maven's artifact classifier instead.
-                       This hack will make the hawtjni plugin to put the native library
-                       under 'META-INF/native' rather than 'META-INF/native/${platform}'. -->
-                  <platform>.</platform>
-                  <configureArgs>
-                    <arg>${jni.compiler.args.ldflags}</arg>
-                    <arg>${jni.compiler.args.cflags}</arg>
-                    <configureArg>--libdir=${project.build.directory}/native-build/target/lib</configureArg>
-                    <configureArg>--host=aarch64-linux-gnu</configureArg>
-                  </configureArgs>
-                </configuration>
-                <goals>
-                  <goal>generate</goal>
-                  <goal>build</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-jar-plugin</artifactId>
-            <executions>
-              <!-- Generate the JAR that contains the native library in it. -->
-              <execution>
-                <id>native-jar</id>
-                <goals>
-                  <goal>jar</goal>
-                </goals>
-                <configuration>
-                  <archive>
-                    <manifest>
-                      <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-                    </manifest>
-                    <manifestEntries>
-                      <Bundle-NativeCode>META-INF/native/libnetty_transport_native_io_uring_aarch_64.so; osname=Linux; processor=aarch_64,*</Bundle-NativeCode>
-                      <Automatic-Module-Name>${javaModuleName}</Automatic-Module-Name>
-                    </manifestEntries>
-                    <index>true</index>
-                    <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
-                  </archive>
-                  <classifier>${jni.classifier}</classifier>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-
-      <dependencies>
-        <dependency>
-          <groupId>io.netty</groupId>
-          <artifactId>netty-transport-native-unix-common</artifactId>
-          <version>${netty.version}</version>
-          <classifier>${jni.classifier}</classifier>
-          <!--
-            The unix-common with classifier dependency is optional because it is not a runtime dependency, but a build time
-            dependency to get the static library which is built directly into the shared library generated by this project.
-          -->
-          <optional>true</optional>
-        </dependency>
-      </dependencies>
     </profile>
     <profile>
       <id>leak</id>
