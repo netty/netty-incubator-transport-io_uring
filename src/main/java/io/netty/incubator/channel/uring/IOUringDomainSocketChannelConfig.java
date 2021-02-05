@@ -51,9 +51,6 @@ public final class IOUringDomainSocketChannelConfig extends DefaultChannelConfig
     @SuppressWarnings("unchecked")
     @Override
     public <T> T getOption(ChannelOption<T> option) {
-        if (option == DOMAIN_SOCKET_READ_MODE) {
-            return (T) getReadMode();
-        }
         if (option == ALLOW_HALF_CLOSURE) {
             return (T) Boolean.valueOf(isAllowHalfClosure());
         }
@@ -70,9 +67,7 @@ public final class IOUringDomainSocketChannelConfig extends DefaultChannelConfig
     public <T> boolean setOption(ChannelOption<T> option, T value) {
         validate(option, value);
 
-        if (option == DOMAIN_SOCKET_READ_MODE) {
-            setReadMode((DomainSocketReadMode) value);
-        } else if (option == ALLOW_HALF_CLOSURE) {
+        if (option == ALLOW_HALF_CLOSURE) {
             setAllowHalfClosure((Boolean) value);
         } else if (option == SO_SNDBUF) {
             setSendBufferSize((Integer) value);
@@ -156,6 +151,11 @@ public final class IOUringDomainSocketChannelConfig extends DefaultChannelConfig
 
     @Override
     public IOUringDomainSocketChannelConfig setReadMode(DomainSocketReadMode mode) {
+        // File descriptors cannot be transferred with io_uring yet
+        if (mode == DomainSocketReadMode.FILE_DESCRIPTORS) {
+            throw new IllegalArgumentException("File descriptor transfers aren't supported with io_uring");
+        }
+
         this.mode = ObjectUtil.checkNotNull(mode, "mode");
         return this;
     }

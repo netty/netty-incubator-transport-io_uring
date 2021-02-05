@@ -37,12 +37,11 @@ final class Sockaddr {
 
     private Sockaddr() { }
 
-    static int write(long memory, SocketAddress address) {
+    static int write(boolean ipv6, long memory, SocketAddress address) {
         if (address instanceof DomainSocketAddress) {
             return Sockaddr.writeDomain(memory, ((DomainSocketAddress) address).path());
         } else if (address instanceof InetSocketAddress) {
             InetSocketAddress inetSocketAddress = (InetSocketAddress) address;
-            boolean ipv6 = ((InetSocketAddress) address).getAddress() instanceof Inet6Address;
             if (ipv6) {
                 return Sockaddr.writeIPv6(memory, inetSocketAddress.getAddress(), inetSocketAddress.getPort());
             } else {

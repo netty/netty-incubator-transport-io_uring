@@ -676,7 +676,7 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
                 remoteAddressMemory = Buffer.allocateDirectWithNativeOrder(Native.SIZEOF_SOCKADDR_STORAGE);
                 long remoteAddressMemoryAddress = Buffer.memoryAddress(remoteAddressMemory);
 
-                int addrLen = Sockaddr.write(remoteAddressMemoryAddress, remoteAddress);
+                int addrLen = Sockaddr.write(socket.isIpv6(), remoteAddressMemoryAddress, remoteAddress);
 
                 final IOUringSubmissionQueue ioUringSubmissionQueue = submissionQueue();
                 ioUringSubmissionQueue.addConnect(socket.intValue(), remoteAddressMemoryAddress, addrLen, (short) 0);
