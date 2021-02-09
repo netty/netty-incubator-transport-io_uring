@@ -76,13 +76,9 @@ jobs:
       - name: Create local staging directory
         run: mkdir -p ~/local-staging
 
-      - name: Install expect
-        run: sudo apt-get update && sudo apt-get -y install expect
-
       - name: Install gpg secret key
         run: |
           cat <(echo -e "${{ secrets.GPG_PRIVATE_KEY }}") | gpg --batch --import
-          expect -c "spawn gpg --edit-key ${{ secrets.GPG_KEYNAME }}k trust quit; send \"5\ry\r\"; expect eof"
           gpg --list-secret-keys --keyid-format LONG
 
       # Enable caching of Docker layers
