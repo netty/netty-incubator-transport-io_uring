@@ -51,7 +51,7 @@
     <url>https://github.com/netty/netty-incubator-transport-io_uring</url>
     <connection>scm:git:git://github.com/netty/netty-incubator-transport-io_uring.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/netty/netty-incubator-transport-io_uring.git</developerConnection>
-    <tag>release_test</tag>
+    <tag>HEAD</tag>
   </scm>
 
   <developers>
