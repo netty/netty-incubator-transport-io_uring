@@ -50,6 +50,22 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Download release.properties
+        uses: actions/download-artifact@v2
+        with:
+          name: release.properties
+          path: ~/release/
+
+      - name: Checkout release tag
+        run: ./.github/scripts/git_checkout_release_tag.sh
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v3
+        with:
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
       # Enable caching of Docker layers
       - uses: satackey/action-docker-layer-caching@v0.0.11
         env:
