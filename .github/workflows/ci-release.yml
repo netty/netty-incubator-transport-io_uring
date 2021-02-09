@@ -50,7 +50,7 @@ jobs:
       - name: Upload workspace
         uses: actions/upload-artifact@v2
         with:
-          name: release-workspace
+          name: prepare-release-workspace
           path: ${{ github.workspace }}/**
 
   stage-release:
@@ -70,11 +70,13 @@ jobs:
       - name: Download release-workspace
         uses: actions/download-artifact@v2
         with:
-          name: release-workspace
-          path: ~/release-workspace/
+          name: prepare-release-workspace
+          path: ~/prepare-release-workspace/
 
       - name: Create local staging directory
         run: mkdir -p ~/local-staging
+
+      - run: ls -lta ~/prepare-release-workspace/
 
       - name: Import GPG key
         id: import_gpg
@@ -94,11 +96,11 @@ jobs:
             ${{ runner.os }}-staging-${{ env.docker-cache-name }}-
 
       - name: Build docker image
-        working-directory: ~/release-workspace/
+        working-directory: ~/prepare-release-workspace/
         run: docker-compose ${{ matrix.docker-compose-build }}
 
       - name: Stage snapshots to local staging directory
-        working-directory: ~/release-workspace/
+        working-directory: ~/prepare-release-workspace/
         env:
           GPG_KEYNAME: ${{ secrets.GPG_KEYNAME }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -118,8 +120,8 @@ jobs:
       - name: Download release-workspace
         uses: actions/download-artifact@v2
         with:
-          name: release-workspace
-          path: ~/release-workspace/
+          name: prepare-release-workspace
+          path: ~/prepare-release-workspace/
 
       - name: Set up JDK 8
         uses: actions/setup-java@v1
@@ -174,5 +176,5 @@ jobs:
             }]
 
       - name: Deploy local staged artifacts
-        working-directory: ~/release-workspace/
+        working-directory: ~/prepare-release-workspace/
         run: mvn -B --file pom.xml org.sonatype.plugins:nexus-staging-maven-plugin:deploy-staged -DaltStagingDirectory=$LOCAL_STAGING_DIR
