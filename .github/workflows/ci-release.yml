@@ -75,7 +75,6 @@ jobs:
 
       - name: Change to release-workspace directory
         run: cd ~/release-workspace/
-      - run: ls -lta *
 
       # Enable caching of Docker layers
       - uses: satackey/action-docker-layer-caching@v0.0.11
