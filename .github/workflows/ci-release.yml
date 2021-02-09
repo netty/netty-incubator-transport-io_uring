@@ -93,17 +93,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-staging-${{ env.docker-cache-name }}-
 
-      - name: Setup .env file
-        run: |
-          echo "GPG_KEYNAME=${{ secrets.GPG_KEYNAME }}" > ./prepare-release-workspace/.env
-          echo "GPG_PASSPHRASE=${{ secrets.GPG_PASSPHRASE }}" >> ./prepare-release-workspace/.env
-
       - name: Build docker image
         working-directory: ./prepare-release-workspace/
         run: docker-compose ${{ matrix.docker-compose-build }}
 
       - name: Stage snapshots to local staging directory
         working-directory: ./prepare-release-workspace/
+        env:
+          GPG_KEYNAME: F3D1600878E85A3D
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: docker-compose ${{ matrix.docker-compose-run }}
 
       - name: Upload local staging directory
