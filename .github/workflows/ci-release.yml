@@ -19,6 +19,7 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 8
+
       # Cache .m2/repository
       - uses: actions/cache@v2
         env:
@@ -34,6 +35,13 @@ jobs:
         run: |
           git config --global user.email "netty-project-bot@users.noreply.github.com"
           git config --global user.name "Netty Project Bot"
+
+      - name: Setup SSH for tagging
+        run: |
+          mkdir ~/.ssh
+          touch ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" >> ~/.ssh/id_rsa
 
       - name: Prepare release with Maven
         run: mvn -DpreparationGoals=clean release:prepare -B --file pom.xml -DskipTests=true
