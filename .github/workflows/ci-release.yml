@@ -39,10 +39,8 @@ jobs:
       - name: Setup SSH for tagging
         run: |
           mkdir ~/.ssh
-          touch ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" >> ~/.ssh/id_rsa
-
       - name: Prepare release with Maven
         run: mvn -DpreparationGoals=clean release:prepare -B --file pom.xml -DskipTests=true
 
