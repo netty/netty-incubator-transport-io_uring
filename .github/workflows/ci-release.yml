@@ -75,7 +75,7 @@ jobs:
           path: ~/release/
 
       - name: Checkout release tag
-        run: ./.github/scripts/git_checkout_release_tag.sh
+        run: ./.github/scripts/git_checkout_release_tag.sh ~/release/release.properties
 
       # Enable caching of Docker layers
       - uses: satackey/action-docker-layer-caching@v0.0.11
