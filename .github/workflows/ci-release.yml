@@ -150,7 +150,7 @@ jobs:
       # Setup some env to re-use later.
       - name: Prepare enviroment variables
         run: |
-          echo "LOCAL_STAGING_DIR=./local-staging" >> $GITHUB_ENV
+          echo "LOCAL_STAGING_DIR=~/local-staging" >> $GITHUB_ENV
 
       # Hardcode the staging artifacts that need to be downloaded.
       # These must match the matrix setups. There is currently no way to pull this out of the config.
@@ -158,21 +158,21 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: linux-aarch64-local-staging
-          path: ./linux-aarch64-local-staging
+          path: ~/linux-aarch64-local-staging
 
       - name: Download linux-x86_64 staging directory
         uses: actions/download-artifact@v2
         with:
           name: linux-x86_64-local-staging
-          path: ./linux-x86_64-local-staging
+          path: ~/linux-x86_64-local-staging
 
       - name: Merge staging repositories
         run: |
-          mkdir -p ./local-staging/deferred
-          cat ./linux-aarch64-local-staging/deferred/.index >>  ./local-staging/deferred/.index
-          cp -r ./linux-aarch64-local-staging/deferred/* ./local-staging/deferred/
-          cat ./linux-x86_64-local-staging/deferred/.index >>  ./local-staging/deferred/.index
-          cp -r ./linux-x86_64-local-staging/deferred/* ./local-staging/deferred/
+          mkdir -p ~/local-staging/deferred
+          cat ~/linux-aarch64-local-staging/deferred/.index >>  ~/local-staging/deferred/.index
+          cp -r /linux-aarch64-local-staging/deferred/* ~/local-staging/deferred/
+          cat ~/linux-x86_64-local-staging/deferred/.index >>  ~/local-staging/deferred/.index
+          cp -r ~/linux-x86_64-local-staging/deferred/* /local-staging/deferred/
 
       - uses: s4u/maven-settings-action@v2.2.0
         with:
@@ -185,4 +185,4 @@ jobs:
 
       - name: Deploy local staged artifacts
         working-directory: ./prepare-release-workspace/
-        run: mvn -B --file pom.xml org.sonatype.plugins:nexus-staging-maven-plugin:deploy-staged -DaltStagingDirectory=$LOCAL_STAGING_DIR
+        run: mvn -B --file pom.xml org.sonatype.plugins:nexus-staging-maven-plugin:deploy-staged -DstagingRepositoryId=ionetty -DnexusUrl=https://oss.sonatype.org -DserverId=sonatype-nexus-staging -DaltStagingDirectory=$LOCAL_STAGING_DIR
