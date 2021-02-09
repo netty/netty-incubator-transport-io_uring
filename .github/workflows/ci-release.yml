@@ -74,7 +74,7 @@ jobs:
           path: ./prepare-release-workspace/
 
       - name: Create local staging directory
-        run: mkdir -p /local-staging
+        run: mkdir -p ~/local-staging
 
       - name: Import GPG key
         id: import_gpg
@@ -110,7 +110,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.setup }}-local-staging
-          path: /local-staging
+          path: ~/local-staging
 
   deploy-staged-release:
     runs-on: ubuntu-18.04
