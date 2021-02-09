@@ -76,8 +76,6 @@ jobs:
       - name: Create local staging directory
         run: mkdir -p ~/local-staging
 
-      - run: ls -lta ~/prepare-release-workspace/
-
       - name: Import GPG key
         id: import_gpg
         uses: crazy-max/ghaction-import-gpg@v3
