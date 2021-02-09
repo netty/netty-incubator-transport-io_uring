@@ -96,11 +96,11 @@ jobs:
             ${{ runner.os }}-staging-${{ env.docker-cache-name }}-
 
       - name: Build docker image
-        working-directory: ~/prepare-release-workspace/
+        working-directory: /home/runner/prepare-release-workspace/
         run: docker-compose ${{ matrix.docker-compose-build }}
 
       - name: Stage snapshots to local staging directory
-        working-directory: ~/prepare-release-workspace/
+        working-directory: /home/runner/prepare-release-workspace/
         env:
           GPG_KEYNAME: ${{ secrets.GPG_KEYNAME }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -176,5 +176,5 @@ jobs:
             }]
 
       - name: Deploy local staged artifacts
-        working-directory: ~/prepare-release-workspace/
+        working-directory: /home/runner/prepare-release-workspace/
         run: mvn -B --file pom.xml org.sonatype.plugins:nexus-staging-maven-plugin:deploy-staged -DaltStagingDirectory=$LOCAL_STAGING_DIR
