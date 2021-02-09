@@ -47,6 +47,9 @@ jobs:
           mvn -DpreparationGoals=clean release:prepare -B --file pom.xml -DskipTests=true
           mvn clean
 
+      - name: Checkout tag
+        run: ./.github/scripts/git_checkout_release_tag.sh release.properties
+
       - name: Upload workspace
         uses: actions/upload-artifact@v2
         with:

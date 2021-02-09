@@ -9,6 +9,5 @@ fi
 TAG=`cat $1 | grep scm.tag= | cut -d'=' -f2`
 
 echo "Checkout tag $TAG"
-git fetch origin
-git checkout tags/$TAG
+git checkout $TAG
 exit 0
