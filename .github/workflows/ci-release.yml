@@ -48,7 +48,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: release.properties
-          path: ~/release.properties
+          path: release.properties
 
   stage-release:
     runs-on: ubuntu-latest
