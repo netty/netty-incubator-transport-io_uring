@@ -76,6 +76,9 @@ jobs:
       - name: Create local staging directory
         run: mkdir -p ~/local-staging
 
+      - name: Install expect
+        run: apt-get update && apt-get -y install expect
+
       - name: Install gpg secret key
         run: |
           cat <(echo -e "${{ secrets.GPG_PRIVATE_KEY }}") | gpg --batch --import
