@@ -97,7 +97,7 @@ jobs:
   deploy-staged-release:
     runs-on: ubuntu-18.04
     # Wait until we have staged everything
-    needs: stage-snapshot
+    needs: stage-release
     steps:
       - uses: actions/checkout@v2
 
