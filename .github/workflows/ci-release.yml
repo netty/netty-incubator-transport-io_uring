@@ -98,7 +98,7 @@ jobs:
       - name: Stage snapshots to local staging directory
         working-directory: ./prepare-release-workspace/
         env:
-          GPG_KEYNAME: F3D1600878E85A3D
+          GPG_KEYNAME: ${{ secrets.GPG_KEYNAME }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: docker-compose ${{ matrix.docker-compose-run }}
 
