@@ -26,7 +26,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pr-${{ env.cache-name }}-
             ${{ runner.os }}-pr-
-      - name: Verify with Maven
+
+      - name: Setup git configuration
+        run: |
+          git config --global user.email "netty-project-bot@users.noreply.github.com"
+          git config --global user.name "Netty Project Bot"
+
+      - name: Prepare release with Maven
         run: mvn -DpreparationGoals=clean release:prepare -B --file pom.xml -DskipTests=true
 
       - name: Upload release.properties
@@ -37,6 +43,7 @@ jobs:
 
   stage-release:
     runs-on: ubuntu-latest
+    needs: prepare-release
     strategy:
       matrix:
         include:
