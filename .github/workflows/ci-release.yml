@@ -168,11 +168,11 @@ jobs:
 
       - name: Merge staging repositories
         run: |
-          mkdir -p ~/local-staging/deferred
-          cat ~/linux-aarch64-local-staging/deferred/.index >>  ~/local-staging/deferred/.index
-          cp -r /linux-aarch64-local-staging/deferred/* ~/local-staging/deferred/
-          cat ~/linux-x86_64-local-staging/deferred/.index >>  ~/local-staging/deferred/.index
-          cp -r ~/linux-x86_64-local-staging/deferred/* /local-staging/deferred/
+          mkdir -p ~/local-staging/4bff52f5c6da2
+          cat ~/linux-aarch64-local-staging/4bff52f5c6da2/.index >>  ~/local-staging/4bff52f5c6da2/.index
+          cp -r /linux-aarch64-local-staging/4bff52f5c6da2/* ~/local-staging/4bff52f5c6da2/
+          cat ~/linux-x86_64-local-staging/4bff52f5c6da2/.index >>  ~/local-staging/4bff52f5c6da2/.index
+          cp -r ~/linux-x86_64-local-staging/4bff52f5c6da2/* /local-staging/4bff52f5c6da2/
 
       - uses: s4u/maven-settings-action@v2.2.0
         with:
