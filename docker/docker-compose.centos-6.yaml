@@ -44,6 +44,20 @@ services:
       - ..:/code
     command: /bin/bash -cl "./mvnw clean package org.sonatype.plugins:nexus-staging-maven-plugin:deploy -DaltStagingDirectory=/root/local-staging -DskipRemoteStaging=true -DskipTests=true"
 
+  stage-release:
+    <<: *common
+    environment:
+      - GPG_KEYNAME
+      - GPG_PASSPHRASE
+    volumes:
+      - ~/.ssh:/root/.ssh
+      - ~/.gnupg:/root/.gnupg
+      - ~/.m2:/root/.m2
+      - ~/local-staging:/root/local-staging
+      - ..:/code
+    command: /bin/bash -cl "./mvnw clean package gpg:sign org.sonatype.plugins:nexus-staging-maven-plugin:deploy -DaltStagingDirectory=/root/local-staging -DskipRemoteStaging=true -DskipTests=true -Dgpg.passphrase=$GPG_PASSPHRASE -Dgpg.keyname=$GPG_KEYNAME"
+
+
   shell:
     <<: *common
     environment:

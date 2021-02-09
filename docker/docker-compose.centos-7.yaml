@@ -39,6 +39,18 @@ services:
       - ..:/code
     command: /bin/bash -cl "./mvnw -Plinux,linux-aarch64 clean package org.sonatype.plugins:nexus-staging-maven-plugin:deploy -DaltStagingDirectory=/root/local-staging -DskipRemoteStaging=true -DskipTests=true"
 
+  cross-compile-aarch64-stage-release:
+    <<: *cross-compile-aarch64-common
+    environment:
+      - GPG_KEYNAME
+      - GPG_PASSPHRASE
+    volumes:
+      - ~/.ssh:/root/.ssh
+      - ~/.gnupg:/root/.gnupg
+      - ~/.m2:/root/.m2
+      - ~/local-staging:/root/local-staging
+      - ..:/code
+    command: /bin/bash -cl "./mvnw -Plinux,linux-aarch64 clean package gpg:sign org org.sonatype.plugins:nexus-staging-maven-plugin:deploy -DaltStagingDirectory=/root/local-staging -DskipRemoteStaging=true -DskipTests=true -Dgpg.passphrase=$GPG_PASSPHRASE -Dgpg.keyname=$GPG_KEYNAME"
 
   cross-compile-aarch64-shell:
     <<: *cross-compile-aarch64-common
