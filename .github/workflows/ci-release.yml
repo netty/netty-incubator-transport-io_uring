@@ -74,7 +74,7 @@ jobs:
           path: ./prepare-release-workspace/
 
       - name: Create local staging directory
-        run: mkdir -p ~/local-staging
+        run: mkdir -p /local-staging
 
       - name: Import GPG key
         id: import_gpg
@@ -82,6 +82,8 @@ jobs:
         with:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - run: ls -lta ~/.gnupg
 
       # Enable caching of Docker layers
       - uses: satackey/action-docker-layer-caching@v0.0.11
