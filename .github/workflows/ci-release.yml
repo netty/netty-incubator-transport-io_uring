@@ -98,6 +98,15 @@ jobs:
         working-directory: ./prepare-release-workspace/
         run: docker-compose ${{ matrix.docker-compose-build }}
 
+      - uses: s4u/maven-settings-action@v2.2.0
+        with:
+          servers: |
+            [{
+              "id": "sonatype-nexus-staging",
+              "username": "${{ secrets.SONATYPE_USERNAME }}",
+              "password": "${{ secrets.SONATYPE_PASSWORD }}"
+            }]
+
       - name: Stage snapshots to local staging directory
         working-directory: ./prepare-release-workspace/
         env:
@@ -169,7 +178,7 @@ jobs:
         with:
           servers: |
             [{
-              "id": "sonatype-nexus",
+              "id": "sonatype-nexus-staging",
               "username": "${{ secrets.SONATYPE_USERNAME }}",
               "password": "${{ secrets.SONATYPE_PASSWORD }}"
             }]
