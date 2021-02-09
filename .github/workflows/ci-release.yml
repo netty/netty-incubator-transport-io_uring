@@ -77,7 +77,7 @@ jobs:
         run: mkdir -p ~/local-staging
 
       - name: Install expect
-        run: apt-get update && apt-get -y install expect
+        run: sudo apt-get update && sudo apt-get -y install expect
 
       - name: Install gpg secret key
         run: |
