@@ -10,9 +10,6 @@ for ((i=2; i<=$#; i++))
 do
   DIR="${!i}"
   SUB_DIR=$(ls -d "${DIR}"/* | awk -F / '{print $NF}')
-  echo "${DIR}"
-  echo "${SUB_DIR}"
-  echo "${TARGET}/${SUB_DIR}"
 
   if [ ! -d "${TARGET}/${SUB_DIR}" ]
   then
