@@ -24,7 +24,7 @@
 
   <groupId>io.netty.incubator</groupId>
   <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-  <version>0.0.4.Final-SNAPSHOT</version>
+  <version>0.0.4.Final</version>
   <name>Netty/Incubator/Transport/Native/io_uring</name>
   <packaging>jar</packaging>
   <url>https://netty.io/</url>
@@ -51,7 +51,7 @@
     <url>https://github.com/netty/netty-incubator-transport-io_uring</url>
     <connection>scm:git:git://github.com/netty/netty-incubator-transport-io_uring.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/netty/netty-incubator-transport-io_uring.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>netty-incubator-transport-native-io_uring-0.0.4.Final</tag>
   </scm>
 
   <developers>
@@ -80,7 +80,7 @@
     <jni.classifier>${os.detected.name}-${jniArch}</jni.classifier>
     <jniLibName>netty_transport_native_io_uring_${jniArch}</jniLibName>
     <nativeLibOnlyDir>${project.build.directory}/native-lib-only</nativeLibOnlyDir>
-    <extraConfigureArg/>
+    <extraConfigureArg />
     <test.argLine>-D_</test.argLine>
 
     <checkstyle.version>8.38</checkstyle.version>
