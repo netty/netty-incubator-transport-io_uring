@@ -20,5 +20,8 @@ services:
   stage-snapshot:
     image: netty-io_uring:centos-6-1.8
 
+  stage-release:
+    image: netty-io_uring:centos-6-1.8
+
   shell:
     image: netty-io_uring:centos-6-1.8
