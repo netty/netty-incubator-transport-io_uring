@@ -93,13 +93,10 @@ jobs:
           name: linux-x86_64-local-staging
           path: ~/linux-x86_64-local-staging
 
+      # This step takes care of merging all the previous staged repositories in a way that will allow us to deploy
+      # all together with one maven command.
       - name: Merge staging repositories
-        run: |
-          mkdir -p ~/local-staging/deferred
-          cat ~/linux-aarch64-local-staging/deferred/.index >>  ~/local-staging/deferred/.index
-          cp -r ~/linux-aarch64-local-staging/deferred/* ~/local-staging/deferred/
-          cat ~/linux-x86_64-local-staging/deferred/.index >>  ~/local-staging/deferred/.index
-          cp -r ~/linux-x86_64-local-staging/deferred/* ~/local-staging/deferred/
+        run: bash ./.github/scripts/merge_local_staging.sh ~/local-staging ~/linux-aarch64-local-staging ~/linux-x86_64-local-staging
 
       - uses: s4u/maven-settings-action@v2.2.0
         with:
