@@ -6,8 +6,8 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-TAG=`cat $1 | grep scm.tag= | cut -d'=' -f2`
+TAG=$(grep scm.tag= "$1"| cut -d'=' -f2)
 
 echo "Checkout tag $TAG"
-git checkout $TAG
+git checkout "$TAG"
 exit 0
