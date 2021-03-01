@@ -34,6 +34,7 @@ final class Native {
     static final int DEFAULT_RING_SIZE = Math.max(64, SystemPropertyUtil.getInt("io.netty.uring.ringSize", 4096));
     static final int DEFAULT_IOSEQ_ASYNC_THRESHOLD =
             Math.max(0, SystemPropertyUtil.getInt("io.netty.uring.iosqeAsyncThreshold", 25));
+    static final int DEFAULT_RING_FLAGS = Math.max(0, SystemPropertyUtil.getInt("io.netty.uring.ringFlags", 0));
 
     static {
         Selector selector = null;
@@ -139,11 +140,11 @@ final class Native {
     };
 
     static RingBuffer createRingBuffer(int ringSize) {
-        return createRingBuffer(ringSize, DEFAULT_IOSEQ_ASYNC_THRESHOLD);
+        return createRingBuffer(ringSize, DEFAULT_IOSEQ_ASYNC_THRESHOLD, DEFAULT_RING_FLAGS);
     }
 
-    static RingBuffer createRingBuffer(int ringSize, int iosqeAsyncThreshold) {
-        long[][] values = ioUringSetup(ringSize);
+    static RingBuffer createRingBuffer(int ringSize, int iosqeAsyncThreshold, int flags) {
+        long[][] values = ioUringSetup(ringSize, flags);
         assert values.length == 2;
         long[] submissionQueueArgs = values[0];
         assert submissionQueueArgs.length == 11;
@@ -176,7 +177,7 @@ final class Native {
     }
 
     static RingBuffer createRingBuffer() {
-        return createRingBuffer(DEFAULT_RING_SIZE, DEFAULT_IOSEQ_ASYNC_THRESHOLD);
+        return createRingBuffer(DEFAULT_RING_SIZE, DEFAULT_IOSEQ_ASYNC_THRESHOLD, DEFAULT_RING_FLAGS);
     }
 
     static void checkAllIOSupported(int ringFd) {
@@ -187,7 +188,7 @@ final class Native {
     }
 
     private static native boolean ioUringProbe(int ringFd, int[] ios);
-    private static native long[][] ioUringSetup(int entries);
+    private static native long[][] ioUringSetup(int entries, int flags);
 
     public static native int ioUringEnter(int ringFd, int toSubmit, int minComplete, int flags);
 

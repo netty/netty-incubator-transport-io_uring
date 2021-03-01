@@ -19,7 +19,7 @@ import io.netty.channel.unix.FileDescriptor;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -43,7 +43,7 @@ public class NativeTest {
         ByteBufAllocator allocator = new UnpooledByteBufAllocator(true);
         final ByteBuf writeEventByteBuf = allocator.directBuffer(100);
         final String inputString = "Hello World!";
-        writeEventByteBuf.writeCharSequence(inputString, Charset.forName("UTF-8"));
+        writeEventByteBuf.writeCharSequence(inputString, StandardCharsets.UTF_8);
 
         int fd = Native.createFile();
 

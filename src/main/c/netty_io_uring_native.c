@@ -221,9 +221,10 @@ done:
 }
 
 
-static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries) {
+static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries, jint flags) {
     struct io_uring_params p;
     memset(&p, 0, sizeof(p));
+    p.flags = flags;
 
     jobjectArray array = (*env)->NewObjectArray(env, 2, longArrayClass, NULL);
     if (array == NULL) {
@@ -539,7 +540,7 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
 static const jint statically_referenced_fixed_method_table_size = sizeof(statically_referenced_fixed_method_table) / sizeof(statically_referenced_fixed_method_table[0]);
 
 static const JNINativeMethod method_table[] = {
-    {"ioUringSetup", "(I)[[J", (void *) netty_io_uring_setup},
+    {"ioUringSetup", "(II)[[J", (void *) netty_io_uring_setup},
     {"ioUringProbe", "(I[I)Z", (void *) netty_io_uring_probe},
     {"ioUringExit", "(JIJIJII)V", (void *) netty_io_uring_ring_buffer_exit},
     {"createFile", "()I", (void *) netty_create_file},

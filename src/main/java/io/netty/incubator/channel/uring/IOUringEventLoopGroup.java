@@ -25,8 +25,11 @@ import io.netty.util.concurrent.RejectedExecutionHandlers;
 import io.netty.util.concurrent.ThreadPerTaskExecutor;
 import io.netty.util.internal.ObjectUtil;
 
+import java.util.Arrays;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
+
+import static io.netty.incubator.channel.uring.Native.DEFAULT_RING_FLAGS;
 
 public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
     static {
@@ -88,27 +91,39 @@ public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
      */
     public IOUringEventLoopGroup(int nThreads, Executor executor, int ringsize, int iosqeAsyncThreshold) {
         this(nThreads, executor, DefaultEventExecutorChooserFactory.INSTANCE,
-                ringsize, iosqeAsyncThreshold, RejectedExecutionHandlers.reject());
+                ringsize, iosqeAsyncThreshold, DEFAULT_RING_FLAGS, RejectedExecutionHandlers.reject());
+    }
+
+    /**
+     * Create a new instance using the specified number of threads, the given {@link Executor}, the given
+     * size of the used ringbuffer and a threshold of registered FDs after which
+     * <a href=https://manpages.debian.org/unstable/liburing-dev/io_uring_enter.2.en.html>IOSEQ_ASYNC</a> should be
+     * used for  IO operations.
+     */
+    public IOUringEventLoopGroup(int nThreads, Executor executor, int ringsize, int iosqeAsyncThreshold, int flags) {
+        this(nThreads, executor, DefaultEventExecutorChooserFactory.INSTANCE,
+             ringsize, iosqeAsyncThreshold, flags, RejectedExecutionHandlers.reject());
     }
 
     private IOUringEventLoopGroup(int nThreads, Executor executor, EventExecutorChooserFactory chooserFactory,
-                                  int ringSize, int iosqeAsyncThreshold,
+                                  int ringSize, int iosqeAsyncThreshold, int flags,
                                   RejectedExecutionHandler rejectedExecutionHandler) {
-        this(nThreads, executor, chooserFactory, ringSize, iosqeAsyncThreshold, rejectedExecutionHandler, null);
+        this(nThreads, executor, chooserFactory, ringSize, iosqeAsyncThreshold, flags, rejectedExecutionHandler, null);
     }
 
     private IOUringEventLoopGroup(int nThreads, Executor executor, EventExecutorChooserFactory chooserFactory,
-                                  int ringSize, int iosqeAsyncThreshold,
+                                  int ringSize, int iosqeAsyncThreshold, int flags,
                                   RejectedExecutionHandler rejectedExecutionHandler,
                                   EventLoopTaskQueueFactory queueFactory) {
-        super(nThreads, executor, chooserFactory, ringSize, iosqeAsyncThreshold,
+        super(nThreads, executor, chooserFactory, ringSize, iosqeAsyncThreshold, flags,
                 rejectedExecutionHandler, queueFactory);
     }
 
     @Override
     protected EventLoop newChild(Executor executor, Object... args) {
-        if (args.length != 4) {
-            throw new IllegalArgumentException("Illegal amount of extra arguments");
+        if (args.length != 5) {
+            throw new IllegalArgumentException("Illegal amount of extra arguments: " + args.length +
+                                               ". " + Arrays.toString(args));
         }
         int ringSize = ObjectUtil.checkPositiveOrZero((Integer) args[0], "ringSize");
         if (ringSize == 0) {
@@ -116,9 +131,10 @@ public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
         }
 
         int iosqeAsyncThreshold =  ObjectUtil.checkPositiveOrZero((Integer) args[1], "iosqeAsyncThreshold");
-        RejectedExecutionHandler rejectedExecutionHandler = (RejectedExecutionHandler) args[2];
-        EventLoopTaskQueueFactory taskQueueFactory = (EventLoopTaskQueueFactory) args[3];
-        return new IOUringEventLoop(this, executor, ringSize, iosqeAsyncThreshold,
+        int flags =  ObjectUtil.checkPositiveOrZero((Integer) args[2], "flags");
+        RejectedExecutionHandler rejectedExecutionHandler = (RejectedExecutionHandler) args[3];
+        EventLoopTaskQueueFactory taskQueueFactory = (EventLoopTaskQueueFactory) args[4];
+        return new IOUringEventLoop(this, executor, ringSize, iosqeAsyncThreshold, flags,
                 rejectedExecutionHandler, taskQueueFactory);
     }
 }
