@@ -485,6 +485,11 @@ static jint netty_io_uring_iosqeAsync(JNIEnv* env, jclass clazz) {
     return IOSQE_ASYNC;
 }
 
+static jint netty_io_uring_msgDontwait(JNIEnv* env, jclass clazz) {
+    return MSG_DONTWAIT;
+}
+
+
 
 // JNI Method Registration Table Begin
 static const JNINativeMethod statically_referenced_fixed_method_table[] = {
@@ -534,7 +539,8 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
   { "ioringOpSendmsg", "()B", (void *) netty_io_uring_ioringOpSendmsg },
   { "ioringOpRecvmsg", "()B", (void *) netty_io_uring_ioringOpRecvmsg },
   { "ioringEnterGetevents", "()I", (void *) netty_io_uring_ioringEnterGetevents },
-  { "iosqeAsync", "()I", (void *) netty_io_uring_iosqeAsync }
+  { "iosqeAsync", "()I", (void *) netty_io_uring_iosqeAsync },
+  { "msgDontwait", "()I", (void *) netty_io_uring_msgDontwait }
 };
 static const jint statically_referenced_fixed_method_table_size = sizeof(statically_referenced_fixed_method_table) / sizeof(statically_referenced_fixed_method_table[0]);
 
