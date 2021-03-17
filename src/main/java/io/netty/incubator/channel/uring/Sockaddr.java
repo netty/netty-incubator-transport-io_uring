@@ -15,29 +15,40 @@
  */
 package io.netty.incubator.channel.uring;
 
+import io.netty.channel.unix.DomainSocketAddress;
+import io.netty.util.CharsetUtil;
 import io.netty.util.internal.PlatformDependent;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.UnknownHostException;
 
 import static io.netty.util.internal.PlatformDependent.BIG_ENDIAN_NATIVE_ORDER;
 
-final class SockaddrIn {
+final class Sockaddr {
     static final byte[] IPV4_MAPPED_IPV6_PREFIX = {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, (byte) 0xff, (byte) 0xff };
     static final int IPV4_ADDRESS_LENGTH = 4;
     static final int IPV6_ADDRESS_LENGTH = 16;
+    static final int DOMAIN_ADDRESS_LENGTH = 108;
 
-    private SockaddrIn() { }
+    private Sockaddr() { }
 
-    static int write(boolean ipv6, long memory, InetSocketAddress address) {
-        if (ipv6) {
-            return SockaddrIn.writeIPv6(memory, address.getAddress(), address.getPort());
+    static int write(boolean ipv6, long memory, SocketAddress address) {
+        if (address instanceof DomainSocketAddress) {
+            return Sockaddr.writeDomain(memory, ((DomainSocketAddress) address).path());
+        } else if (address instanceof InetSocketAddress) {
+            InetSocketAddress inetSocketAddress = (InetSocketAddress) address;
+            if (ipv6) {
+                return Sockaddr.writeIPv6(memory, inetSocketAddress.getAddress(), inetSocketAddress.getPort());
+            } else {
+                return Sockaddr.writeIPv4(memory, inetSocketAddress.getAddress(), inetSocketAddress.getPort());
+            }
         } else {
-            return SockaddrIn.writeIPv4(memory, address.getAddress(), address.getPort());
+            throw new IllegalArgumentException("Unknown address family");
         }
     }
 
@@ -145,6 +156,23 @@ final class SockaddrIn {
                 return null;
             }
         }
+    }
+
+    /**
+     * struct sockaddr_un {
+     *     sa_family_t sun_family; // AF_UNIX
+           char sun_path[108];     // Pathname
+     * };
+     */
+    private static int writeDomain(long memory, String path) {
+        PlatformDependent.setMemory(memory, Native.SIZEOF_SOCKADDR_UN, (byte) 0);
+        PlatformDependent.putShort(memory + Native.SOCKADDR_UN_OFFSETOF_SUN_FAMILY, Native.AF_UNIX);
+
+        // It would be nice to avoid the memory copy and allocation here, but we can't.
+        byte[] pathAsBytes = path.getBytes(CharsetUtil.UTF_8);
+        PlatformDependent.copyMemory(pathAsBytes, 0, memory + Native.SOCKADDR_UN_OFFSETOF_SUN_PATH,
+                Math.min(DOMAIN_ADDRESS_LENGTH, pathAsBytes.length));
+        return Native.SOCKADDR_UN_OFFSETOF_SUN_PATH + pathAsBytes.length;
     }
 
     private static short handleNetworkOrder(short v) {

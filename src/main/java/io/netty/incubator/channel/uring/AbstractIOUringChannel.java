@@ -672,16 +672,14 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
                 }
 
                 doConnect(remoteAddress, localAddress);
-                InetSocketAddress inetSocketAddress = (InetSocketAddress) remoteAddress;
 
                 remoteAddressMemory = Buffer.allocateDirectWithNativeOrder(Native.SIZEOF_SOCKADDR_STORAGE);
                 long remoteAddressMemoryAddress = Buffer.memoryAddress(remoteAddressMemory);
 
-                SockaddrIn.write(socket.isIpv6(), remoteAddressMemoryAddress, inetSocketAddress);
+                int addrLen = Sockaddr.write(socket.isIpv6(), remoteAddressMemoryAddress, remoteAddress);
 
                 final IOUringSubmissionQueue ioUringSubmissionQueue = submissionQueue();
-                ioUringSubmissionQueue.addConnect(socket.intValue(), remoteAddressMemoryAddress,
-                        Native.SIZEOF_SOCKADDR_STORAGE, (short) 0);
+                ioUringSubmissionQueue.addConnect(socket.intValue(), remoteAddressMemoryAddress, addrLen, (short) 0);
                 ioState |= CONNECT_SCHEDULED;
             } catch (Throwable t) {
                 closeIfClosed();
@@ -785,7 +783,7 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
     /**
      * Connect to the remote peer
      */
-    private void doConnect(SocketAddress remoteAddress, SocketAddress localAddress) throws Exception {
+    protected void doConnect(SocketAddress remoteAddress, SocketAddress localAddress) throws Exception {
         if (localAddress instanceof InetSocketAddress) {
             checkResolvable((InetSocketAddress) localAddress);
         }

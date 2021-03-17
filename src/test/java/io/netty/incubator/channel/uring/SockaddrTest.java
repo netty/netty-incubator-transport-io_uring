@@ -28,7 +28,7 @@ import java.nio.ByteBuffer;
 
 import static org.junit.Assume.assumeTrue;
 
-public class SockaddrInTest {
+public class SockaddrTest {
 
     @BeforeClass
     public static void loadJNI() {
@@ -42,9 +42,9 @@ public class SockaddrInTest {
             long memoryAddress = Buffer.memoryAddress(buffer);
             InetAddress address = InetAddress.getByAddress(new byte[] { 10, 10, 10, 10 });
             int port = 45678;
-            Assert.assertEquals(Native.SIZEOF_SOCKADDR_IN, SockaddrIn.writeIPv4(memoryAddress, address, port));
+            Assert.assertEquals(Native.SIZEOF_SOCKADDR_IN, Sockaddr.writeIPv4(memoryAddress, address, port));
             byte[] bytes = new byte[4];
-            InetSocketAddress sockAddr = SockaddrIn.readIPv4(memoryAddress, bytes);
+            InetSocketAddress sockAddr = Sockaddr.readIPv4(memoryAddress, bytes);
             Assert.assertArrayEquals(address.getAddress(), sockAddr.getAddress().getAddress());
             Assert.assertEquals(port, sockAddr.getPort());
         } finally {
@@ -60,11 +60,11 @@ public class SockaddrInTest {
             Inet6Address address = Inet6Address.getByAddress(
                     null, new byte[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }, 12345);
             int port = 45678;
-            Assert.assertEquals(Native.SIZEOF_SOCKADDR_IN6, SockaddrIn.writeIPv6(memoryAddress, address, port));
+            Assert.assertEquals(Native.SIZEOF_SOCKADDR_IN6, Sockaddr.writeIPv6(memoryAddress, address, port));
             byte[] ipv6Bytes = new byte[16];
             byte[] ipv4Bytes = new byte[4];
 
-            InetSocketAddress sockAddr = SockaddrIn.readIPv6(memoryAddress, ipv6Bytes, ipv4Bytes);
+            InetSocketAddress sockAddr = Sockaddr.readIPv6(memoryAddress, ipv6Bytes, ipv4Bytes);
             Inet6Address inet6Address = (Inet6Address) sockAddr.getAddress();
             Assert.assertArrayEquals(address.getAddress(), inet6Address.getAddress());
             Assert.assertEquals(address.getScopeId(), inet6Address.getScopeId());
@@ -81,15 +81,15 @@ public class SockaddrInTest {
             long memoryAddress = Buffer.memoryAddress(buffer);
             InetAddress address = InetAddress.getByAddress(new byte[] { 10, 10, 10, 10 });
             int port = 45678;
-            Assert.assertEquals(Native.SIZEOF_SOCKADDR_IN6, SockaddrIn.writeIPv6(memoryAddress, address, port));
+            Assert.assertEquals(Native.SIZEOF_SOCKADDR_IN6, Sockaddr.writeIPv6(memoryAddress, address, port));
             byte[] ipv6Bytes = new byte[16];
             byte[] ipv4Bytes = new byte[4];
 
-            InetSocketAddress sockAddr = SockaddrIn.readIPv6(memoryAddress, ipv6Bytes, ipv4Bytes);
+            InetSocketAddress sockAddr = Sockaddr.readIPv6(memoryAddress, ipv6Bytes, ipv4Bytes);
             Inet4Address ipv4Address = (Inet4Address) sockAddr.getAddress();
 
-            System.arraycopy(SockaddrIn.IPV4_MAPPED_IPV6_PREFIX, 0, ipv6Bytes, 0,
-                    SockaddrIn.IPV4_MAPPED_IPV6_PREFIX.length);
+            System.arraycopy(Sockaddr.IPV4_MAPPED_IPV6_PREFIX, 0, ipv6Bytes, 0,
+                    Sockaddr.IPV4_MAPPED_IPV6_PREFIX.length);
             Assert.assertArrayEquals(ipv4Bytes, ipv4Address.getAddress());
             Assert.assertEquals(port, sockAddr.getPort());
         } finally {
