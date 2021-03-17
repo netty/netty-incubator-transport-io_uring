@@ -123,6 +123,7 @@ final class Native {
     static final byte IORING_OP_RECVMSG = NativeStaticallyReferencedJniMethods.ioringOpRecvmsg();
     static final int IORING_ENTER_GETEVENTS = NativeStaticallyReferencedJniMethods.ioringEnterGetevents();
     static final int IOSQE_ASYNC = NativeStaticallyReferencedJniMethods.iosqeAsync();
+    static final int MSG_DONTWAIT = NativeStaticallyReferencedJniMethods.msgDontwait();
 
     private static final int[] REQUIRED_IORING_OPS = {
             IORING_OP_POLL_ADD,

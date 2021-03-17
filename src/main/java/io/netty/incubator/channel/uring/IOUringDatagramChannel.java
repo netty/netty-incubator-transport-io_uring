@@ -29,6 +29,7 @@ import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.channel.unix.Errors;
 import io.netty.channel.unix.Errors.NativeIoException;
 import io.netty.channel.unix.Socket;
+import io.netty.util.UncheckedBooleanSupplier;
 import io.netty.util.internal.ObjectUtil;
 import io.netty.util.internal.StringUtil;
 
@@ -418,7 +419,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
                         IOUringDatagramChannel.this.remoteAddress()));
                 byteBuf = null;
 
-                if (allocHandle.continueReading()) {
+                if (allocHandle.continueReading(UncheckedBooleanSupplier.TRUE_SUPPLIER)) {
                     // Let's schedule another read.
                     scheduleRead();
                 } else {
@@ -456,10 +457,12 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
                 this.readBuffer.release();
                 this.readBuffer = null;
                 recvmsgHdrs.clear();
-                if (allocHandle.continueReading()) {
+                if (allocHandle.lastBytesRead() > 0 &&
+                        allocHandle.continueReading(UncheckedBooleanSupplier.TRUE_SUPPLIER)) {
                     // Let's schedule another read.
                     scheduleRead();
                 } else {
+                    // the read was completed with EAGAIN.
                     allocHandle.readComplete();
                     pipeline.fireChannelReadComplete();
                 }
