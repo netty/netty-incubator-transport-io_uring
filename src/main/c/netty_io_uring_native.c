@@ -58,6 +58,13 @@
 #include <sys/types.h>
 #include <sys/eventfd.h>
 #include <poll.h>
+// Needed for UDP_SEGMENT
+#include <netinet/udp.h>
+
+// Allow to compile on systems with older kernels.
+#ifndef UDP_SEGMENT
+#define UDP_SEGMENT 103
+#endif
 
 #define NATIVE_CLASSNAME "io/netty/incubator/channel/uring/Native"
 #define STATICALLY_CLASSNAME "io/netty/incubator/channel/uring/NativeStaticallyReferencedJniMethods"
@@ -413,6 +420,22 @@ static jint netty_io_uring_msghdrOffsetofMsgFlags(JNIEnv* env, jclass clazz) {
     return offsetof(struct msghdr, msg_flags);
 }
 
+static jint netty_io_uring_cmsghdrOffsetofCmsgLen(JNIEnv* env, jclass clazz) {
+    return offsetof(struct cmsghdr, cmsg_len);
+}
+
+static jint netty_io_uring_cmsghdrOffsetofCmsgLevel(JNIEnv* env, jclass clazz) {
+    return offsetof(struct cmsghdr, cmsg_level);
+}
+
+static jint netty_io_uring_cmsghdrOffsetofCmsgType(JNIEnv* env, jclass clazz) {
+    return offsetof(struct cmsghdr, cmsg_type);
+}
+
+static jlong netty_io_uring_cmsghdrData(JNIEnv* env, jclass clazz, jlong cmsghdrAddr) {
+    return (jlong) CMSG_DATA((struct cmsghdr*) cmsghdrAddr);
+}
+
 static jint netty_io_uring_etime(JNIEnv* env, jclass clazz) {
     return ETIME;
 }
@@ -489,7 +512,21 @@ static jint netty_io_uring_msgDontwait(JNIEnv* env, jclass clazz) {
     return MSG_DONTWAIT;
 }
 
+static jint netty_io_uring_cmsgSpace(JNIEnv* env, jclass clazz) {
+    return CMSG_SPACE(sizeof(uint16_t));
+}
 
+static jint netty_io_uring_cmsgLen(JNIEnv* env, jclass clazz) {
+    return CMSG_LEN(sizeof(uint16_t));
+}
+
+static jint netty_io_uring_solUdp(JNIEnv* env, jclass clazz) {
+    return SOL_UDP;
+}
+
+static jint netty_io_uring_udpSegment(JNIEnv* env, jclass clazz) {
+    return UDP_SEGMENT;
+}
 
 // JNI Method Registration Table Begin
 static const JNINativeMethod statically_referenced_fixed_method_table[] = {
@@ -512,6 +549,8 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
   { "sizeofSockaddrStorage", "()I", (void *) netty_io_uring_sizeofSockaddrStorage },
   { "sizeofSizeT", "()I", (void *) netty_io_uring_sizeofSizeT },
   { "sizeofIovec", "()I", (void *) netty_io_uring_sizeofIovec },
+  { "cmsgSpace", "()I", (void *) netty_io_uring_cmsgSpace},
+  { "cmsgLen", "()I", (void *) netty_io_uring_cmsgLen},
   { "iovecOffsetofIovBase", "()I", (void *) netty_io_uring_iovecOffsetofIovBase },
   { "iovecOffsetofIovLen", "()I", (void *) netty_io_uring_iovecOffsetofIovLen },
   { "sizeofMsghdr", "()I", (void *) netty_io_uring_sizeofMsghdr },
@@ -540,7 +579,12 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
   { "ioringOpRecvmsg", "()B", (void *) netty_io_uring_ioringOpRecvmsg },
   { "ioringEnterGetevents", "()I", (void *) netty_io_uring_ioringEnterGetevents },
   { "iosqeAsync", "()I", (void *) netty_io_uring_iosqeAsync },
-  { "msgDontwait", "()I", (void *) netty_io_uring_msgDontwait }
+  { "msgDontwait", "()I", (void *) netty_io_uring_msgDontwait },
+  { "solUdp", "()I", (void *) netty_io_uring_solUdp },
+  { "udpSegment", "()I", (void *) netty_io_uring_udpSegment },
+  { "cmsghdrOffsetofCmsgLen", "()I", (void *) netty_io_uring_cmsghdrOffsetofCmsgLen },
+  { "cmsghdrOffsetofCmsgLevel", "()I", (void *) netty_io_uring_cmsghdrOffsetofCmsgLevel },
+  { "cmsghdrOffsetofCmsgType", "()I", (void *) netty_io_uring_cmsghdrOffsetofCmsgType },
 };
 static const jint statically_referenced_fixed_method_table_size = sizeof(statically_referenced_fixed_method_table) / sizeof(statically_referenced_fixed_method_table[0]);
 
@@ -552,7 +596,9 @@ static const JNINativeMethod method_table[] = {
     {"ioUringEnter", "(IIII)I", (void *) netty_io_uring_enter},
     {"blockingEventFd", "()I", (void *) netty_epoll_native_blocking_event_fd},
     {"eventFdWrite", "(IJ)V", (void *) netty_io_uring_eventFdWrite },
-    {"registerUnix", "()I", (void *) netty_io_uring_registerUnix }
+    {"registerUnix", "()I", (void *) netty_io_uring_registerUnix },
+    {"cmsghdrData", "(J)J", (void *) netty_io_uring_cmsghdrData},
+
 };
 static const jint method_table_size =
     sizeof(method_table) / sizeof(method_table[0]);

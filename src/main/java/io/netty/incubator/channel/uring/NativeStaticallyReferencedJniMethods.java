@@ -78,4 +78,11 @@ final class NativeStaticallyReferencedJniMethods {
     static native int ioringEnterGetevents();
     static native int iosqeAsync();
     static native int msgDontwait();
+    static native int cmsgSpace();
+    static native int cmsgLen();
+    static native int solUdp();
+    static native int udpSegment();
+    static native int cmsghdrOffsetofCmsgLen();
+    static native int cmsghdrOffsetofCmsgLevel();
+    static native int cmsghdrOffsetofCmsgType();
 }
