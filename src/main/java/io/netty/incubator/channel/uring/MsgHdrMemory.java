@@ -24,17 +24,23 @@ import java.net.InetSocketAddress;
 final class MsgHdrMemory {
     private final long memory;
     private final int idx;
+    private final long cmsgDataAddr;
 
     MsgHdrMemory(int idx) {
         this.idx = idx;
-        int size = Native.SIZEOF_MSGHDR + Native.SIZEOF_SOCKADDR_STORAGE + Native.SIZEOF_IOVEC;
+        int size = Native.SIZEOF_MSGHDR + Native.SIZEOF_SOCKADDR_STORAGE + Native.SIZEOF_IOVEC + Native.CMSG_SPACE;
         memory = PlatformDependent.allocateMemory(size);
         PlatformDependent.setMemory(memory, size, (byte) 0);
+
+        // We retrieve the address of the data once so we can just be JNI free after construction.
+        cmsgDataAddr = Native.cmsghdrData(memory + Native.SIZEOF_MSGHDR +
+                Native.SIZEOF_SOCKADDR_STORAGE + Native.SIZEOF_IOVEC);
     }
 
-    void write(LinuxSocket socket, InetSocketAddress address, long bufferAddress , int length) {
+    void write(LinuxSocket socket, InetSocketAddress address, long bufferAddress , int length, short segmentSize) {
         long sockAddress = memory + Native.SIZEOF_MSGHDR;
         long iovAddress = sockAddress + Native.SIZEOF_SOCKADDR_STORAGE;
+        long cmsgAddr = iovAddress + Native.SIZEOF_IOVEC;
         int addressLength;
         if (address == null) {
             addressLength = socket.isIpv6() ? Native.SIZEOF_SOCKADDR_IN6 : Native.SIZEOF_SOCKADDR_IN;
@@ -43,7 +49,7 @@ final class MsgHdrMemory {
             addressLength = SockaddrIn.write(socket.isIpv6(), sockAddress, address);
         }
         Iov.write(iovAddress, bufferAddress, length);
-        MsgHdr.write(memory, sockAddress, addressLength, iovAddress, 1);
+        MsgHdr.write(memory, sockAddress, addressLength, iovAddress, 1, cmsgAddr, cmsgDataAddr, segmentSize);
     }
 
     DatagramPacket read(IOUringDatagramChannel channel, ByteBuf buffer, int bytesRead) {

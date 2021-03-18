@@ -279,7 +279,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
             DatagramPacket packet = (DatagramPacket) msg;
             ByteBuf content = packet.content();
             return !content.hasMemoryAddress() ?
-                    new DatagramPacket(newDirectBuffer(packet, content), packet.recipient()) : msg;
+                    packet.replace(newDirectBuffer(packet, content)) : msg;
         }
 
         if (msg instanceof ByteBuf) {
@@ -523,7 +523,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
                 // We can not continue reading before we did not submit the recvmsg(s) and received the results.
                 return false;
             }
-            msgHdrMemory.write(socket, null, bufferAddress, bufferLength);
+            msgHdrMemory.write(socket, null, bufferAddress, bufferLength, (short) 0);
             // We always use idx here so we can detect if no idx was used by checking if data < 0 in
             // readComplete0(...)
             submissionQueue.addRecvmsg(socket.intValue(), msgHdrMemory.address(), (short) msgHdrMemory.idx());
@@ -587,39 +587,48 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
         private boolean scheduleWrite(Object msg, boolean forceSendmsg) {
             final ByteBuf data;
             final InetSocketAddress remoteAddress;
+            final int segmentSize;
             if (msg instanceof AddressedEnvelope) {
                 @SuppressWarnings("unchecked")
                 AddressedEnvelope<ByteBuf, InetSocketAddress> envelope =
                         (AddressedEnvelope<ByteBuf, InetSocketAddress>) msg;
                 data = envelope.content();
                 remoteAddress = envelope.recipient();
+                if (msg instanceof IOUringSegmentedDatagramPacket) {
+                    segmentSize = ((IOUringSegmentedDatagramPacket) msg).segmentSize();
+                } else {
+                    segmentSize = 0;
+                }
             } else {
                 data = (ByteBuf) msg;
                 remoteAddress = null;
+                segmentSize = 0;
             }
 
             long bufferAddress = data.memoryAddress();
             IOUringSubmissionQueue submissionQueue = submissionQueue();
             if (remoteAddress == null) {
-                if (forceSendmsg) {
+                if (forceSendmsg || segmentSize > 0) {
                     return scheduleSendmsg(
-                            IOUringDatagramChannel.this.remoteAddress(), bufferAddress, data.readableBytes());
+                            IOUringDatagramChannel.this.remoteAddress(),
+                            bufferAddress, data.readableBytes(), segmentSize);
                 }
                 submissionQueue.addWrite(socket.intValue(), bufferAddress, data.readerIndex(),
                         data.writerIndex(), (short) -1);
                 return true;
             }
-            return scheduleSendmsg(remoteAddress, bufferAddress, data.readableBytes());
+            return scheduleSendmsg(remoteAddress, bufferAddress, data.readableBytes(), segmentSize);
         }
 
-        private boolean scheduleSendmsg(InetSocketAddress remoteAddress, long bufferAddress, int bufferLength) {
+        private boolean scheduleSendmsg(InetSocketAddress remoteAddress, long bufferAddress,
+                                        int bufferLength, int segmentSize) {
             MsgHdrMemory hdr = sendmsgHdrs.nextHdr();
             if (hdr == null) {
                 // There is no MsgHdrMemory left to use. We need to submit and wait for the writes to complete
                 // before we can write again.
                 return false;
             }
-            hdr.write(socket, remoteAddress, bufferAddress, bufferLength);
+            hdr.write(socket, remoteAddress, bufferAddress, bufferLength, (short) segmentSize);
             submissionQueue().addSendmsg(socket.intValue(), hdr.address(), (short) hdr.idx());
             return true;
         }

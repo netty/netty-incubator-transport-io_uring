@@ -32,20 +32,33 @@ final class MsgHdr {
 
     private MsgHdr() { }
 
-    static void write(long memoryAddress, long address, int addressSize,  long iovAddress, int iovLength) {
+    static void write(long memoryAddress, long address, int addressSize,  long iovAddress, int iovLength,
+                      long msgControlAddr, long cmsgHdrDataAddress, short segmentSize) {
         PlatformDependent.putInt(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_NAMELEN, addressSize);
 
+        int msgControlLen = 0;
+        if (segmentSize > 0) {
+            msgControlLen = Native.CMSG_LEN;
+            CmsgHdr.write(msgControlAddr, cmsgHdrDataAddress, Native.CMSG_LEN, Native.SOL_UDP,
+                    Native.UDP_SEGMENT, segmentSize);
+        } else {
+            // Set to 0 if we not explicit requested GSO.
+            msgControlAddr = 0;
+        }
         if (Native.SIZEOF_SIZE_T == 4) {
             PlatformDependent.putInt(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_NAME, (int) address);
             PlatformDependent.putInt(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_IOV, (int) iovAddress);
             PlatformDependent.putInt(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_IOVLEN, iovLength);
+            PlatformDependent.putInt(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_CONTROL, (int) msgControlAddr);
+            PlatformDependent.putInt(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_CONTROLLEN, msgControlLen);
         } else {
             assert Native.SIZEOF_SIZE_T == 8;
             PlatformDependent.putLong(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_NAME, address);
             PlatformDependent.putLong(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_IOV, iovAddress);
             PlatformDependent.putLong(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_IOVLEN, iovLength);
+            PlatformDependent.putLong(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_CONTROL, msgControlAddr);
+            PlatformDependent.putLong(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_CONTROLLEN, msgControlLen);
         }
-
-        // No msg_control and flags (we assume the memory was memset before)
+        // No flags (we assume the memory was memset before)
     }
 }

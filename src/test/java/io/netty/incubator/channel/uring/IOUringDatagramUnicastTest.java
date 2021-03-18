@@ -17,6 +17,7 @@ package io.netty.incubator.channel.uring;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -27,23 +28,21 @@ import io.netty.channel.FixedRecvByteBufAllocator;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.socket.DatagramPacket;
 import io.netty.channel.socket.InternetProtocolFamily;
+import io.netty.channel.unix.Errors;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.DatagramUnicastTest;
 import io.netty.util.ReferenceCountUtil;
-import io.netty.util.ReferenceCounted;
-import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
@@ -95,6 +94,89 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
 
             readLatch.await();
             readCompleteLatch.await();
+        } finally {
+            if (cc != null) {
+                cc.close().sync();
+            }
+            if (sc != null) {
+                sc.close().sync();
+            }
+        }
+    }
+
+    @Test
+    public void testSendSegmentedDatagramPacket() throws Throwable {
+        run();
+    }
+
+    public void testSendSegmentedDatagramPacket(Bootstrap sb, Bootstrap cb) throws Throwable {
+        testSendSegmentedDatagramPacket(sb, cb, false);
+    }
+
+    private void testSendSegmentedDatagramPacket(Bootstrap sb, Bootstrap cb, boolean composite)
+            throws Throwable {
+        if (!(cb.group() instanceof IOUringEventLoopGroup)) {
+            // Only supported for the native epoll transport.
+            return;
+        }
+        Assume.assumeTrue(IOUringSegmentedDatagramPacket.isSupported());
+        Channel sc = null;
+        Channel cc = null;
+
+        try {
+            cb.handler(new SimpleChannelInboundHandler<Object>() {
+                @Override
+                public void channelRead0(ChannelHandlerContext ctx, Object msgs)  {
+                    // Nothing will be sent.
+                }
+            });
+
+            cc = cb.bind(newSocketAddress()).sync().channel();
+
+            final int numBuffers = 16;
+            final int segmentSize = 512;
+            int bufferCapacity = numBuffers * segmentSize;
+            final CountDownLatch latch = new CountDownLatch(numBuffers);
+            AtomicReference<Throwable> errorRef = new AtomicReference<Throwable>();
+            sc = sb.handler(new SimpleChannelInboundHandler<DatagramPacket>() {
+                @Override
+                public void channelRead0(ChannelHandlerContext ctx, DatagramPacket packet) {
+                    if (packet.content().readableBytes() == segmentSize) {
+                        latch.countDown();
+                    }
+                }
+            }).bind(newSocketAddress()).sync().channel();
+
+            InetSocketAddress addr = sendToAddress((InetSocketAddress) sc.localAddress());
+            final ByteBuf buffer;
+            if (composite) {
+                CompositeByteBuf compositeBuffer = Unpooled.compositeBuffer();
+                for (int i = 0; i < numBuffers; i++) {
+                    compositeBuffer.addComponent(true,
+                            Unpooled.directBuffer(segmentSize).writeZero(segmentSize));
+                }
+                buffer = compositeBuffer;
+            } else {
+                buffer = Unpooled.directBuffer(bufferCapacity).writeZero(bufferCapacity);
+            }
+            ChannelFuture future = cc.writeAndFlush(new IOUringSegmentedDatagramPacket(buffer, segmentSize, addr))
+                    .await();
+            if (future.cause() instanceof Errors.NativeIoException) {
+                Errors.NativeIoException e = (Errors.NativeIoException) future.cause();
+                if (e.getMessage().contains("Invalid argument")) {
+                    // IO uring version not supports GSO :/
+                    return;
+                }
+                future.sync();
+            }
+
+            if (!latch.await(10, TimeUnit.SECONDS)) {
+                Throwable error = errorRef.get();
+                if (error != null) {
+                    throw error;
+                }
+                fail();
+            }
         } finally {
             if (cc != null) {
                 cc.close().sync();

@@ -94,6 +94,12 @@ final class Native {
     static final int IN6_ADDRESS_OFFSETOF_S6_ADDR = NativeStaticallyReferencedJniMethods.in6AddressOffsetofS6Addr();
     static final int SIZEOF_SIZE_T = NativeStaticallyReferencedJniMethods.sizeofSizeT();
     static final int SIZEOF_IOVEC = NativeStaticallyReferencedJniMethods.sizeofIovec();
+    static final int CMSG_SPACE = NativeStaticallyReferencedJniMethods.cmsgSpace();
+    static final int CMSG_LEN = NativeStaticallyReferencedJniMethods.cmsgLen();
+    static final int CMSG_OFFSETOF_CMSG_LEN = NativeStaticallyReferencedJniMethods.cmsghdrOffsetofCmsgLen();
+    static final int CMSG_OFFSETOF_CMSG_LEVEL = NativeStaticallyReferencedJniMethods.cmsghdrOffsetofCmsgLevel();
+    static final int CMSG_OFFSETOF_CMSG_TYPE = NativeStaticallyReferencedJniMethods.cmsghdrOffsetofCmsgType();
+
     static final int IOVEC_OFFSETOF_IOV_BASE = NativeStaticallyReferencedJniMethods.iovecOffsetofIovBase();
     static final int IOVEC_OFFSETOF_IOV_LEN = NativeStaticallyReferencedJniMethods.iovecOffsetofIovLen();
     static final int SIZEOF_MSGHDR = NativeStaticallyReferencedJniMethods.sizeofMsghdr();
@@ -124,6 +130,8 @@ final class Native {
     static final int IORING_ENTER_GETEVENTS = NativeStaticallyReferencedJniMethods.ioringEnterGetevents();
     static final int IOSQE_ASYNC = NativeStaticallyReferencedJniMethods.iosqeAsync();
     static final int MSG_DONTWAIT = NativeStaticallyReferencedJniMethods.msgDontwait();
+    static final int SOL_UDP = NativeStaticallyReferencedJniMethods.solUdp();
+    static final int UDP_SEGMENT = NativeStaticallyReferencedJniMethods.udpSegment();
 
     private static final int[] REQUIRED_IORING_OPS = {
             IORING_OP_POLL_ADD,
@@ -209,6 +217,8 @@ final class Native {
     public static native int createFile();
 
     private static native int registerUnix();
+
+    static native long cmsghdrData(long hdrAddr);
 
     private Native() {
         // utility
