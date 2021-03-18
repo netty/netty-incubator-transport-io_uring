@@ -28,19 +28,15 @@ import io.netty.channel.FixedRecvByteBufAllocator;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.socket.DatagramPacket;
 import io.netty.channel.socket.InternetProtocolFamily;
+import io.netty.channel.unix.Errors;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.DatagramUnicastTest;
 import io.netty.util.ReferenceCountUtil;
-import io.netty.util.ReferenceCounted;
-import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -163,7 +159,16 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
             } else {
                 buffer = Unpooled.directBuffer(bufferCapacity).writeZero(bufferCapacity);
             }
-            cc.writeAndFlush(new IOUringSegmentedDatagramPacket(buffer, segmentSize, addr)).sync();
+            ChannelFuture future = cc.writeAndFlush(new IOUringSegmentedDatagramPacket(buffer, segmentSize, addr))
+                    .await();
+            if (future.cause() instanceof Errors.NativeIoException) {
+                Errors.NativeIoException e = (Errors.NativeIoException) future.cause();
+                if (e.getMessage().contains("Invalid argument")) {
+                    // IO uring version not supports GSO :/
+                    return;
+                }
+                future.sync();
+            }
 
             if (!latch.await(10, TimeUnit.SECONDS)) {
                 Throwable error = errorRef.get();
