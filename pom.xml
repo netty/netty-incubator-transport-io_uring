@@ -75,7 +75,7 @@
     <jni.compiler.args.ldflags>LDFLAGS=-L${unix.common.lib.unpacked.dir} -Wl,--no-as-needed -lrt -ldl -Wl,--whole-archive -l${unix.common.lib.name} -Wl,--no-whole-archive</jni.compiler.args.ldflags>
     <nativeSourceDirectory>${project.basedir}/src/main/c</nativeSourceDirectory>
     <skipTests>true</skipTests>
-    <netty.build.version>28</netty.build.version>
+    <netty.build.version>29</netty.build.version>
     <jniArch>${os.detected.arch}</jniArch>
     <jni.classifier>${os.detected.name}-${jniArch}</jni.classifier>
     <jniLibName>netty_transport_native_io_uring_${jniArch}</jniLibName>
