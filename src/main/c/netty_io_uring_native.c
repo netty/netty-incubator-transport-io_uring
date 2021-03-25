@@ -676,18 +676,13 @@ static void netty_iouring_native_JNI_OnUnload(JNIEnv* env, const char* packagePr
 
 // Invoked by the JVM when statically linked
 JNIEXPORT jint JNI_OnLoad_netty_transport_native_io_uring(JavaVM* vm, void* reserved) {
-    tcn_global_vm = vm;
     jint ret = netty_jni_util_JNI_OnLoad(vm, reserved, LIBRARYNAME, netty_iouring_native_JNI_OnLoad);
-    if (ret == JNI_ERR) {
-        tcn_global_vm = NULL;
-    }
     return ret;
 }
 
 // Invoked by the JVM when statically linked
 JNIEXPORT void JNI_OnUnload_netty_transport_native_io_uring(JavaVM* vm, void* reserved) {
     netty_jni_util_JNI_OnUnload(vm, reserved, netty_iouring_native_JNI_OnUnload);
-    tcn_global_vm = NULL;
 }
 
 #ifndef NETTY_IO_URING_BUILD_STATIC
