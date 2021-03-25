@@ -66,11 +66,17 @@
 #define UDP_SEGMENT 103
 #endif
 
+// Add define if NETTY_IO_URING_BUILD_STATIC is defined so it is picked up in netty_jni_util.c
+#ifdef NETTY_IO_URING_BUILD_STATIC
+#define NETTY_JNI_UTIL_BUILD_STATIC
+#endif
+
 #define NATIVE_CLASSNAME "io/netty/incubator/channel/uring/Native"
 #define STATICALLY_CLASSNAME "io/netty/incubator/channel/uring/NativeStaticallyReferencedJniMethods"
+#define LIBRARYNAME "netty_transport_native_io_uring"
 
 static jclass longArrayClass = NULL;
-static const char* staticPackagePrefix = NULL;
+static char* staticPackagePrefix = NULL;
 static int register_unix_called = 0;
 
 static void netty_io_uring_native_JNI_OnUnLoad(JNIEnv* env, const char* packagePrefix) {
@@ -654,9 +660,9 @@ done:
 }
 
 static void netty_iouring_native_JNI_OnUnload(JNIEnv* env, const char* packagePrefix) {
-    netty_jni_util_unregister_natives(env, packagePrefix, NATIVE_CLASSNAME);
-    netty_jni_util_unregister_natives(env, packagePrefix, STATICALLY_CLASSNAME);
-    netty_io_uring_native_JNI_OnUnLoad(env, packagePrefix);
+    netty_jni_util_unregister_natives(env, staticPackagePrefix, NATIVE_CLASSNAME);
+    netty_jni_util_unregister_natives(env, staticPackagePrefix, STATICALLY_CLASSNAME);
+    netty_io_uring_native_JNI_OnUnLoad(env, staticPackagePrefix);
 
     if (register_unix_called == 1) {
         register_unix_called = 0;
@@ -668,10 +674,24 @@ static void netty_iouring_native_JNI_OnUnload(JNIEnv* env, const char* packagePr
     }
 }
 
+// Invoked by the JVM when statically linked
+JNIEXPORT jint JNI_OnLoad_netty_transport_native_io_uring(JavaVM* vm, void* reserved) {
+    jint ret = netty_jni_util_JNI_OnLoad(vm, reserved, LIBRARYNAME, netty_iouring_native_JNI_OnLoad);
+    return ret;
+}
+
+// Invoked by the JVM when statically linked
+JNIEXPORT void JNI_OnUnload_netty_transport_native_io_uring(JavaVM* vm, void* reserved) {
+    netty_jni_util_JNI_OnUnload(vm, reserved, netty_iouring_native_JNI_OnUnload);
+}
+
+#ifndef NETTY_IO_URING_BUILD_STATIC
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
-    return netty_jni_util_JNI_OnLoad(vm, reserved, "netty_transport_native_io_uring", netty_iouring_native_JNI_OnLoad);
+    return netty_jni_util_JNI_OnLoad(vm, reserved, LIBRARYNAME, netty_iouring_native_JNI_OnLoad);
 }
 
 JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* reserved) {
     netty_jni_util_JNI_OnUnload(vm, reserved, netty_iouring_native_JNI_OnUnload);
 }
+#endif /* NETTY_IO_URING_BUILD_STATIC */
+
