@@ -32,12 +32,15 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
-final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCompletionQueueCallback {
+/**
+ * An {@link io.netty.channel.EventLoop} that uses IO_URING.
+ */
+public final class IOUringEventLoop extends SingleThreadEventLoop {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(IOUringEventLoop.class);
 
     private final long eventfdReadBuf = PlatformDependent.allocateMemory(8);
 
-    private final IntObjectMap<AbstractIOUringChannel> channels = new IntObjectHashMap<AbstractIOUringChannel>(4096);
+    private final IntObjectMap<AbstractIOUringChannel> channels = new IntObjectHashMap<>(4096);
     private final RingBuffer ringBuffer;
 
     private static final long AWAKE = -1L;
@@ -53,6 +56,9 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
     // The maximum number of bytes for an InetAddress / Inet6Address
     private final byte[] inet4AddressArray = new byte[SockaddrIn.IPV4_ADDRESS_LENGTH];
     private final byte[] inet6AddressArray = new byte[SockaddrIn.IPV6_ADDRESS_LENGTH];
+
+    private final IOUringCompletionQueueCallback callback = IOUringEventLoop.this::handle;
+    private final Runnable submitIOTask = () -> getRingBuffer().ioUringSubmissionQueue().submit();
 
     private long prevDeadlineNanos = NONE;
     private boolean pendingWakeup;
@@ -70,6 +76,18 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
         logger.trace("New EventLoop: {}", this.toString());
     }
 
+    /**
+     * Submit the IO so the kernel can process it. This method can be called to "force" the submission (before it
+     * is submitted by netty itself).
+     */
+    public void submitIO() {
+        if (inEventLoop()) {
+            getRingBuffer().ioUringSubmissionQueue().submit();
+        } else {
+            execute(submitIOTask);
+        }
+    }
+
     private static Queue<Runnable> newTaskQueue(
             EventLoopTaskQueueFactory queueFactory) {
         if (queueFactory == null) {
@@ -85,8 +103,8 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
 
     private static Queue<Runnable> newTaskQueue0(int maxPendingTasks) {
         // This event loop never calls takeTask()
-        return maxPendingTasks == Integer.MAX_VALUE? PlatformDependent.<Runnable>newMpscQueue()
-                : PlatformDependent.<Runnable>newMpscQueue(maxPendingTasks);
+        return maxPendingTasks == Integer.MAX_VALUE? PlatformDependent.newMpscQueue()
+                : PlatformDependent.newMpscQueue(maxPendingTasks);
     }
 
     void add(AbstractIOUringChannel ch) {
@@ -182,7 +200,7 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
                     // CQE processing can produce tasks, and new CQEs could arrive while
                     // processing tasks. So run both on every iteration and break when
                     // they both report that nothing was done (| means always run both).
-                    maybeMoreWork = completionQueue.process(this) != 0 | runAllTasks();
+                    maybeMoreWork = completionQueue.process(callback) != 0 | runAllTasks();
                 } catch (Throwable t) {
                     handleLoopException(t);
                 }
@@ -219,8 +237,7 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
         }
     }
 
-    @Override
-    public void handle(int fd, int res, int flags, byte op, short data) {
+    private void handle(int fd, int res, int flags, byte op, short data) {
         if (op == Native.IORING_OP_READ && eventfd.intValue() == fd) {
             pendingWakeup = false;
             addEventFdRead(ringBuffer.ioUringSubmissionQueue());
@@ -324,7 +341,7 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
             if (!runAllTasks()) {
 
                 submissionQueue.submitAndWait();
-                completionQueue.process(IOUringEventLoop.this);
+                completionQueue.process(callback);
             }
         }
         try {
