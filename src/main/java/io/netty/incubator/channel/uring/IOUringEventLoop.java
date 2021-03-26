@@ -82,10 +82,7 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
      */
     public void submitIO() {
         if (inEventLoop()) {
-            if (getRingBuffer().ioUringSubmissionQueue().submit() > 0 &&
-                    getRingBuffer().ioUringCompletionQueue().hasCompletions()) {
-                //getRingBuffer().ioUringCompletionQueue().process(callback);
-            }
+            getRingBuffer().ioUringSubmissionQueue().submit();
         } else {
             execute(submitIOTask);
         }
