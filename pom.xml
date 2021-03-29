@@ -81,6 +81,7 @@
     <jniLibName>netty_transport_native_io_uring_${jniArch}</jniLibName>
     <nativeLibOnlyDir>${project.build.directory}/native-lib-only</nativeLibOnlyDir>
     <extraConfigureArg />
+    <extraConfigureArg2 />
     <test.argLine>-D_</test.argLine>
 
     <checkstyle.version>8.38</checkstyle.version>
@@ -487,6 +488,7 @@
                     <arg>${jni.compiler.args.cflags}</arg>
                     <configureArg>--libdir=${project.build.directory}/native-build/target/lib</configureArg>
                     <configureArg>${extraConfigureArg}</configureArg>
+                    <configureArg>${extraConfigureArg2}</configureArg>
                   </configureArgs>
                 </configuration>
                 <goals>
@@ -548,6 +550,7 @@
         <!-- As we cross-compile just skip the tests because we could not load this lib on the system anyway -->
         <skipTests>true</skipTests>
         <extraConfigureArg>--host=aarch64-linux-gnu</extraConfigureArg>
+        <extraConfigureArg2>CC=aarch64-none-linux-gnu-gcc</extraConfigureArg2>
       </properties>
     </profile>
     <profile>
