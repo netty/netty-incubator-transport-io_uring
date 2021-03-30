@@ -29,6 +29,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.socket.DatagramPacket;
 import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.channel.unix.Errors;
+import io.netty.channel.unix.SegmentedDatagramPacket;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.DatagramUnicastTest;
 import io.netty.util.ReferenceCountUtil;
@@ -119,7 +120,7 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
             // Only supported for the native epoll transport.
             return;
         }
-        Assume.assumeTrue(IOUringSegmentedDatagramPacket.isSupported());
+        Assume.assumeTrue(IOUringDatagramChannel.isSegmentedDatagramPacketSupported());
         Channel sc = null;
         Channel cc = null;
 
@@ -159,7 +160,7 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
             } else {
                 buffer = Unpooled.directBuffer(bufferCapacity).writeZero(bufferCapacity);
             }
-            ChannelFuture future = cc.writeAndFlush(new IOUringSegmentedDatagramPacket(buffer, segmentSize, addr))
+            ChannelFuture future = cc.writeAndFlush(new SegmentedDatagramPacket(buffer, segmentSize, addr))
                     .await();
             if (future.cause() instanceof Errors.NativeIoException) {
                 Errors.NativeIoException e = (Errors.NativeIoException) future.cause();
