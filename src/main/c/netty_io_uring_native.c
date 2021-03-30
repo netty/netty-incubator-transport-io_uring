@@ -659,7 +659,7 @@ done:
     return ret;
 }
 
-static void netty_iouring_native_JNI_OnUnload(JNIEnv* env, const char* packagePrefix) {
+static void netty_iouring_native_JNI_OnUnload(JNIEnv* env) {
     netty_jni_util_unregister_natives(env, staticPackagePrefix, NATIVE_CLASSNAME);
     netty_jni_util_unregister_natives(env, staticPackagePrefix, STATICALLY_CLASSNAME);
     netty_io_uring_native_JNI_OnUnLoad(env, staticPackagePrefix);
