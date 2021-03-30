@@ -28,6 +28,7 @@ import io.netty.channel.socket.DatagramPacket;
 import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.channel.unix.Errors;
 import io.netty.channel.unix.Errors.NativeIoException;
+import io.netty.channel.unix.SegmentedDatagramPacket;
 import io.netty.channel.unix.Socket;
 import io.netty.util.UncheckedBooleanSupplier;
 import io.netty.util.internal.ObjectUtil;
@@ -594,8 +595,8 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
                         (AddressedEnvelope<ByteBuf, InetSocketAddress>) msg;
                 data = envelope.content();
                 remoteAddress = envelope.recipient();
-                if (msg instanceof IOUringSegmentedDatagramPacket) {
-                    segmentSize = ((IOUringSegmentedDatagramPacket) msg).segmentSize();
+                if (msg instanceof SegmentedDatagramPacket) {
+                    segmentSize = ((SegmentedDatagramPacket) msg).segmentSize();
                 } else {
                     segmentSize = 0;
                 }
@@ -642,5 +643,14 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
             return error;
         }
         return e;
+    }
+
+    /**
+     * Returns {@code true} if the usage of {@link io.netty.channel.unix.SegmentedDatagramPacket} is supported.
+     *
+     * @return {@code true} if supported, {@code false} otherwise.
+     */
+    public static boolean isSegmentedDatagramPacketSupported() {
+        return IOUring.isAvailable();
     }
 }
