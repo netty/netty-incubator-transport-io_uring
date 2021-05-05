@@ -16,6 +16,7 @@ services:
     image: netty-io_uring:cross_compile_aarch64
     volumes:
       - ~/.ssh:/root/.ssh:delegated
+      - ~/.m2/repository:/root/.m2/repository
       - ..:/code:delegated
     working_dir: /code
 
@@ -25,6 +26,7 @@ services:
     volumes:
       - ~/.ssh:/root/.ssh
       - ~/.gnupg:/root/.gnupg
+      - ~/.m2/repository:/root/.m2/repository
       - ~/.m2/settings.xml:/root/.m2/settings.xml
       - ..:/code
 

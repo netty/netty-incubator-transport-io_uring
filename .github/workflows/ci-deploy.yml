@@ -26,6 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      # Cache .m2/repository
+      - uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: stage-snapshot-${{ matrix.setup }}-cache-m2-repository-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            stage-snapshot-${{ matrix.setup }}-cache-m2-repository-
+
       # Enable caching of Docker layers
       - uses: satackey/action-docker-layer-caching@v0.0.11
         env:

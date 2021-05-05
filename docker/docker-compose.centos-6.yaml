@@ -13,6 +13,7 @@ services:
     depends_on: [runtime-setup]
     volumes:
       - ~/.ssh:/root/.ssh:delegated
+      - ~/.m2/repository:/root/.m2/repository
       - ..:/code:delegated
     working_dir: /code
 
