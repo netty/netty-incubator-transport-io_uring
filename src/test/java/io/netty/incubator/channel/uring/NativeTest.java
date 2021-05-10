@@ -297,4 +297,16 @@ public class NativeTest {
             ringBuffer.close();
         }
     }
+
+    @Test
+    public void parsingKernelVersionTest() {
+        assertTrue(Native.checkKernelVersion("10.11.123"));
+        assertFalse(Native.checkKernelVersion("5.8.1-23"));
+        assertTrue(Native.checkKernelVersion("5.100.1-1"));
+        assertTrue(Native.checkKernelVersion("5.9.1-1"));
+        assertTrue(Native.checkKernelVersion("5.9.100-1"));
+        assertFalse(Native.checkKernelVersion("5.5.67"));
+        assertFalse(Native.checkKernelVersion("5.5.32"));
+        assertFalse(Native.checkKernelVersion("4.16.20"));
+    }
 }
