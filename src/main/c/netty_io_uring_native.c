@@ -60,6 +60,7 @@
 #include <poll.h>
 // Needed for UDP_SEGMENT
 #include <netinet/udp.h>
+#include <sys/utsname.h>
 
 // Allow to compile on systems with older kernels.
 #ifndef UDP_SEGMENT
@@ -169,6 +170,14 @@ static jint netty_io_uring_enter(JNIEnv *env, jclass class1, jint ring_fd, jint 
         }
     } while ((err = errno) == EINTR);
     return -err;
+}
+
+static jstring netty_io_uring_kernel_version(JNIEnv* env, jclass clazz) {
+    struct utsname u;
+    uname(&u);
+
+    jstring result = (*env)->NewStringUTF(env, u.release);
+    return result;
 }
 
 static jint netty_epoll_native_blocking_event_fd(JNIEnv* env, jclass clazz) {
@@ -604,7 +613,7 @@ static const JNINativeMethod method_table[] = {
     {"eventFdWrite", "(IJ)V", (void *) netty_io_uring_eventFdWrite },
     {"registerUnix", "()I", (void *) netty_io_uring_registerUnix },
     {"cmsghdrData", "(J)J", (void *) netty_io_uring_cmsghdrData},
-
+    {"kernelVersion", "()Ljava/lang/String;", (void *) netty_io_uring_kernel_version },
 };
 static const jint method_table_size =
     sizeof(method_table) / sizeof(method_table[0]);

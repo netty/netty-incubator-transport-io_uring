@@ -195,6 +195,36 @@ final class Native {
         }
     }
 
+    static boolean checkKernelVersion(String kernelVersion) {
+        String[] versionComponents = kernelVersion.split("\\.");
+        if (versionComponents.length < 3) {
+            return false;
+        }
+
+        int major;
+        try {
+            major = Integer.parseInt(versionComponents[0]);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+
+        if (major <= 4) {
+            return false;
+        }
+        if (major > 5) {
+            return true;
+        }
+
+        int minor;
+        try {
+            minor = Integer.parseInt(versionComponents[1]);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+
+        return minor >= 9;
+    }
+
     private static native boolean ioUringProbe(int ringFd, int[] ios);
     private static native long[][] ioUringSetup(int entries);
 
@@ -219,6 +249,8 @@ final class Native {
     private static native int registerUnix();
 
     static native long cmsghdrData(long hdrAddr);
+
+    static native String kernelVersion();
 
     private Native() {
         // utility
