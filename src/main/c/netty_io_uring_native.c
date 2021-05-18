@@ -33,19 +33,7 @@
 
 #include "syscall.h"
 #include "netty_io_uring_linuxsocket.h"
-#include <errno.h>
-#include <fcntl.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <syscall.h>
-#include <unistd.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -53,9 +41,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/eventfd.h>
 #include <poll.h>
 // Needed for UDP_SEGMENT
