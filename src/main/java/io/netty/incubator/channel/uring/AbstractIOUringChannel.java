@@ -776,7 +776,7 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
         if (localAddress instanceof InetSocketAddress) {
             checkResolvable((InetSocketAddress) localAddress);
         }
-        
+
         if (remoteAddress instanceof InetSocketAddress) {
             checkResolvable((InetSocketAddress) remoteAddress);
         }
