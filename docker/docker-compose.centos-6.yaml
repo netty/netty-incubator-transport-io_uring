@@ -19,15 +19,15 @@ services:
 
   build-leak:
     <<: *common
-    command: /bin/bash -cl "mvn -Pleak clean test -Dio.netty.testsuite.badHost=netty.io"
+    command: /bin/bash -cl "./mvnw -B -ntp -Pleak clean test -Dio.netty.testsuite.badHost=netty.io"
 
   build: 
     <<: *common
-    command: /bin/bash -cl "mvn clean package -Dio.netty.testsuite.badHost=netty.io"
+    command: /bin/bash -cl "./mvnw -B -ntp clean package -Dio.netty.testsuite.badHost=netty.io"
 
   deploy:
     <<: *common
-    command: /bin/bash -cl "mvn clean deploy -DskipTests=true"
+    command: /bin/bash -cl "./mvnw -B -ntp clean deploy -DskipTests=true"
     volumes:
       - ~/.ssh:/root/.ssh
       - ~/.gnupg:/root/.gnupg
@@ -42,7 +42,7 @@ services:
       - ~/.m2:/root/.m2
       - ~/local-staging:/root/local-staging
       - ..:/code
-    command: /bin/bash -cl "mvn clean javadoc:jar package org.sonatype.plugins:nexus-staging-maven-plugin:deploy -DaltStagingDirectory=/root/local-staging -DskipRemoteStaging=true -DskipTests=true"
+    command: /bin/bash -cl "./mvnw -B -ntp clean javadoc:jar package org.sonatype.plugins:nexus-staging-maven-plugin:deploy -DaltStagingDirectory=/root/local-staging -DskipRemoteStaging=true -DskipTests=true"
 
   stage-release:
     <<: *common
@@ -55,7 +55,7 @@ services:
       - ~/.m2:/root/.m2
       - ~/local-staging:/root/local-staging
       - ..:/code
-    command: /bin/bash -cl "cat <(echo -e \"${GPG_PRIVATE_KEY}\") | gpg --batch --import && mvn -B clean javadoc:jar package gpg:sign org.sonatype.plugins:nexus-staging-maven-plugin:deploy -DnexusUrl=https://oss.sonatype.org -DserverId=sonatype-nexus-staging -DaltStagingDirectory=/root/local-staging -DskipRemoteStaging=true -DskipTests=true -Dgpg.passphrase=${GPG_PASSPHRASE} -Dgpg.keyname=${GPG_KEYNAME}"
+    command: /bin/bash -cl "cat <(echo -e \"${GPG_PRIVATE_KEY}\") | gpg --batch --import && ./mvnw -B -ntp clean javadoc:jar package gpg:sign org.sonatype.plugins:nexus-staging-maven-plugin:deploy -DnexusUrl=https://oss.sonatype.org -DserverId=sonatype-nexus-staging -DaltStagingDirectory=/root/local-staging -DskipRemoteStaging=true -DskipTests=true -Dgpg.passphrase=${GPG_PASSPHRASE} -Dgpg.keyname=${GPG_KEYNAME}"
 
 
   shell:
