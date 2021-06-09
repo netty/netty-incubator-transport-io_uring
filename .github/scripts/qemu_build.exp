@@ -46,7 +46,7 @@ expect $rootConsole
 send "cd /mnt/\r"
 
 expect $rootConsole
-send "JAVA_HOME=/usr/lib/jvm/java-11 ./mvnw clean package -Dio.netty.testsuite.badHost=netty.io\r"
+send "JAVA_HOME=/usr/lib/jvm/java-11 ./mvnw -B -ntp clean package -Dio.netty.testsuite.badHost=netty.io\r"
 
 # Let's give the build 1 hour before we timeout
 expect -timeout 3600 $rootConsole
