@@ -98,30 +98,17 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
     private volatile SocketAddress remote;
 
     AbstractIOUringChannel(final Channel parent, LinuxSocket socket) {
-        super(parent);
-        this.socket = checkNotNull(socket, "fd");
-        this.active = true;
-
-        if (active) {
-            // Directly cache the remote and local addresses
-            // See https://github.com/netty/netty/issues/2359
-            this.local = socket.localAddress();
-            this.remote = socket.remoteAddress();
-        }
-
-        if (parent != null) {
-            logger.trace("Create Channel Socket: {}", socket.intValue());
-        } else {
-            logger.trace("Create Server Socket: {}", socket.intValue());
-        }
+        this(parent, socket, true);
     }
 
     AbstractIOUringChannel(final Channel parent, LinuxSocket socket, boolean active) {
         super(parent);
         this.socket = checkNotNull(socket, "fd");
-        this.active = active;
 
         if (active) {
+            // Directly cache the remote and local addresses
+            // See https://github.com/netty/netty/issues/2359
+            this.active = true;
             this.local = socket.localAddress();
             this.remote = socket.remoteAddress();
         }
@@ -234,7 +221,7 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
 
         // Even if we allow half closed sockets we should give up on reading. Otherwise we may allow a read attempt on a
         // socket which has not even been connected yet. This has been observed to block during unit tests.
-        //inputClosedSeenErrorOnRead = true;
+        // inputClosedSeenErrorOnRead = true;
         try {
             ChannelPromise promise = connectPromise;
             if (promise != null) {
@@ -289,8 +276,8 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
 
         if (msgCount > 1) {
             numOutstandingWrites = (short) ioUringUnsafe().scheduleWriteMultiple(in);
-        } else if ((msg instanceof ByteBuf) && ((ByteBuf) msg).nioBufferCount() > 1 ||
-                    ((msg instanceof ByteBufHolder) && ((ByteBufHolder) msg).content().nioBufferCount() > 1)) {
+        } else if (msg instanceof ByteBuf && ((ByteBuf) msg).nioBufferCount() > 1 ||
+                    (msg instanceof ByteBufHolder && ((ByteBufHolder) msg).content().nioBufferCount() > 1)) {
             // We also need some special handling for CompositeByteBuf
             numOutstandingWrites = (short) ioUringUnsafe().scheduleWriteMultiple(in);
         } else {
@@ -790,10 +777,8 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
             checkResolvable((InetSocketAddress) localAddress);
         }
 
-        InetSocketAddress remoteSocketAddr = remoteAddress instanceof InetSocketAddress
-                ? (InetSocketAddress) remoteAddress : null;
-        if (remoteSocketAddr != null) {
-            checkResolvable(remoteSocketAddr);
+        if (remoteAddress instanceof InetSocketAddress) {
+            checkResolvable((InetSocketAddress) remoteAddress);
         }
 
         if (remote != null) {
