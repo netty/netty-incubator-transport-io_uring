@@ -56,8 +56,8 @@ jobs:
 
       - name: Prepare release with Maven
         run: |
-          mvn -B -ntp --file pom.xml release:prepare  -DpreparationGoals=clean -DskipTests=true
-          mvn -B -ntp clean
+          ./mvnw -B -ntp --file pom.xml release:prepare  -DpreparationGoals=clean -DskipTests=true
+          ./mvnw -B -ntp clean
 
       - name: Checkout tag
         run: ./.github/scripts/release_checkout_tag.sh release.properties
@@ -87,6 +87,9 @@ jobs:
         with:
           name: prepare-release-workspace
           path: ./prepare-release-workspace/
+
+      - name: Adjust mvnw permissions
+        run: chmod 755 ./prepare-release-workspace/mvnw
 
       - name: Set up JDK 8
         uses: actions/setup-java@v1
@@ -161,6 +164,9 @@ jobs:
           name: prepare-release-workspace
           path: ./prepare-release-workspace/
 
+      - name: Adjust mvnw permissions
+        run: chmod 755 ./prepare-release-workspace/mvnw
+
       - name: Setup git configuration
         run: |
           git config --global user.email "netty-project-bot@users.noreply.github.com"
@@ -209,7 +215,7 @@ jobs:
       - name: Deploy local staged artifacts
         working-directory: ./prepare-release-workspace/
         # If we don't want to close the repository we can add -DskipStagingRepositoryClose=true
-        run: mvn -B -ntp --file pom.xml org.sonatype.plugins:nexus-staging-maven-plugin:deploy-staged -DnexusUrl=https://oss.sonatype.org -DserverId=sonatype-nexus-staging -DaltStagingDirectory=/home/runner/local-staging
+        run: ./mvnw -B -ntp --file pom.xml org.sonatype.plugins:nexus-staging-maven-plugin:deploy-staged -DnexusUrl=https://oss.sonatype.org -DserverId=sonatype-nexus-staging -DaltStagingDirectory=/home/runner/local-staging
 
       - name: Rollback release on failure
         working-directory: ./prepare-release-workspace/

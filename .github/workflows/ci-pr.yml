@@ -42,7 +42,7 @@ jobs:
             ${{ runner.os }}-pr-${{ env.cache-name }}-
             ${{ runner.os }}-pr-
       - name: Verify with Maven
-        run: mvn -B -ntp --file pom.xml verify -DskipTests=true
+        run: ./mvnw -B -ntp --file pom.xml verify -DskipTests=true
 
   build-pr:
     runs-on: ubuntu-latest
