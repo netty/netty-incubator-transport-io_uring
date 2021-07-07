@@ -35,6 +35,7 @@ final class IOUringCompletionQueue {
     //these unsigned integer pointers(shared with the kernel) will be changed by the kernel
     private final long kHeadAddress;
     private final long kTailAddress;
+    private final long kOverflowAddress;
 
     private final long completionQueueArrayAddress;
 
@@ -54,6 +55,7 @@ final class IOUringCompletionQueue {
         this.ringSize = ringSize;
         this.ringAddress = ringAddress;
         this.ringFd = ringFd;
+        this.kOverflowAddress = kOverflowAddress;
 
         this.ringMask = PlatformDependent.getIntVolatile(kRingMaskAddress);
         this.ringHead = PlatformDependent.getIntVolatile(kHeadAddress);
@@ -72,7 +74,9 @@ final class IOUringCompletionQueue {
      * events.
      */
     int process(IOUringCompletionQueueCallback callback) {
-        int tail = PlatformDependent.getIntVolatile(kTailAddress);
+        assert PlatformDependent.getIntVolatile(kOverflowAddress) == 0;
+
+        int tail = PlatformDependent.getIntVolatile(kTailAddress); // acquire memory barrier
         int i = 0;
         while (ringHead != tail) {
             long cqeAddress = completionQueueArrayAddress + (ringHead & ringMask) * CQE_SIZE;
@@ -83,7 +87,7 @@ final class IOUringCompletionQueue {
 
             //Ensure that the kernel only sees the new value of the head index after the CQEs have been read.
             ringHead++;
-            PlatformDependent.putIntOrdered(kHeadAddress, ringHead);
+            PlatformDependent.putIntOrdered(kHeadAddress, ringHead); // release memory barrier
 
             i++;
 
