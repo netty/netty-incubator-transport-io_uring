@@ -90,7 +90,9 @@ jobs:
         if: ${{ failure() }}
         with:
           name: target
-          path: "**/target/"
+          path: |
+            **/target/surefire-reports/
+            **/hs_err*.log
 
   build-pr-qemu:
     runs-on: ubuntu-20.04
@@ -147,4 +149,6 @@ jobs:
         if: ${{ failure() }}
         with:
           name: build-target
-          path: "**/target/"
+          path: |
+            **/target/surefire-reports/
+            **/hs_err*.log
