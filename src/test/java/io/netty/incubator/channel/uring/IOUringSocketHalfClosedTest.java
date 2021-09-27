@@ -49,7 +49,7 @@ public class IOUringSocketHalfClosedTest extends SocketHalfClosedTest {
         Assume.assumeFalse(PlatformDependent.isWindows());
         this.run(testInfo, new Runner<ServerBootstrap, Bootstrap>() {
             public void run(ServerBootstrap serverBootstrap, Bootstrap bootstrap) throws Throwable {
-                testHalfClosureOnlyOneEventWhenAutoRead(serverBootstrap, bootstrap);
+                testAutoCloseFalseDoesShutdownOutput(serverBootstrap, bootstrap);
             }
         });
     }
