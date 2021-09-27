@@ -20,6 +20,7 @@ import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.SocketShutdownOutputBySelfTest;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.jupiter.api.TestInfo;
 
 import java.util.List;
 
@@ -39,7 +40,7 @@ public class IOUringSocketShutdownOutputBySelfTest extends SocketShutdownOutputB
 
     @Test
     @Override
-    public void testWriteAfterShutdownOutputNoWritabilityChange() throws Throwable {
+    public void testWriteAfterShutdownOutputNoWritabilityChange(TestInfo testInfo) throws Throwable {
         // Ignore as it does not pass on QEMU atm
         // super.testWriteAfterShutdownOutputNoWritabilityChange();
     }

@@ -24,6 +24,7 @@ import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.jupiter.api.TestInfo;
 
 import java.util.List;
 
@@ -43,9 +44,13 @@ public class IOUringSocketHalfClosedTest extends SocketHalfClosedTest {
 
     @Ignore
     @Test
-    public void testAutoCloseFalseDoesShutdownOutput() throws Throwable {
+    public void testAutoCloseFalseDoesShutdownOutput(TestInfo testInfo) throws Throwable {
         // This test only works on Linux / BSD / MacOS as we assume some semantics that are not true for Windows.
         Assume.assumeFalse(PlatformDependent.isWindows());
-        run();
+        this.run(testInfo, new Runner<ServerBootstrap, Bootstrap>() {
+            public void run(ServerBootstrap serverBootstrap, Bootstrap bootstrap) throws Throwable {
+                testHalfClosureOnlyOneEventWhenAutoRead(serverBootstrap, bootstrap);
+            }
+        });
     }
 }

@@ -28,10 +28,6 @@ import static org.junit.Assume.assumeTrue;
 
 public class IOUringSocketSslSessionReuseTest extends SocketSslSessionReuseTest {
 
-    public IOUringSocketSslSessionReuseTest(SslContext serverCtx, SslContext clientCtx) {
-        super(serverCtx, clientCtx);
-    }
-
     @BeforeClass
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
