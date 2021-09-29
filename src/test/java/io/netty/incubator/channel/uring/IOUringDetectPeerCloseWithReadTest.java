@@ -19,13 +19,13 @@ import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.unix.tests.DetectPeerCloseWithoutReadTest;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.BeforeAll;
 
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class IOUringDetectPeerCloseWithReadTest extends DetectPeerCloseWithoutReadTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
     }

@@ -17,18 +17,17 @@ package io.netty.incubator.channel.uring;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.handler.ssl.SslContext;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.SocketSslEchoTest;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.BeforeAll;
 
 import java.util.List;
 
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class IOUringSocketSslEchoTest extends SocketSslEchoTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
     }

@@ -21,16 +21,16 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.SocketMultipleConnectTest;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.BeforeAll;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class IOUringSocketMultipleConnectTest extends SocketMultipleConnectTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
     }

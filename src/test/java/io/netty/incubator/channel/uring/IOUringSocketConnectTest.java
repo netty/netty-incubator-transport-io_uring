@@ -19,15 +19,15 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.SocketConnectTest;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.BeforeAll;
 
 import java.util.List;
 
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class IOUringSocketConnectTest extends SocketConnectTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
     }

@@ -16,8 +16,6 @@
 package io.netty.incubator.channel.uring;
 
 import io.netty.channel.unix.FileDescriptor;
-import org.junit.BeforeClass;
-import org.junit.Test;
 
 import java.nio.charset.Charset;
 import java.util.concurrent.CountDownLatch;
@@ -26,14 +24,22 @@ import java.util.concurrent.atomic.AtomicReference;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.UnpooledByteBufAllocator;
 
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.netty.buffer.ByteBuf;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 public class NativeTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
     }
@@ -170,7 +176,8 @@ public class NativeTest {
     //Todo clean
     //eventfd signal doesnt work when ioUringWaitCqe and eventFdWrite are executed in a thread
     //created this test to reproduce this "weird" bug
-    @Test(timeout = 8000)
+    @Test
+    @Timeout(8)
     public void eventfdNoSignal() throws Exception {
 
         RingBuffer ringBuffer = Native.createRingBuffer(32);

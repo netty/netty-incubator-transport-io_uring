@@ -36,10 +36,11 @@ import io.netty.channel.unix.SegmentedDatagramPacket;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.DatagramUnicastTest;
 import io.netty.util.ReferenceCountUtil;
-import org.junit.Assume;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -48,14 +49,14 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
     }
@@ -65,7 +66,8 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
         return IOUringSocketTestPermutation.INSTANCE.datagram(InternetProtocolFamily.IPv4);
     }
 
-    @Test(timeout = 8000)
+    @Test
+    @Timeout(8)
     public void testRecvMsgDontBlock(TestInfo testInfo) throws Throwable {
         run(testInfo, new Runner<Bootstrap, Bootstrap>() {
             @Override
@@ -137,7 +139,7 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
             // Only supported for the native epoll transport.
             return;
         }
-        Assume.assumeTrue(IOUringDatagramChannel.isSegmentedDatagramPacketSupported());
+        Assumptions.assumeTrue(IOUringDatagramChannel.isSegmentedDatagramPacketSupported());
         Channel sc = null;
         Channel cc = null;
 

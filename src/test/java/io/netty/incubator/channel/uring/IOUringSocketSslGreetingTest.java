@@ -26,7 +26,7 @@ import java.util.List;
 
 import static org.junit.Assume.assumeTrue;
 
-public class IOUringSocketSslGreetingTest  extends SocketSslGreetingTest {
+public class IOUringSocketSslGreetingTest extends SocketSslGreetingTest {
 
     @BeforeClass
     public static void loadJNI() {
