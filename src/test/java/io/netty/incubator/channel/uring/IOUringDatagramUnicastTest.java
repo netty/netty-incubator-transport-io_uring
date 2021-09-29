@@ -211,7 +211,8 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
     }
 
     @Override
-    protected Channel setupClientChannel(Bootstrap bootstrap, byte[] bytes, CountDownLatch countDownLatch, AtomicReference<Throwable> errorRef) throws Throwable {
+    protected Channel setupClientChannel(Bootstrap bootstrap, byte[] bytes, CountDownLatch countDownLatch,
+                                         AtomicReference<Throwable> errorRef) throws Throwable {
         cb.handler(new SimpleChannelInboundHandler<DomainDatagramPacket>() {
 
             @Override
@@ -238,8 +239,9 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
     }
 
     @Override
-    protected Channel setupServerChannel(Bootstrap bootstrap, byte[] bytes, SocketAddress sender, CountDownLatch countDownLatch,
-                                         AtomicReference<Throwable> errorRef, boolean echo) throws Throwable {
+    protected Channel setupServerChannel(Bootstrap bootstrap, byte[] bytes, SocketAddress sender,
+                                         CountDownLatch countDownLatch, AtomicReference<Throwable> errorRef,
+                                         boolean echo) throws Throwable {
         sb.handler(new SimpleChannelInboundHandler<DomainDatagramPacket>() {
 
             @Override

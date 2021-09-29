@@ -28,7 +28,6 @@ import static org.junit.Assume.assumeTrue;
 
 public class IOUringSocketSslClientRenegotiateTest extends SocketSslClientRenegotiateTest {
 
-
     @BeforeClass
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
