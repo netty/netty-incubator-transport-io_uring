@@ -20,10 +20,10 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.SocketHalfClosedTest;
 import io.netty.util.internal.PlatformDependent;
-import org.junit.Assume;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 import java.util.List;
@@ -32,7 +32,7 @@ import static org.junit.Assume.assumeTrue;
 
 public class IOUringSocketHalfClosedTest extends SocketHalfClosedTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
     }
@@ -42,11 +42,11 @@ public class IOUringSocketHalfClosedTest extends SocketHalfClosedTest {
         return IOUringSocketTestPermutation.INSTANCE.socket();
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testAutoCloseFalseDoesShutdownOutput(TestInfo testInfo) throws Throwable {
         // This test only works on Linux / BSD / MacOS as we assume some semantics that are not true for Windows.
-        Assume.assumeFalse(PlatformDependent.isWindows());
+        Assumptions.assumeFalse(PlatformDependent.isWindows());
         this.run(testInfo, new Runner<ServerBootstrap, Bootstrap>() {
             public void run(ServerBootstrap serverBootstrap, Bootstrap bootstrap) throws Throwable {
                 testAutoCloseFalseDoesShutdownOutput(serverBootstrap, bootstrap);

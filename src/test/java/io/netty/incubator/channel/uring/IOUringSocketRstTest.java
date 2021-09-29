@@ -21,18 +21,18 @@ import io.netty.channel.Channel;
 import io.netty.channel.unix.Errors;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.SocketRstTest;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.BeforeAll;
 
 import java.io.IOException;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class IOUringSocketRstTest extends SocketRstTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
     }
@@ -49,8 +49,8 @@ public class IOUringSocketRstTest extends SocketRstTest {
             return;
         }
 
-        assertTrue("actual [type, message]: [" + cause.getClass() + ", " + cause.getMessage() + "]",
-                cause instanceof Errors.NativeIoException);
+        assertTrue(cause instanceof Errors.NativeIoException,
+                "actual [type, message]: [" + cause.getClass() + ", " + cause.getMessage() + "]");
         assertEquals(Errors.ERRNO_ECONNRESET_NEGATIVE, ((Errors.NativeIoException) cause).expectedErr());
     }
 }

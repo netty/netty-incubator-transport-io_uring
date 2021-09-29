@@ -23,22 +23,22 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.util.NetUtil;
 import io.netty.util.concurrent.ImmediateEventExecutor;
 import io.netty.util.concurrent.Promise;
-import org.junit.Assume;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class IOUringRemoteIpTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void loadJNI() {
-        Assume.assumeTrue(IOUring.isAvailable());
+        Assumptions.assumeTrue(IOUring.isAvailable());
     }
 
     @Test
