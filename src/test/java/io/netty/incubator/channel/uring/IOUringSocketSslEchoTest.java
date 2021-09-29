@@ -27,15 +27,6 @@ import java.util.List;
 import static org.junit.Assume.assumeTrue;
 
 public class IOUringSocketSslEchoTest extends SocketSslEchoTest {
-    public IOUringSocketSslEchoTest(
-            SslContext serverCtx, SslContext clientCtx, Renegotiation renegotiation,
-            boolean serverUsesDelegatedTaskExecutor, boolean clientUsesDelegatedTaskExecutor,
-            boolean autoRead, boolean useChunkedWriteHandler, boolean useCompositeByteBuf) {
-
-        super(serverCtx, clientCtx, renegotiation,
-                serverUsesDelegatedTaskExecutor, clientUsesDelegatedTaskExecutor,
-                autoRead, useChunkedWriteHandler, useCompositeByteBuf);
-    }
 
     @BeforeClass
     public static void loadJNI() {

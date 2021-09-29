@@ -28,9 +28,6 @@ import static org.junit.Assume.assumeTrue;
 
 public class IOUringSocketSslClientRenegotiateTest extends SocketSslClientRenegotiateTest {
 
-    public IOUringSocketSslClientRenegotiateTest(SslContext serverCtx, SslContext clientCtx, boolean delegate) {
-        super(serverCtx, clientCtx, delegate);
-    }
 
     @BeforeClass
     public static void loadJNI() {
