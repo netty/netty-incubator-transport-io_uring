@@ -21,6 +21,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.DefaultChannelConfig;
 import io.netty.channel.MessageSizeEstimator;
 import io.netty.channel.RecvByteBufAllocator;
+import io.netty.channel.ServerChannelRecvByteBufAllocator;
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.socket.ServerSocketChannelConfig;
 import io.netty.util.NetUtil;
@@ -34,7 +35,7 @@ public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig
     private volatile int backlog = NetUtil.SOMAXCONN;
 
     IOUringServerSocketChannelConfig(AbstractIOUringServerChannel channel) {
-        super(channel);
+        super(channel, new ServerChannelRecvByteBufAllocator());
         setReuseAddress(true);
     }
 
