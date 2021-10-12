@@ -16,14 +16,14 @@ See [our wiki page](https://netty.io/wiki/native-transports.html).
 ## How to include the dependency
 
 To include the dependency you need to ensure you also specify the right classifier. At the moment we only support linux
- x86_64 but this may change. 
+ x86_64 and aarch_64 but this may change. 
  
-As an example this is how you would include the dependency in maven:
+As an example this is how you would include the dependency in maven for x86_64:
 ```
 <dependency>
     <groupId>io.netty.incubator</groupId>
     <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-    <version>0.0.5.Final</version>
+    <version>0.0.9.Final</version>
     <classifier>linux-x86_64</classifier>
 </dependency>
 ```
