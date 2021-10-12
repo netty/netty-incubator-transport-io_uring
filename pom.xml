@@ -85,9 +85,9 @@
     <test.argLine>-D_</test.argLine>
 
     <checkstyle.version>8.38</checkstyle.version>
-    <junit.version>4.13.1</junit.version>
-    <netty.version>4.1.68.Final</netty.version>
-    <netty-tcnative-boringssl-static.version>2.0.43.Final</netty-tcnative-boringssl-static.version>
+    <junit.version>5.7.0</junit.version>
+    <netty.version>4.1.69.Final</netty.version>
+    <netty-tcnative-boringssl-static.version>2.0.44.Final</netty-tcnative-boringssl-static.version>
 
     <build-helper-maven-plugin.version>3.2.0</build-helper-maven-plugin.version>
     <maven-bundle-plugin.version>5.1.1</maven-bundle-plugin.version>
@@ -589,8 +589,20 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
       <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
