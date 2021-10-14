@@ -392,6 +392,7 @@
             <configuration>
               <target>
                 <copy file="${project.build.outputDirectory}/META-INF/MANIFEST.MF" tofile="${project.build.directory}/manifests/MANIFEST.MF" />
+                <copy file="${project.build.outputDirectory}/META-INF/MANIFEST.MF" tofile="${project.build.directory}/manifests/MANIFEST-native.MF" />
               </target>
             </configuration>
           </execution>
