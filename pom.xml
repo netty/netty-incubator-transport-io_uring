@@ -86,7 +86,7 @@
 
     <checkstyle.version>8.38</checkstyle.version>
     <junit.version>5.7.0</junit.version>
-    <netty.version>4.1.69.Final</netty.version>
+    <netty.version>4.1.70.Final</netty.version>
     <netty-tcnative-boringssl-static.version>2.0.44.Final</netty-tcnative-boringssl-static.version>
 
     <build-helper-maven-plugin.version>3.2.0</build-helper-maven-plugin.version>
