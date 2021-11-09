@@ -39,13 +39,9 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <executions>
-          <!-- Generate the fallback JAR that does not contain the native library. -->
           <execution>
             <id>default-jar</id>
             <configuration>
-              <excludes>
-                <exclude>META-INF/native/**</exclude>
-              </excludes>
               <archive>
                 <manifest>
                   <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
