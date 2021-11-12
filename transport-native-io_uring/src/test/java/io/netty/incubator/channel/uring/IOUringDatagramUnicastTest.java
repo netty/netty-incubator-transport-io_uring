@@ -26,11 +26,9 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.FixedRecvByteBufAllocator;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.DatagramPacket;
 import io.netty.channel.socket.InternetProtocolFamily;
-import io.netty.channel.unix.DomainDatagramChannel;
-import io.netty.channel.unix.DomainDatagramPacket;
-import io.netty.channel.unix.DomainSocketAddress;
 import io.netty.channel.unix.Errors;
 import io.netty.channel.unix.SegmentedDatagramPacket;
 import io.netty.testsuite.transport.TestsuitePermutation;
@@ -209,16 +207,16 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
 
     @Override
     protected boolean isConnected(Channel channel) {
-        return ((DomainDatagramChannel) channel).isConnected();
+        return ((DatagramChannel) channel).isConnected();
     }
 
     @Override
     protected Channel setupClientChannel(Bootstrap bootstrap, byte[] bytes, CountDownLatch countDownLatch,
                                          AtomicReference<Throwable> errorRef) throws Throwable {
-        cb.handler(new SimpleChannelInboundHandler<DomainDatagramPacket>() {
+        cb.handler(new SimpleChannelInboundHandler<DatagramPacket>() {
 
             @Override
-            public void channelRead0(ChannelHandlerContext ctx, DomainDatagramPacket msg) {
+            public void channelRead0(ChannelHandlerContext ctx, DatagramPacket msg) {
                 try {
                     ByteBuf buf = msg.content();
                     assertEquals(bytes.length, buf.readableBytes());
@@ -244,10 +242,10 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
     protected Channel setupServerChannel(Bootstrap bootstrap, byte[] bytes, SocketAddress sender,
                                          CountDownLatch countDownLatch, AtomicReference<Throwable> errorRef,
                                          boolean echo) throws Throwable {
-        sb.handler(new SimpleChannelInboundHandler<DomainDatagramPacket>() {
+        sb.handler(new SimpleChannelInboundHandler<DatagramPacket>() {
 
             @Override
-            public void channelRead0(ChannelHandlerContext ctx, DomainDatagramPacket msg) {
+            public void channelRead0(ChannelHandlerContext ctx, DatagramPacket msg) {
                 try {
                     if (sender == null) {
                         assertNotNull(msg.sender());
@@ -264,7 +262,7 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
                     assertEquals(ctx.channel().localAddress(), msg.recipient());
 
                     if (echo) {
-                        ctx.writeAndFlush(new DomainDatagramPacket(buf.retainedDuplicate(), msg.sender()));
+                        ctx.writeAndFlush(new DatagramPacket(buf.retainedDuplicate(), msg.sender()));
                     }
                 } finally {
                     countDownLatch.countDown();
@@ -288,13 +286,13 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
     protected ChannelFuture write(Channel cc, ByteBuf buf, SocketAddress remote, WrapType wrapType) {
         switch (wrapType) {
             case DUP:
-                return cc.write(new DomainDatagramPacket(buf.retainedDuplicate(), (DomainSocketAddress) remote));
+                return cc.write(new DatagramPacket(buf.retainedDuplicate(), (InetSocketAddress) remote));
             case SLICE:
-                return cc.write(new DomainDatagramPacket(buf.retainedSlice(), (DomainSocketAddress) remote));
+                return cc.write(new DatagramPacket(buf.retainedSlice(), (InetSocketAddress) remote));
             case READ_ONLY:
-                return cc.write(new DomainDatagramPacket(buf.retain().asReadOnly(), (DomainSocketAddress) remote));
+                return cc.write(new DatagramPacket(buf.retain().asReadOnly(), (InetSocketAddress) remote));
             case NONE:
-                return cc.write(new DomainDatagramPacket(buf.retain(), (DomainSocketAddress) remote));
+                return cc.write(new DatagramPacket(buf.retain(), (InetSocketAddress) remote));
             default:
                 throw new Error("unknown wrap type: " + wrapType);
         }
