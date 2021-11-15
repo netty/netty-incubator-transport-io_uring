@@ -79,7 +79,7 @@
     <junit.version>5.7.0</junit.version>
     <netty.version>4.1.70.Final</netty.version>
     <netty-tcnative-boringssl-static.version>2.0.44.Final</netty-tcnative-boringssl-static.version>
-
+    <bouncycastle.version>1.68</bouncycastle.version>
     <build-helper-maven-plugin.version>3.2.0</build-helper-maven-plugin.version>
     <maven-bundle-plugin.version>5.1.1</maven-bundle-plugin.version>
     <maven-checkstyle-plugin.version>3.1.1</maven-checkstyle-plugin.version>
@@ -422,6 +422,13 @@
         <groupId>io.netty</groupId>
         <artifactId>netty-tcnative-boringssl-static</artifactId>
         <version>${netty-tcnative-boringssl-static.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <!-- Also include bouncycastle so we can use SelfSignedCertificate even on more recent JDKs during testing -->
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcpkix-jdk15on</artifactId>
+        <version>${bouncycastle.version}</version>
         <scope>test</scope>
       </dependency>
       <dependency>
