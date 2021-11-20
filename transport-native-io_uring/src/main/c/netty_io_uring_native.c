@@ -75,7 +75,7 @@ static void netty_io_uring_native_JNI_OnUnLoad(JNIEnv* env, const char* packageP
     NETTY_JNI_UTIL_UNLOAD_CLASS(env, longArrayClass);
 }
 
-void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq) {
+static void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq) {
     munmap(sq->ring_ptr, sq->ring_sz);
     if (cq->ring_ptr && cq->ring_ptr != sq->ring_ptr) {
         munmap(cq->ring_ptr, cq->ring_sz);
@@ -139,7 +139,7 @@ err:
     return ret;
 }
 
-int setup_io_uring(int ring_fd, struct io_uring *io_uring_ring,
+static int setup_io_uring(int ring_fd, struct io_uring *io_uring_ring,
                     struct io_uring_params *p) {
     return io_uring_mmap(ring_fd, p, &io_uring_ring->sq, &io_uring_ring->cq);
 }
