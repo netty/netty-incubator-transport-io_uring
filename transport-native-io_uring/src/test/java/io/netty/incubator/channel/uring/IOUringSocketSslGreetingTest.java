@@ -17,10 +17,9 @@ package io.netty.incubator.channel.uring;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.handler.ssl.SslContext;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.SocketSslGreetingTest;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.BeforeAll;
 
 import java.util.List;
 
@@ -28,7 +27,7 @@ import static org.junit.Assume.assumeTrue;
 
 public class IOUringSocketSslGreetingTest extends SocketSslGreetingTest {
 
-    @BeforeClass
+    @BeforeAll
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
     }
