@@ -240,11 +240,8 @@
                 </goals>
                 <configuration>
                   <includes>
-                    <include>CombinationOfIOUringAndEpollTest.java</include>
+	   	    <include>**/CombinationOfIOUringAndEpollTest.java</include>
                   </includes>
-                  <excludes>
-                    <exclude>**/*Test*.java</exclude>
-                  </excludes>
                   <reuseForks>false</reuseForks>
                 </configuration>
               </execution>
@@ -256,11 +253,8 @@
                 </goals>
                 <configuration>
                   <includes>
-                    <include>CombinationOfEpollAndIOUringTest.java</include>
+		    <include>**/CombinationOfEpollAndIOUringTest.java</include>
                   </includes>
-                  <excludes>
-                    <exclude>**/*Test*.java</exclude>
-                  </excludes>
                   <runOrder>random</runOrder>
                   <systemPropertyVariables>
                     <logback.configurationFile>src/test/resources/logback-test.xml</logback.configurationFile>
