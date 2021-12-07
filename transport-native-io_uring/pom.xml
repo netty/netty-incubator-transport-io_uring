@@ -275,7 +275,7 @@
                 </configuration>
               </execution>
               <execution>
-                <id>testsuite</id>
+                <id>default-test</id>
                 <phase>test</phase>
                 <goals>
                   <goal>test</goal>
