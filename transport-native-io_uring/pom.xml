@@ -228,6 +228,84 @@
               </execution>
             </executions>
           </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>io_uring-epoll-combination</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>test</goal>
+                </goals>
+                <configuration>
+                  <includes>
+	   	    <include>**/CombinationOfIOUringAndEpollTest.java</include>
+                  </includes>
+                  <reuseForks>false</reuseForks>
+                </configuration>
+              </execution>
+              <execution>
+                <id>epoll-io_uring-combination</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>test</goal>
+                </goals>
+                <configuration>
+                  <includes>
+		    <include>**/CombinationOfEpollAndIOUringTest.java</include>
+                  </includes>
+                  <runOrder>random</runOrder>
+                  <systemPropertyVariables>
+                    <logback.configurationFile>src/test/resources/logback-test.xml</logback.configurationFile>
+                    <logLevel>debug</logLevel>
+                  </systemPropertyVariables>
+                  <properties>
+                    <property>
+                      <name>listener</name>
+                      <value>io.netty.build.junit.TimedOutTestsListener</value>
+                    </property>
+                  </properties>
+                  <!-- Ensure the whole stacktrace is preserved when an exception is thrown. See https://issues.apache.org/jira/browse/SUREFIRE-1457 -->
+                  <trimStackTrace>false</trimStackTrace>
+                  <argLine>${test.argLine}</argLine>
+                  <!-- Ensure a new JVM is used -->
+                  <forkCount>1</forkCount>
+                  <reuseForks>false</reuseForks>
+                </configuration>
+              </execution>
+              <execution>
+                <id>default-test</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>test</goal>
+                </goals>
+                <configuration>
+                  <includes>
+                    <include>**/*Test*.java</include>
+                  </includes>
+                  <excludes>
+                    <exclude>**/Abstract*</exclude>
+                    <exclude>**/CombinationOf*</exclude>
+                  </excludes>
+                  <runOrder>random</runOrder>
+                  <systemPropertyVariables>
+                    <logback.configurationFile>src/test/resources/logback-test.xml</logback.configurationFile>
+                    <logLevel>debug</logLevel>
+                  </systemPropertyVariables>
+                  <properties>
+                    <property>
+                      <name>listener</name>
+                      <value>io.netty.build.junit.TimedOutTestsListener</value>
+                    </property>
+                  </properties>
+                  <!-- Ensure the whole stacktrace is preserved when an exception is thrown. See https://issues.apache.org/jira/browse/SUREFIRE-1457 -->
+                  <trimStackTrace>false</trimStackTrace>
+                  <argLine>${test.argLine}</argLine>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
         </plugins>
       </build>
 

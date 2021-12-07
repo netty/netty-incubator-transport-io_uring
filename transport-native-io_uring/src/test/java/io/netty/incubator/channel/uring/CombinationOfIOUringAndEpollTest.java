@@ -21,11 +21,13 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-public class IOUringAndEpollTest {
+public class CombinationOfIOUringAndEpollTest {
 
     @BeforeAll
     public static void loadJNI() {
         assumeTrue(IOUring.isAvailable());
+        // Epoll must be usable.
+        Epoll.ensureAvailability();
     }
 
     @Test
