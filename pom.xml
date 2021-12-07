@@ -227,32 +227,6 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-          <includes>
-            <include>**/*Test*.java</include>
-          </includes>
-          <excludes>
-            <exclude>**/Abstract*</exclude>
-          </excludes>
-          <runOrder>random</runOrder>
-          <systemPropertyVariables>
-            <logback.configurationFile>src/test/resources/logback-test.xml</logback.configurationFile>
-            <logLevel>debug</logLevel>
-          </systemPropertyVariables>
-          <properties>
-            <property>
-              <name>listener</name>
-              <value>io.netty.build.junit.TimedOutTestsListener</value>
-            </property>
-          </properties>
-           <!-- Ensure the whole stacktrace is preserved when an exception is thrown. See https://issues.apache.org/jira/browse/SUREFIRE-1457 -->
-          <trimStackTrace>false</trimStackTrace>
-          <argLine>${test.argLine}</argLine>
-        </configuration>
-      </plugin>
       <!-- always produce osgi bundles -->
       <plugin>
         <groupId>org.apache.felix</groupId>
