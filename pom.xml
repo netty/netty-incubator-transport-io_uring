@@ -24,7 +24,7 @@
 
   <groupId>io.netty.incubator</groupId>
   <artifactId>netty-incubator-transport-parent-io_uring</artifactId>
-  <version>0.0.11.Final-SNAPSHOT</version>
+  <version>0.0.11.Final</version>
   <name>Netty/Incubator/Transport/Parent/io_uring</name>
   <packaging>pom</packaging>
   <url>https://netty.io/</url>
@@ -51,7 +51,7 @@
     <url>https://github.com/netty/netty-incubator-transport-io_uring</url>
     <connection>scm:git:git://github.com/netty/netty-incubator-transport-io_uring.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/netty/netty-incubator-transport-io_uring.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>netty-incubator-transport-parent-io_uring-0.0.11.Final</tag>
   </scm>
 
   <developers>
@@ -70,7 +70,7 @@
     <module>transport-native-io_uring</module>
   </modules>
   <properties>
-    <javaModuleName/>
+    <javaModuleName />
     <skipTests>true</skipTests>
     <netty.build.version>30</netty.build.version>
     <test.argLine>-D_</test.argLine>
