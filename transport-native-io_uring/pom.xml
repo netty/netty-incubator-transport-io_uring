@@ -30,6 +30,7 @@
 
   <properties>
     <javaModuleName>io.netty.incubator.transport.io_uring</javaModuleName>
+    <fragmentHost>io.netty.incubator.netty-incubator-transport-classes-io_uring</fragmentHost>
     <unix.common.lib.name>netty-unix-common</unix.common.lib.name>
     <unix.common.lib.dir>${project.build.directory}/unix-common-lib</unix.common.lib.dir>
     <unix.common.lib.unpacked.dir>${unix.common.lib.dir}/META-INF/native/lib</unix.common.lib.unpacked.dir>
@@ -219,6 +220,7 @@
                     <manifestEntries>
                       <Bundle-NativeCode>META-INF/native/libnetty_transport_native_io_uring_${jniArch}.so; osname=Linux; processor=${jniArch},*</Bundle-NativeCode>
                       <Automatic-Module-Name>${javaModuleName}</Automatic-Module-Name>
+                      <Fragment-Host>${fragmentHost}</Fragment-Host>
                     </manifestEntries>
                     <index>true</index>
                     <manifestFile>${project.build.directory}/manifests/MANIFEST-native.MF</manifestFile>
@@ -240,7 +242,7 @@
                 </goals>
                 <configuration>
                   <includes>
-	   	    <include>**/CombinationOfIOUringAndEpollTest.java</include>
+                    <include>**/CombinationOfIOUringAndEpollTest.java</include>
                   </includes>
                   <reuseForks>false</reuseForks>
                 </configuration>
@@ -253,7 +255,7 @@
                 </goals>
                 <configuration>
                   <includes>
-		    <include>**/CombinationOfEpollAndIOUringTest.java</include>
+                    <include>**/CombinationOfEpollAndIOUringTest.java</include>
                   </includes>
                   <runOrder>random</runOrder>
                   <systemPropertyVariables>
