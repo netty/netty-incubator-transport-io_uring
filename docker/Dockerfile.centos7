@@ -17,6 +17,7 @@ RUN yum install -y \
 	openssl-devel \
 	redhat-lsb-core \
 	tar \
+	unzip \
 	wget
 
 # Downloading and installing SDKMAN!

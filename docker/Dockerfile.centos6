@@ -14,6 +14,7 @@ RUN yum install -y \
  lsb-core \
  make \
  tar \
+ unzip \
  wget
 
 # Downloading and installing SDKMAN!
