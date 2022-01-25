@@ -27,7 +27,6 @@ import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
 import java.io.IOException;
-import java.nio.channels.FileChannel;
 import java.nio.channels.Selector;
 import java.util.Arrays;
 import java.util.Locale;
@@ -209,7 +208,22 @@ final class Native {
         }
     }
 
-    static boolean checkKernelVersion(String kernelVersion) {
+    static void checkKernelVersion(String kernelVersion) {
+        boolean enforceKernelVersion = SystemPropertyUtil.getBoolean(
+                "io.netty.transport.iouring.enforceKernelVersion", true);
+        boolean kernelSupported = checkKernelVersion0(kernelVersion);
+        if (!kernelSupported) {
+            if (enforceKernelVersion) {
+                throw new UnsupportedOperationException(
+                        "you need at least kernel version 5.9, current kernel version: " + kernelVersion);
+            } else {
+                logger.debug("Detected kernel " + kernelVersion + " does not match minimum version of 5.9, " +
+                        "trying to use io_uring anyway");
+            }
+        }
+    }
+
+    private static boolean checkKernelVersion0(String kernelVersion) {
         String[] versionComponents = kernelVersion.split("\\.");
         if (versionComponents.length < 3) {
             return false;

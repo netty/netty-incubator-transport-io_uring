@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -307,13 +308,15 @@ public class NativeTest {
 
     @Test
     public void parsingKernelVersionTest() {
-        assertTrue(Native.checkKernelVersion("10.11.123"));
-        assertFalse(Native.checkKernelVersion("5.8.1-23"));
-        assertTrue(Native.checkKernelVersion("5.100.1-1"));
-        assertTrue(Native.checkKernelVersion("5.9.1-1"));
-        assertTrue(Native.checkKernelVersion("5.9.100-1"));
-        assertFalse(Native.checkKernelVersion("5.5.67"));
-        assertFalse(Native.checkKernelVersion("5.5.32"));
-        assertFalse(Native.checkKernelVersion("4.16.20"));
+        Native.checkKernelVersion("10.11.123");
+        assertThrows(UnsupportedOperationException.class, () -> Native.checkKernelVersion("5.8.1-23"));
+
+        Native.checkKernelVersion("5.100.1-1");
+        Native.checkKernelVersion("5.9.1-1");
+        Native.checkKernelVersion("5.9.100-1");
+
+        assertThrows(UnsupportedOperationException.class, () -> Native.checkKernelVersion("5.5.67"));
+        assertThrows(UnsupportedOperationException.class, () -> Native.checkKernelVersion("5.5.32"));
+        assertThrows(UnsupportedOperationException.class, () -> Native.checkKernelVersion("4.16.20"));
     }
 }
