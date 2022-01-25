@@ -25,15 +25,12 @@ public final class IOUring {
     static {
         Throwable cause = null;
         try {
-            String kernelVersion = Native.kernelVersion();
-
             if (SystemPropertyUtil.getBoolean("io.netty.transport.noNative", false)) {
                 cause = new UnsupportedOperationException(
                         "Native transport was explicit disabled with -Dio.netty.transport.noNative=true");
-            } else if (!Native.checkKernelVersion(kernelVersion)) {
-                cause = new UnsupportedOperationException(
-                        "you need at least kernel version 5.9, current kernel version: " + kernelVersion);
             } else {
+                String kernelVersion = Native.kernelVersion();
+                Native.checkKernelVersion(kernelVersion);
                 Throwable unsafeCause = PlatformDependent.getUnsafeUnavailabilityCause();
                 if (unsafeCause == null) {
                     RingBuffer ringBuffer = null;
