@@ -15,7 +15,8 @@ RUN yum install -y \
  make \
  tar \
  unzip \
- wget
+ wget \
+ zip
 
 # Downloading and installing SDKMAN!
 RUN curl -s "https://get.sdkman.io" | bash
