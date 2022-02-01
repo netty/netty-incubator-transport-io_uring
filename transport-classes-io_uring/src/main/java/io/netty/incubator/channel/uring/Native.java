@@ -26,8 +26,10 @@ import io.netty.util.internal.ThrowableUtil;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.channels.Selector;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Locale;
 
@@ -59,14 +61,17 @@ final class Native {
                 PeerCredentials.class, java.io.FileDescriptor.class
         );
 
+        File tmpDir = PlatformDependent.tmpdir();
+        Path tmpFile = tmpDir.toPath().resolve("netty_io_uring.tmp");
         try {
             // First, try calling a side-effect free JNI method to see if the library was already
             // loaded by the application.
-            Native.createFile();
+            Native.createFile(tmpFile.toString());
         } catch (UnsatisfiedLinkError ignore) {
             // The library was not previously loaded, load it now.
             loadNativeLibrary();
         } finally {
+            tmpFile.toFile().delete();
             try {
                 if (selector != null) {
                     selector.close();
@@ -256,23 +261,23 @@ final class Native {
     private static native boolean ioUringProbe(int ringFd, int[] ios);
     private static native long[][] ioUringSetup(int entries);
 
-    public static native int ioUringEnter(int ringFd, int toSubmit, int minComplete, int flags);
+    static native int ioUringEnter(int ringFd, int toSubmit, int minComplete, int flags);
 
-    public static native void eventFdWrite(int fd, long value);
+    static native void eventFdWrite(int fd, long value);
 
-    public static FileDescriptor newBlockingEventFd() {
+    static FileDescriptor newBlockingEventFd() {
         return new FileDescriptor(blockingEventFd());
     }
 
-    public static native void ioUringExit(long submissionQueueArrayAddress, int submissionQueueRingEntries,
+    static native void ioUringExit(long submissionQueueArrayAddress, int submissionQueueRingEntries,
                                           long submissionQueueRingAddress, int submissionQueueRingSize,
                                           long completionQueueRingAddress, int completionQueueRingSize,
                                           int ringFd);
 
     private static native int blockingEventFd();
 
-    // for testing(it is only temporary)
-    public static native int createFile();
+    // for testing only!
+    static native int createFile(String name);
 
     private static native int registerUnix();
 
