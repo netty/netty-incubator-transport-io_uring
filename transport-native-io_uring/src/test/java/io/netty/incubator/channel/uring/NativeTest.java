@@ -17,7 +17,9 @@ package io.netty.incubator.channel.uring;
 
 import io.netty.channel.unix.FileDescriptor;
 
+import java.io.File;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -37,6 +39,7 @@ import io.netty.buffer.ByteBuf;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 
 public class NativeTest {
 
@@ -46,13 +49,14 @@ public class NativeTest {
     }
 
     @Test
-    public void canWriteFile() throws Exception {
+    public void canWriteFile(@TempDir Path tmpDir) throws Exception {
         ByteBufAllocator allocator = new UnpooledByteBufAllocator(true);
         final ByteBuf writeEventByteBuf = allocator.directBuffer(100);
         final String inputString = "Hello World!";
         writeEventByteBuf.writeCharSequence(inputString, Charset.forName("UTF-8"));
 
-        int fd = Native.createFile();
+        Path file = tmpDir.resolve("io_uring.tmp");
+        int fd = Native.createFile(file.toString());
 
         RingBuffer ringBuffer = Native.createRingBuffer(32);
         IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();

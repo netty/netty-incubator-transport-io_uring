@@ -296,8 +296,12 @@ static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries
     return array;
 }
 
-static jint netty_create_file(JNIEnv *env, jclass class) {
-    return open("io-uring-test.txt", O_RDWR | O_TRUNC | O_CREAT, 0644);
+static jint netty_create_file(JNIEnv *env, jclass class, jstring filename) {
+    const char *file = (*env)->GetStringUTFChars(env, filename, 0);
+
+    int fd =  open(file, O_RDWR | O_TRUNC | O_CREAT, 0644);
+    (*env)->ReleaseStringUTFChars(env, filename, file);
+    return fd;
 }
 
 
@@ -592,7 +596,7 @@ static const JNINativeMethod method_table[] = {
     {"ioUringSetup", "(I)[[J", (void *) netty_io_uring_setup},
     {"ioUringProbe", "(I[I)Z", (void *) netty_io_uring_probe},
     {"ioUringExit", "(JIJIJII)V", (void *) netty_io_uring_ring_buffer_exit},
-    {"createFile", "()I", (void *) netty_create_file},
+    {"createFile", "(Ljava/lang/String;)I", (void *) netty_create_file},
     {"ioUringEnter", "(IIII)I", (void *) netty_io_uring_enter},
     {"blockingEventFd", "()I", (void *) netty_epoll_native_blocking_event_fd},
     {"eventFdWrite", "(IJ)V", (void *) netty_io_uring_eventFdWrite },
