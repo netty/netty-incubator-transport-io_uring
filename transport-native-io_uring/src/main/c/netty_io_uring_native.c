@@ -297,10 +297,10 @@ static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries
 }
 
 static jint netty_create_file(JNIEnv *env, jclass class, jstring filename) {
-    const char *file = env->GetStringUTFChars(filename, 0);
+    const char *file = (*env)->GetStringUTFChars(env, filename, 0);
 
     int fd =  open(file, O_RDWR | O_TRUNC | O_CREAT, 0644);
-    env->ReleaseStringUTFChars(filename, file);
+    (*env)->ReleaseStringUTFChars(env, filename, file);
     return fd;
 }
 
