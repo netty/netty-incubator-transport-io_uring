@@ -48,9 +48,6 @@ public class NativeTest {
         assumeTrue(IOUring.isAvailable());
     }
 
-
-
-
     @Test
     public void canWriteFile(@TempDir Path tmpDir) throws Exception {
         ByteBufAllocator allocator = new UnpooledByteBufAllocator(true);
