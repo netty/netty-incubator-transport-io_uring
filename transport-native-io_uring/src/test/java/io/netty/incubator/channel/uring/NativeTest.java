@@ -99,6 +99,7 @@ public class NativeTest {
         readEventByteBuf.release();
 
         ringBuffer.close();
+        file.toFile().delete();
     }
 
     @Test
