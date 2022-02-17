@@ -252,14 +252,20 @@ static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries
     int ring_fd = sys_io_uring_setup((int)entries, &p);
 
     if (ring_fd < 0) {
-        netty_unix_errors_throwRuntimeExceptionErrorNo(env, "failed to create io_uring ring fd ", errno);
+        if (errno == ENOMEM) {
+            netty_unix_errors_throwRuntimeExceptionErrorNo(env,
+                "failed to allocate memory for io_uring ring; "
+                "try raising memlock limit (see getrlimit(RLIMIT_MEMLOCK, ...) or ulimit -l): ", errno);
+        } else {
+            netty_unix_errors_throwRuntimeExceptionErrorNo(env, "failed to create io_uring ring fd: ", errno);
+        }
         return NULL;
     }
     struct io_uring io_uring_ring;
     int ret = setup_io_uring(ring_fd, &io_uring_ring, &p);
 
     if (ret != 0) {
-        netty_unix_errors_throwRuntimeExceptionErrorNo(env, "failed to mmap io_uring ring buffer", ret);
+        netty_unix_errors_throwRuntimeExceptionErrorNo(env, "failed to mmap io_uring ring buffer: ", ret);
         return NULL;
     }
 
