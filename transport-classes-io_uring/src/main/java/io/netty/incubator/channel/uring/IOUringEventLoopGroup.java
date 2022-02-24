@@ -80,6 +80,10 @@ public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
                 ringSize, iosqeAsyncThreshold);
     }
 
+    public IOUringEventLoopGroup(int nThreads, Executor executor, EventExecutorChooserFactory chooserFactory, int ringSize, int iosqeAsyncThreshold) {
+        this(nThreads, executor, chooserFactory, ringSize, iosqeAsyncThreshold, RejectedExecutionHandlers.reject());
+    }
+
     /**
      * Create a new instance using the specified number of threads, the given {@link Executor}, the given
      * size of the used ringbuffer and a threshold of registered FDs after which
