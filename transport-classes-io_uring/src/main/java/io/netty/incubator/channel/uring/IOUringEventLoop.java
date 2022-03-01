@@ -166,7 +166,10 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
                 if (curDeadlineNanos == -1L) {
                     curDeadlineNanos = NONE; // nothing on the calendar
                 }
-                nextWakeupNanos.set(curDeadlineNanos);
+
+                // The memory ordering effects of the nextWakeupNanos are irrelevant. A setOpaque should be sufficient,
+                // but on Java 8 the lazySet is the cheapest alternative. It is free on X86 since every store is a release store.
+                nextWakeupNanos.lazySet(curDeadlineNanos);
 
                 // Only submit a timeout if there are no tasks to process and do a blocking operation
                 // on the completionQueue.
