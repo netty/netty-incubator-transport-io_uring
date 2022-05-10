@@ -26,11 +26,13 @@ import io.netty.util.concurrent.Promise;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.TestAbortedException;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.SocketException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -61,9 +63,11 @@ public class IOUringRemoteIpTest {
         testRemoteAddress(null, NetUtil.LOCALHOST6);
     }
 
+
     private static void testRemoteAddress(InetAddress server, InetAddress client) throws Exception {
         final Promise<SocketAddress> promise = ImmediateEventExecutor.INSTANCE.newPromise();
         EventLoopGroup bossGroup = new IOUringEventLoopGroup(1);
+        Socket socket = new Socket();
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup)
@@ -87,17 +91,22 @@ public class IOUringRemoteIpTest {
                 f = b.bind(server, 0).sync();
                 connectAddress = (InetSocketAddress) f.channel().localAddress();
             }
-            Socket socket = new Socket();
-            socket.bind(new InetSocketAddress(client, 0));
+
+            try {
+                socket.bind(new InetSocketAddress(client, 0));
+            } catch (SocketException e) {
+                throw new TestAbortedException("Bind failed, address family not supported ?", e);
+            }
             socket.connect(connectAddress);
 
             InetSocketAddress addr = (InetSocketAddress) promise.get();
             assertEquals(socket.getLocalSocketAddress(), addr);
-            socket.close();
             f.channel().close().sync();
         } finally {
             // Shut down all event loops to terminate all threads.
             bossGroup.shutdownGracefully();
+
+            socket.close();
         }
     }
 }
