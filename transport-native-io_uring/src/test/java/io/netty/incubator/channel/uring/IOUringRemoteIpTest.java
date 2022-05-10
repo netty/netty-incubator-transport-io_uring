@@ -20,6 +20,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.unix.Errors;
 import io.netty.util.NetUtil;
 import io.netty.util.concurrent.ImmediateEventExecutor;
 import io.netty.util.concurrent.Promise;
@@ -88,7 +89,11 @@ public class IOUringRemoteIpTest {
                 connectAddress = new InetSocketAddress(client,
                         ((InetSocketAddress) f.channel().localAddress()).getPort());
             } else {
-                f = b.bind(server, 0).sync();
+                try {
+                    f = b.bind(server, 0).sync();
+                } catch (Throwable cause) {
+                    throw new TestAbortedException("Bind failed, address family not supported ?", cause);
+                }
                 connectAddress = (InetSocketAddress) f.channel().localAddress();
             }
 
