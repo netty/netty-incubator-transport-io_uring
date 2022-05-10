@@ -94,46 +94,28 @@ jobs:
             **/target/surefire-reports/
             **/hs_err*.log
 
-  build-pr-qemu:
+  build-pr-ubuntu:
     runs-on: ubuntu-20.04
     needs: verify
     steps:
       - name: Install dependencies
         run: |
           sudo apt-get update -q -y
-          sudo apt-get install -q -y qemu-system genisoimage expect samba
-
-      - name: Create qemu image directory
-        run: mkdir /home/runner/.qemu/
-
+          sudo apt-get install -q -y autoconf automake git libtool
       - uses: actions/checkout@v2
 
-      # Cache qemu image
       - uses: actions/cache@v2
         env:
-          cache-name: build-pr-qemu-cache
+          cache-name: build-pr-ubuntu-cache
         with:
-          path: /home/runner/.qemu/
+          path: /home/runner/.ubuntu/
           key: ${{ runner.os }}-pr-${{ env.cache-name }}-${{ hashFiles('./github/config/user-data') }}
           restore-keys: |
             ${{ runner.os }}-pr-${{ env.cache-name }}-
             ${{ runner.os }}-pr-
 
-      - name: Check qemu image exists
-        id: check_qemu_image_exists
-        uses: andstor/file-existence-action@v1
-        with:
-          files: "/home/runner/.qemu/my-disk.qcow2, /home/runner/.qemu/my-seed.iso, /home/runner/.qemu/Fedora-Cloud-Base-33-1.2.x86_64.qcow2"
-
-      - name: Build qemu image
-        if: steps.check_qemu_image_exists.outputs.files_exists == 'false'
-        run: bash ./.github/scripts/build_qemu_image.sh /home/runner/.qemu/ my-disk.qcow2 my-seed.iso ./.github/config/user-data ./.github/config/meta-data
-
-      - name: Build project via QEMU
-        run: expect -f ./.github/scripts/qemu_build.exp /home/runner/.qemu my-disk.qcow2 my-seed.iso | tee build.output
-
-      - name: Checking for test failures
-        run: ./.github/scripts/check_build_result.sh build.output
+      - name: Build project
+        run: ./mvnw -B -ntp clean package -Dio.netty.testsuite.badHost=netty.io | tee build-leak.output
 
       - name: Checking for detected leak
         run: bash ./.github/scripts/check_leak.sh build.output
@@ -142,13 +124,13 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v2
         with:
-          name: test-results-build-pr-qemu
+          name: test-results-build-pr-ubuntu
           path: '**/target/surefire-reports/TEST-*.xml'
 
       - uses: actions/upload-artifact@v2
         if: ${{ failure() }}
         with:
-          name: build-target
+          name: build-target-pr-ubuntu
           path: |
             **/target/surefire-reports/
             **/hs_err*.log
