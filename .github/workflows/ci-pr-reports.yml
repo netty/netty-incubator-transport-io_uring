@@ -31,7 +31,8 @@ jobs:
           workflow_conclusion: completed
           commit: ${{ github.event.workflow_run.head_commit.id }}
           # File location set in ci-pr.yml and must be coordinated.
-          name: test-results-build-pr-qemu
+          name: test-results-build-pr-ubuntu
+
       - name: Publish Test Report
         uses: scacap/action-surefire-report@v1.0.7
         with:
