@@ -23,9 +23,9 @@
   </parent>
 
   <groupId>io.netty.incubator</groupId>
-  <artifactId>netty-incubator-transport-parent-io_uring</artifactId>
+  <artifactId>netty5-incubator-transport-parent-io_uring</artifactId>
   <version>0.0.15.Final-SNAPSHOT</version>
-  <name>Netty/Incubator/Transport/Parent/io_uring</name>
+  <name>Netty5/Incubator/Transport/Parent/io_uring</name>
   <packaging>pom</packaging>
   <url>https://netty.io/</url>
   <description>
@@ -77,7 +77,7 @@
 
     <checkstyle.version>8.38</checkstyle.version>
     <junit.version>5.7.0</junit.version>
-    <netty.version>4.1.77.Final</netty.version>
+    <netty.version>5.0.0.Alpha2</netty.version>
     <netty-tcnative-boringssl-static.version>2.0.52.Final</netty-tcnative-boringssl-static.version>
     <bouncycastle.version>1.68</bouncycastle.version>
     <build-helper-maven-plugin.version>3.2.0</build-helper-maven-plugin.version>
@@ -125,10 +125,10 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven-compiler-plugin.version}</version>
           <configuration>
-            <compilerVersion>1.8</compilerVersion>
+            <compilerVersion>11</compilerVersion>
             <fork>true</fork>
-            <source>1.8</source>
-            <target>1.8</target>
+            <source>11</source>
+            <target>11</target>
             <debug>true</debug>
             <optimize>true</optimize>
             <showDeprecation>true</showDeprecation>
@@ -344,27 +344,27 @@
     <dependencies>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-common</artifactId>
+        <artifactId>netty5-common</artifactId>
         <version>${netty.version}</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-buffer</artifactId>
+        <artifactId>netty5-buffer</artifactId>
         <version>${netty.version}</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-transport</artifactId>
+        <artifactId>netty5-transport</artifactId>
         <version>${netty.version}</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-transport-native-unix-common</artifactId>
+        <artifactId>netty5-transport-native-unix-common</artifactId>
         <version>${netty.version}</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-testsuite</artifactId>
+        <artifactId>netty5-testsuite</artifactId>
         <version>${netty.version}</version>
         <scope>test</scope>
       </dependency>
@@ -388,13 +388,13 @@
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-transport-native-unix-common-tests</artifactId>
+        <artifactId>netty5-transport-native-unix-common-tests</artifactId>
         <version>${netty.version}</version>
         <scope>test</scope>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-transport-classes-epoll</artifactId>
+        <artifactId>netty5-transport-classes-epoll</artifactId>
         <version>${netty.version}</version>
         <scope>test</scope>
       </dependency>
@@ -408,8 +408,7 @@
       <dependency>
         <groupId>org.bouncycastle</groupId>
         <artifactId>bcpkix-jdk15on</artifactId>
-        <version>${bouncycastle.version}</version>
-        <scope>test</scope>
+        <version>1.70</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>

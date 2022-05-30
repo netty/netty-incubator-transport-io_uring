@@ -18,17 +18,17 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>io.netty.incubator</groupId>
-    <artifactId>netty-incubator-transport-parent-io_uring</artifactId>
+    <artifactId>netty5-incubator-transport-parent-io_uring</artifactId>
     <version>0.0.15.Final-SNAPSHOT</version>
   </parent>
 
-  <artifactId>netty-incubator-transport-classes-io_uring</artifactId>
+  <artifactId>netty5-incubator-transport-classes-io_uring</artifactId>
   <version>0.0.15.Final-SNAPSHOT</version>
-  <name>Netty/Incubator/Transport/Classes/io_uring</name>
+  <name>Netty5/Incubator/Transport/Classes/io_uring</name>
   <packaging>jar</packaging>
 
   <properties>
-    <javaModuleName>io.netty.incubator.transport.classes.io_uring</javaModuleName>
+    <javaModuleName>io.netty5.incubator.transport.classes.io_uring</javaModuleName>
   </properties>
 
   <build>
@@ -62,23 +62,57 @@
   <dependencies>
     <dependency>
       <groupId>io.netty</groupId>
-      <artifactId>netty-common</artifactId>
+      <artifactId>netty5-common</artifactId>
       <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
-      <artifactId>netty-buffer</artifactId>
+      <artifactId>netty5-buffer</artifactId>
       <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
-      <artifactId>netty-transport</artifactId>
+      <artifactId>netty5-transport</artifactId>
       <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
-      <artifactId>netty-transport-native-unix-common</artifactId>
+      <artifactId>netty5-transport-native-unix-common</artifactId>
       <version>${netty.version}</version>
     </dependency>
+    <!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>2.17.1</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>2.17.1</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-slf4j-impl -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j-impl</artifactId>
+      <version>2.17.1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty5-transport-classes-epoll</artifactId>
+      <scope>compile</scope>
+      <version>${netty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty5-transport-native-epoll</artifactId>
+      <classifier>linux-x86_64</classifier>
+      <version>${netty.version}</version>
+      <scope>compile</scope>
+    </dependency>
+
   </dependencies>
 </project>
