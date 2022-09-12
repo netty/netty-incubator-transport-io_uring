@@ -438,18 +438,17 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
         private void recvmsgComplete(ChannelPipeline pipeline, IOUringRecvByteAllocatorHandle allocHandle,
                                       ByteBuf byteBuf, int res, int idx, int outstanding) throws IOException {
             MsgHdrMemory hdr = recvmsgHdrs.hdr(idx);
-
             if (res < 0) {
                 // If res is negative we should pass it to ioResult(...) which will either throw
                 // or convert it to 0 if we could not read because the socket was not readable.
                 allocHandle.lastBytesRead(ioResult("io_uring recvmsg", res));
-            } else if (res > 0) {
-                allocHandle.lastBytesRead(res);
-                allocHandle.incMessagesRead(1);
-                DatagramPacket packet = hdr.read(IOUringDatagramChannel.this, byteBuf, res);
-                pipeline.fireChannelRead(packet);
             } else {
-                allocHandle.lastBytesRead(0);
+                allocHandle.lastBytesRead(res);
+                if (hdr.hasPort(IOUringDatagramChannel.this)) {
+                    allocHandle.incMessagesRead(1);
+                    DatagramPacket packet = hdr.read(IOUringDatagramChannel.this, byteBuf, res);
+                    pipeline.fireChannelRead(packet);
+                }
             }
 
             if (outstanding == 0) {
