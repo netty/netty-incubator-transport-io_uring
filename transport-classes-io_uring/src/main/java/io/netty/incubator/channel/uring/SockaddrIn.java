@@ -147,6 +147,18 @@ final class SockaddrIn {
         }
     }
 
+    static boolean hasPortIpv4(long memory) {
+        int port = handleNetworkOrder(PlatformDependent.getShort(
+                memory + Native.SOCKADDR_IN_OFFSETOF_SIN_PORT)) & 0xFFFF;
+        return port > 0;
+    }
+
+    static boolean hasPortIpv6(long memory) {
+        int port = handleNetworkOrder(PlatformDependent.getShort(
+                memory + Native.SOCKADDR_IN6_OFFSETOF_SIN6_PORT)) & 0xFFFF;
+        return port > 0;
+    }
+
     private static short handleNetworkOrder(short v) {
         return BIG_ENDIAN_NATIVE_ORDER ? v : Short.reverseBytes(v);
     }
