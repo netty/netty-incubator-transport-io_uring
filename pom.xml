@@ -76,7 +76,7 @@
     <test.argLine>-D_</test.argLine>
 
     <checkstyle.version>8.38</checkstyle.version>
-    <junit.version>5.7.0</junit.version>
+    <junit.version>5.9.0</junit.version>
     <netty.version>4.1.82.Final</netty.version>
     <netty-tcnative-boringssl-static.version>2.0.54.Final</netty-tcnative-boringssl-static.version>
     <bouncycastle.version>1.68</bouncycastle.version>
