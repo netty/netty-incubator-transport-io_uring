@@ -1,0 +1,33 @@
+version: "3"
+
+services:
+
+  compile-aarch64-runtime-setup:
+    image: netty-io_uring:compile_aarch64
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.centos7arm64v8
+      args:
+        java_version: "8.0.322-zulu"
+
+  compile-aarch64-common: &compile-aarch64-common
+    depends_on: [ compile-aarch64-runtime-setup ]
+    image: netty-io_uring:compile_aarch64
+    volumes:
+      - ~/.ssh:/root/.ssh:delegated
+      - ~/.m2/repository:/root/.m2/repository
+      - ..:/code:delegated
+    working_dir: /code
+
+  compile-aarch64-shell:
+    <<: *compile-aarch64-common
+    volumes:
+      - ~/.ssh:/root/.ssh:delegated
+      - ~/.gnupg:/root/.gnupg:delegated
+      - ..:/code:delegated
+      - ~/.m2:/root/.m2:delegated
+    entrypoint: /bin/bash
+
+  compile-aarch64-build:
+    <<: *compile-aarch64-common
+    command: /bin/bash -cl "mkdir -p transport-native-io_uring/target/generated-sources/hawtjni/native-package && touch transport-native-io_uring/target/generated-sources/hawtjni/native-package/autogen.sh && chmod a+x transport-native-io_uring/target/generated-sources/hawtjni/native-package/autogen.sh && ./mvnw -B -ntp package -Plinux,linux-aarch64-native -DskipTests=true"
