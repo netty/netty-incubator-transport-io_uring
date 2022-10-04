@@ -17,7 +17,7 @@ name: Deploy snapshots
 
 on:
   push:
-    branches: [ main ]
+    branches: [ netty5 ]
 
   schedule:
     - cron: '30 5 * * 1'  # At 05:30 on Monday, every Monday.
