@@ -1,0 +1,27 @@
+version: "3"
+
+services:
+
+  runtime-setup:
+    image: netty-io_uring:centos-6-11
+    build:
+      args:
+        java_version : "11.0.16-zulu"
+
+  build-leak:
+    image: netty-io_uring:centos-6-11
+
+  build:
+    image: netty-io_uring:centos-6-11
+
+  deploy:
+    image: netty-io_uring:centos-6-11
+
+  stage-snapshot:
+    image: netty-io_uring:centos-6-11
+
+  stage-release:
+    image: netty-io_uring:centos-6-11
+
+  shell:
+    image: netty-io_uring:centos-6-11

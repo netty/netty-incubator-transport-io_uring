@@ -21,7 +21,7 @@ RUN yum install -y \
 # Downloading and installing SDKMAN!
 RUN curl -s "https://get.sdkman.io" | bash
 
-ARG java_version="8.0.322-zulu"
+ARG java_version="11.0.16-zulu"
 ENV JAVA_VERSION $java_version
 
 # Installing Java removing some unnecessary SDKMAN files
@@ -34,8 +34,8 @@ RUN echo 'export JAVA_HOME="/root/.sdkman/candidates/java/current"' >> ~/.bashrc
 RUN echo 'PATH=/root/.sdkman/candidates/java/current/bin:$PATH' >> ~/.bashrc
 
 WORKDIR /opt
-RUN curl https://downloads.apache.org/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz | tar -xz
-RUN echo 'PATH=/opt/apache-maven-3.6.3/bin/:$PATH' >> ~/.bashrc
+RUN curl https://downloads.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz | tar -xz
+RUN echo 'PATH=/opt/apache-maven-3.8.6/bin/:$PATH' >> ~/.bashrc
 
 # Prepare our own build
 ENV PATH /opt/apache-maven-3.6.3/bin/:$PATH
