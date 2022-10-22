@@ -50,7 +50,7 @@ public class IOUringSocketRstTest extends SocketRstTest {
         }
 
         assertTrue(cause instanceof Errors.NativeIoException,
-                "actual [type, message]: [" + cause.getClass() + ", " + cause.getMessage() + "]");
+                "actual [type, message]: [" + cause.getClass() + ", " + cause.getMessage() + ']');
         assertEquals(Errors.ERRNO_ECONNRESET_NEGATIVE, ((Errors.NativeIoException) cause).expectedErr());
     }
 }

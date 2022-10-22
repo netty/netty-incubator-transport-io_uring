@@ -17,17 +17,17 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "io_uring.h"
-#include "netty_unix_buffer.h"
-#include "netty_unix_errors.h"
-#include "netty_unix_filedescriptor.h"
-#include "netty_unix_jni.h"
-#include "netty_unix_limits.h"
-#include "netty_unix_socket.h"
-#include "netty_unix_util.h"
-#include "netty_unix.h"
+#include "netty5_unix_buffer.h"
+#include "netty5_unix_errors.h"
+#include "netty5_unix_filedescriptor.h"
+#include "netty5_unix_jni.h"
+#include "netty5_unix_limits.h"
+#include "netty5_unix_socket.h"
+#include "netty5_unix_util.h"
+#include "netty5_unix.h"
 
-#ifndef NETTY_IO_URING
-#define NETTY_IO_URING
+#ifndef NETTY5_IO_URING
+#define NETTY5_IO_URING
 
 struct io_uring_sq {
     unsigned *khead;

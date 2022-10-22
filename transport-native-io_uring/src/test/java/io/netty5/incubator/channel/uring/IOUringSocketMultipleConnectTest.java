@@ -18,7 +18,7 @@ package io.netty5.incubator.channel.uring;
 import io.netty5.bootstrap.Bootstrap;
 import io.netty5.bootstrap.ServerBootstrap;
 import io.netty5.channel.EventLoopGroup;
-import io.netty5.channel.nio.NioEventLoopGroup;
+import io.netty5.channel.nio.AbstractNioChannel;
 import io.netty5.testsuite.transport.TestsuitePermutation;
 import io.netty5.testsuite.transport.socket.SocketMultipleConnectTest;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,12 +37,10 @@ public class IOUringSocketMultipleConnectTest extends SocketMultipleConnectTest 
 
     @Override
     protected List<TestsuitePermutation.BootstrapComboFactory<ServerBootstrap, Bootstrap>> newFactories() {
-        List<TestsuitePermutation.BootstrapComboFactory<ServerBootstrap, Bootstrap>> factories
-                = new ArrayList<TestsuitePermutation.BootstrapComboFactory<ServerBootstrap, Bootstrap>>();
-        for (TestsuitePermutation.BootstrapComboFactory<ServerBootstrap, Bootstrap> comboFactory
-                : IOUringSocketTestPermutation.INSTANCE.socket()) {
+        List<TestsuitePermutation.BootstrapComboFactory<ServerBootstrap, Bootstrap>> factories = new ArrayList<>();
+        for (var comboFactory : IOUringSocketTestPermutation.INSTANCE.socket()) {
             EventLoopGroup group = comboFactory.newClientInstance().config().group();
-            if (group instanceof NioEventLoopGroup || group instanceof IOUringEventLoop) {
+            if (group.isCompatible(AbstractNioChannel.class) || group.isCompatible(AbstractIOUringChannel.class)) {
                 factories.add(comboFactory);
             }
         }

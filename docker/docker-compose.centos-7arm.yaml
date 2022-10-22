@@ -1,4 +1,4 @@
-version: "3"
+version: "3.7"
 
 services:
 
@@ -10,9 +10,14 @@ services:
       args:
         java_version: "11.0.16-zulu"
 
+
   compile-aarch64-common: &compile-aarch64-common
     depends_on: [ compile-aarch64-runtime-setup ]
     image: netty-io_uring:compile_aarch64
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     volumes:
       - ~/.ssh:/root/.ssh:delegated
       - ~/.m2/repository:/root/.m2/repository
@@ -30,4 +35,8 @@ services:
 
   compile-aarch64-build:
     <<: *compile-aarch64-common
-    command: /bin/bash -cl "mkdir -p transport-native-io_uring/target/generated-sources/hawtjni/native-package && touch transport-native-io_uring/target/generated-sources/hawtjni/native-package/autogen.sh && chmod a+x transport-native-io_uring/target/generated-sources/hawtjni/native-package/autogen.sh && ./mvnw -B -ntp package -Plinux,linux-aarch64-native -DskipTests=true"
+    command: /bin/bash -cl "./mvnw -B -ntp clean -Plinux,linux-aarch64-native && \
+      mkdir -p transport-native-io_uring/target/generated-sources/hawtjni/native-package && \
+      cp transport-native-io_uring/src/test/resources/autogen.sh transport-native-io_uring/target/generated-sources/hawtjni/native-package/autogen.sh && \
+      chmod a+x transport-native-io_uring/target/generated-sources/hawtjni/native-package/autogen.sh && \
+      ./mvnw -B -ntp package -Plinux,linux-aarch64-native"

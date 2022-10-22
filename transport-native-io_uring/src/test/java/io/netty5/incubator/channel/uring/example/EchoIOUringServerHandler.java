@@ -15,13 +15,11 @@
  */
 package io.netty5.incubator.channel.uring.example;
 
-import io.netty5.channel.ChannelHandler.Sharable;
+import io.netty5.channel.ChannelHandlerAdapter;
 import io.netty5.channel.ChannelHandlerContext;
-import io.netty5.channel.ChannelInboundHandlerAdapter;
 
 //temporary prototype example
-@Sharable
-public class EchoIOUringServerHandler extends ChannelInboundHandlerAdapter {
+public class EchoIOUringServerHandler extends ChannelHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
@@ -34,10 +32,14 @@ public class EchoIOUringServerHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+    public void channelExceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         // Close the connection when an exception is raised.
         cause.printStackTrace();
         ctx.close();
     }
 
+    @Override
+    public boolean isSharable() {
+        return true;
+    }
 }

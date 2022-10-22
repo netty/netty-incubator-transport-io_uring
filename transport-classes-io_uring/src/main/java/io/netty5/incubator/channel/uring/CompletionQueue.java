@@ -16,13 +16,18 @@
 package io.netty5.incubator.channel.uring;
 
 import io.netty5.util.internal.PlatformDependent;
+import io.netty5.util.internal.logging.InternalLogger;
+import io.netty5.util.internal.logging.InternalLoggerFactory;
 
-import static io.netty.incubator.channel.uring.UserData.decode;
+import java.util.StringJoiner;
+
+import static io.netty5.incubator.channel.uring.UserData.decode;
 
 /**
  * Completion queue implementation for io_uring.
  */
-final class IOUringCompletionQueue {
+final class CompletionQueue {
+    private static final InternalLogger logger = InternalLoggerFactory.getInstance(CompletionQueue.class);
 
     //these offsets are used to access specific properties
     //CQE (https://github.com/axboe/liburing/blob/master/src/include/liburing/io_uring.h#L162)
@@ -45,9 +50,9 @@ final class IOUringCompletionQueue {
     private final int ringMask;
     private int ringHead;
 
-    IOUringCompletionQueue(long kHeadAddress, long kTailAddress, long kRingMaskAddress, long kRingEntriesAddress,
-                           long kOverflowAddress, long completionQueueArrayAddress, int ringSize, long ringAddress,
-                           int ringFd) {
+    CompletionQueue(long kHeadAddress, long kTailAddress, long kRingMaskAddress, long kRingEntriesAddress,
+                    long kOverflowAddress, long completionQueueArrayAddress, int ringSize, long ringAddress,
+                    int ringFd) {
         this.kHeadAddress = kHeadAddress;
         this.kTailAddress = kTailAddress;
         this.completionQueueArrayAddress = completionQueueArrayAddress;
@@ -61,17 +66,17 @@ final class IOUringCompletionQueue {
 
     /**
      * Returns {@code true} if any completion event is ready to be processed by
-     * {@link #process(IOUringCompletionQueueCallback)}, {@code false} otherwise.
+     * {@link #process(CompletionCallback)}, {@code false} otherwise.
      */
     boolean hasCompletions() {
         return ringHead != PlatformDependent.getIntVolatile(kTailAddress);
     }
 
     /**
-     * Process the completion events in the {@link IOUringCompletionQueue} and return the number of processed
+     * Process the completion events in the {@link CompletionQueue} and return the number of processed
      * events.
      */
-    int process(IOUringCompletionQueueCallback callback) {
+    int process(CompletionCallback callback) {
         int tail = PlatformDependent.getIntVolatile(kTailAddress);
         int i = 0;
         while (ringHead != tail) {
@@ -87,9 +92,28 @@ final class IOUringCompletionQueue {
 
             i++;
 
+            if (logger.isTraceEnabled()) {
+                logger.trace("completed(ring {}): {}(fd={}, res={})",
+                        ringFd, Native.opToStr(UserData.decodeOp(udata)), UserData.decodeFd(udata), res);
+            }
             decode(res, flags, udata, callback);
         }
         return i;
+    }
+
+    @Override
+    public String toString() {
+        StringJoiner sb = new StringJoiner(", ", "CompletionQueue [", "]");
+        int tail = PlatformDependent.getIntVolatile(kTailAddress);
+        int head = ringHead;
+        while (head != tail) {
+            long cqeAddress = completionQueueArrayAddress + (ringHead & ringMask) * CQE_SIZE;
+            long udata = PlatformDependent.getLong(cqeAddress + CQE_USER_DATA_FIELD);
+            int res = PlatformDependent.getInt(cqeAddress + CQE_RES_FIELD);
+            sb.add(Native.opToStr(UserData.decodeOp(udata)) + "(fd=" + UserData.decodeFd(udata) + ",res=" + res +")");
+            head++;
+        }
+        return sb.toString();
     }
 
     /**
@@ -97,6 +121,9 @@ final class IOUringCompletionQueue {
      */
     void ioUringWaitCqe() {
         int ret = Native.ioUringEnter(ringFd, 0, 1, Native.IORING_ENTER_GETEVENTS);
+        if (logger.isTraceEnabled()) {
+            logger.trace("completed(ring {}): {}", ringFd, toString());
+        }
         if (ret < 0) {
             throw new RuntimeException("ioUringEnter syscall returned " + ret);
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Netty Project
+ * Copyright 2022 The Netty Project
  *
  * The Netty Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -15,54 +15,186 @@
  */
 package io.netty5.incubator.channel.uring;
 
+import io.netty5.buffer.Buffer;
+import io.netty5.channel.AdaptiveReadHandleFactory;
 import io.netty5.channel.Channel;
+import io.netty5.channel.ChannelShutdownDirection;
+import io.netty5.channel.EventLoop;
+import io.netty5.channel.EventLoopGroup;
+import io.netty5.channel.ServerChannelReadHandleFactory;
+import io.netty5.channel.ServerChannelWriteHandleFactory;
+import io.netty5.channel.socket.DomainSocketAddress;
 import io.netty5.channel.socket.ServerSocketChannel;
+import io.netty5.channel.socket.SocketChannelWriteHandleFactory;
+import io.netty5.channel.socket.SocketProtocolFamily;
+import io.netty5.channel.unix.Errors;
+import io.netty5.channel.unix.UnixChannel;
+import io.netty5.util.NetUtil;
+import io.netty5.util.concurrent.Future;
+import org.jetbrains.annotations.Nullable;
 
-import java.net.Inet4Address;
-import java.net.InetSocketAddress;
+import java.io.IOException;
 import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-public final class IOUringServerSocketChannel extends AbstractIOUringServerChannel implements ServerSocketChannel {
-    private final IOUringServerSocketChannelConfig config;
+import static io.netty5.channel.unix.Buffer.allocateDirectWithNativeOrder;
+import static io.netty5.channel.unix.Buffer.free;
+import static io.netty5.channel.unix.Buffer.nativeAddressOf;
+import static io.netty5.channel.unix.Errors.ERRNO_EAGAIN_NEGATIVE;
+import static io.netty5.channel.unix.Errors.ERRNO_EWOULDBLOCK_NEGATIVE;
+import static io.netty5.channel.unix.Limits.SSIZE_MAX;
+import static io.netty5.util.internal.ObjectUtil.checkPositiveOrZero;
 
-    public IOUringServerSocketChannel() {
-        super(LinuxSocket.newSocketStream(), false);
-        this.config = new IOUringServerSocketChannelConfig(this);
+public final class IOUringServerSocketChannel extends AbstractIOUringChannel<UnixChannel> implements ServerSocketChannel {
+    private final ByteBuffer sockaddrMemory;
+    private final long sockaddrPtr;
+    private final long addrlenPtr;
+    private final EventLoopGroup childEventLoopGroup;
+
+    // The maximum number of bytes for an InetAddress / Inet6Address
+    private final byte[] inet4AddressArray = new byte[SockaddrIn.IPV4_ADDRESS_LENGTH];
+    private final byte[] inet6AddressArray = new byte[SockaddrIn.IPV6_ADDRESS_LENGTH];
+
+    private volatile int backlog = NetUtil.SOMAXCONN;
+
+    public IOUringServerSocketChannel(EventLoop eventLoop, EventLoopGroup childEventLoopGroup) {
+        super(null, eventLoop, false, new ServerChannelReadHandleFactory(), new ServerChannelWriteHandleFactory(),
+                LinuxSocket.newSocketStream(), null, false);
+        this.childEventLoopGroup = childEventLoopGroup;
+        sockaddrMemory = allocateDirectWithNativeOrder(Long.BYTES + Native.SIZEOF_SOCKADDR_STORAGE);
+        // Needs to be initialized to the size of acceptedAddressMemory.
+        // See https://man7.org/linux/man-pages/man2/accept.2.html
+        sockaddrMemory.putLong(0, Native.SIZEOF_SOCKADDR_STORAGE); // todo do this before enqueueing every accept?
+        addrlenPtr = nativeAddressOf(sockaddrMemory);
+        sockaddrPtr = addrlenPtr + Long.BYTES;
     }
 
     @Override
-    public IOUringServerSocketChannelConfig config() {
-        return config;
-    }
-
-    @Override
-    Channel newChildChannel(int fd, long acceptedAddressMemoryAddress, long acceptedAddressLengthMemoryAddress) {
-        final InetSocketAddress address;
-        if (socket.isIpv6()) {
-            byte[] ipv6Array = ((IOUringEventLoop) eventLoop()).inet6AddressArray();
-            byte[] ipv4Array = ((IOUringEventLoop) eventLoop()).inet4AddressArray();
-            address = SockaddrIn.readIPv6(acceptedAddressMemoryAddress, ipv6Array, ipv4Array);
-        } else {
-            byte[] addressArray = ((IOUringEventLoop) eventLoop()).inet4AddressArray();
-            address = SockaddrIn.readIPv4(acceptedAddressMemoryAddress, addressArray);
-        }
-        return new IOUringSocketChannel(this, new LinuxSocket(fd), address);
-    }
-
-    @Override
-    public InetSocketAddress remoteAddress() {
-        return (InetSocketAddress) super.remoteAddress();
-    }
-
-    @Override
-    public InetSocketAddress localAddress() {
-        return (InetSocketAddress) super.localAddress();
-    }
-
-    @Override
-    public void doBind(SocketAddress localAddress) throws Exception {
+    protected void doBind(SocketAddress localAddress) throws Exception {
         super.doBind(localAddress);
-        socket.listen(config.getBacklog());
+        socket.makeBlocking();
+        socket.listen(getBacklog());
         active = true;
+        logger.debug("server listening: {}", this);
+    }
+
+    @Override
+    protected void doRead(boolean wasReadPendingAlready) throws Exception {
+        logger.debug("doRead (server socket): {}, wasReadPendingAlready = {}", this, wasReadPendingAlready);
+        if (!wasReadPendingAlready) {
+            submissionQueue.addAccept(fd().intValue(), sockaddrPtr, addrlenPtr, (short) 0);
+        }
+    }
+
+    @Override
+    void readComplete(int res, short data) {
+        logger.debug("readComplete (server socket): {}, fd = {}", this, res);
+        if (res >= 0) {
+            Channel channel = newChildChannel(res);
+            pipeline().fireChannelRead(channel);
+            // todo need to schedule another read?
+        }
+        pipeline().fireChannelReadComplete();
+        if (res < 0) {
+            // Check if we did fail because there was nothing to accept atm.
+            if (res != ERRNO_EAGAIN_NEGATIVE && res != ERRNO_EWOULDBLOCK_NEGATIVE) {
+                // Something bad happened. Convert to an exception.
+                pipeline().fireChannelExceptionCaught(Errors.newIOException("io_uring accept", res));
+            }
+        }
+    }
+
+    private Channel newChildChannel(int fd) {
+        final SocketAddress peer;
+        if (socket.protocolFamily() == SocketProtocolFamily.UNIX) {
+            peer = null;
+        } else {
+            peer = buildAddress();
+        }
+        return new IOUringSocketChannel(
+                this, childEventLoopGroup().next(), true,
+                new AdaptiveReadHandleFactory(), new SocketChannelWriteHandleFactory(Integer.MAX_VALUE, SSIZE_MAX),
+                new LinuxSocket(fd, socket.protocolFamily()), peer, true);
+    }
+
+    private SocketAddress buildAddress() {
+        if (socket.isIpv6()) {
+            return SockaddrIn.readIPv6(sockaddrPtr, inet6AddressArray, inet4AddressArray);
+        }
+        return SockaddrIn.readIPv4(sockaddrPtr, inet4AddressArray);
+    }
+
+    @Override
+    protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress, Buffer initialData) throws Exception {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected boolean processRead(ReadSink readSink, Object read) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected Object filterOutboundMessage(Object msg) throws Exception {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected void submitAllWriteMessages(WriteSink writeSink) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    void writeComplete(int result, short data) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected void doShutdown(ChannelShutdownDirection direction) throws Exception {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isShutdown(ChannelShutdownDirection direction) {
+        return !isActive();
+    }
+
+    @Override
+    protected void doClose() {
+        super.doClose();
+        free(sockaddrMemory);
+        if (socket.protocolFamily() == SocketProtocolFamily.UNIX) {
+            DomainSocketAddress local = (DomainSocketAddress) localAddress();
+            if (local != null) {
+                try {
+                    if (!Files.deleteIfExists(Path.of(local.path()))) {
+                        logger.debug("Failed to delete domain socket file: {}", local.path());
+                    }
+                } catch (IOException e) {
+                    logger.debug("Failed to delete domain socket file: {}", local.path(), e);
+                }
+            }
+        }
+    }
+
+    @Override
+    protected @Nullable Future<Void> currentWritePromise() {
+        return null;
+    }
+
+    @Override
+    public EventLoopGroup childEventLoopGroup() {
+        return childEventLoopGroup;
+    }
+
+    public int getBacklog() {
+        return backlog;
+    }
+
+    public void setBacklog(int backlog) {
+        checkPositiveOrZero(backlog, "backlog");
+        this.backlog = backlog;
     }
 }

@@ -16,7 +16,7 @@
 package io.netty5.incubator.channel.uring;
 
 /**
- * <p>
+ * <pre>{@code
  * struct tcp_info
  * {
  *      __u8    tcpi_state;
@@ -57,9 +57,9 @@ package io.netty5.incubator.channel.uring;
  *
  *      __u32   tcpi_total_retrans;
  * };
- * </p>
+ * }</pre>
  */
-public final class IOUringTcpInfo {
+final class TcpInfo {
 
     final long[] info = new long[32];
 

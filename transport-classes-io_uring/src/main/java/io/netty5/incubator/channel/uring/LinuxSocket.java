@@ -16,17 +16,20 @@
 package io.netty5.incubator.channel.uring;
 
 import io.netty5.channel.ChannelException;
-import io.netty5.channel.socket.InternetProtocolFamily;
+import io.netty5.channel.socket.SocketProtocolFamily;
+import io.netty5.channel.unix.Errors;
 import io.netty5.channel.unix.NativeInetAddress;
 import io.netty5.channel.unix.PeerCredentials;
 import io.netty5.channel.unix.Socket;
 import io.netty5.util.internal.PlatformDependent;
 import io.netty5.util.internal.SocketUtils;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.ProtocolFamily;
 import java.net.UnknownHostException;
 import java.util.Enumeration;
 
@@ -38,12 +41,8 @@ final class LinuxSocket extends Socket {
     private static final InetAddress INET_ANY = unsafeInetAddrByName("0.0.0.0");
     private static final long MAX_UINT32_T = 0xFFFFFFFFL;
 
-    LinuxSocket(int fd) {
-        super(fd);
-    }
-
-    InternetProtocolFamily family() {
-        return ipv6 ? InternetProtocolFamily.IPv6 : InternetProtocolFamily.IPv4;
+    LinuxSocket(int fd, SocketProtocolFamily family) {
+        super(fd, family);
     }
 
     @Override
@@ -61,9 +60,9 @@ final class LinuxSocket extends Socket {
     }
 
     void setNetworkInterface(NetworkInterface netInterface) throws IOException {
-        InetAddress address = deriveInetAddress(netInterface, family() == InternetProtocolFamily.IPv6);
-        if (address.equals(family() == InternetProtocolFamily.IPv4 ? INET_ANY : INET6_ANY)) {
-            throw new IOException("NetworkInterface does not support " + family());
+        InetAddress address = deriveInetAddress(netInterface, protocolFamily() == SocketProtocolFamily.INET6);
+        if (address.equals(protocolFamily() == SocketProtocolFamily.INET ? INET_ANY : INET6_ANY)) {
+            throw new IOException("NetworkInterface does not support " + protocolFamily());
         }
         final NativeInetAddress nativeAddress = NativeInetAddress.newInstance(address);
         setInterface(intValue(), ipv6, nativeAddress.address(), nativeAddress.scopeId(), interfaceIndex(netInterface));
@@ -211,7 +210,7 @@ final class LinuxSocket extends Socket {
         return getTimeToLive(intValue());
     }
 
-    void getTcpInfo(IOUringTcpInfo info) throws IOException {
+    void getTcpInfo(TcpInfo info) throws IOException {
         getTcpInfo(intValue(), info.info);
     }
 
@@ -280,6 +279,13 @@ final class LinuxSocket extends Socket {
         setIpMulticastLoop(intValue(), ipv6, loopbackModeDisabled ? 0 : 1);
     }
 
+    void makeBlocking() throws IOException {
+        int result = makeBlocking(intValue());
+        if (result != 0) {
+            throw Errors.newIOException("makeBlocking", result);
+        }
+    }
+
     private static InetAddress deriveInetAddress(NetworkInterface netInterface, boolean ipv6) {
         final InetAddress ipAny = ipv6 ? INET6_ANY : INET_ANY;
         if (netInterface != null) {
@@ -299,24 +305,51 @@ final class LinuxSocket extends Socket {
         return ipv6;
     }
 
+    public static LinuxSocket newSocketStream(@Nullable ProtocolFamily protocolFamily) {
+        SocketProtocolFamily family = toSocketProtocolFamily(protocolFamily);
+        switch (family) {
+            case INET: return new LinuxSocket(newSocketStream0(false), family);
+            case INET6: return new LinuxSocket(newSocketStream0(true), family);
+            case UNIX: return new LinuxSocket(newSocketDomain0(), family);
+            default: throw new AssertionError("unhandled protocol family: " + family);
+        }
+    }
+
+    public static LinuxSocket newSocketDgram(@Nullable ProtocolFamily protocolFamily) {
+        SocketProtocolFamily family = toSocketProtocolFamily(protocolFamily);
+        switch (family) {
+            case INET: return new LinuxSocket(newSocketDgram0(false), family);
+            case INET6: return new LinuxSocket(newSocketDgram0(true), family);
+            case UNIX: return new LinuxSocket(newSocketDomainDgram0(), family);
+            default: throw new AssertionError("unhandled protocol family: " + family);
+        }
+    }
+
+    private static SocketProtocolFamily toSocketProtocolFamily(ProtocolFamily protocolFamily) {
+        if (protocolFamily == null) {
+            return isIPv6Preferred() ? SocketProtocolFamily.INET6 : SocketProtocolFamily.INET;
+        }
+        return SocketProtocolFamily.of(protocolFamily);
+    }
+
     public static LinuxSocket newSocketStream(boolean ipv6) {
-        return new LinuxSocket(newSocketStream0(ipv6));
+        return new LinuxSocket(newSocketStream0(ipv6), ipv6 ? SocketProtocolFamily.INET6 : SocketProtocolFamily.INET);
     }
 
     public static LinuxSocket newSocketStream() {
-        return newSocketStream(isIPv6Preferred());
+        return newSocketStream(isIPv6Preferred() ? SocketProtocolFamily.INET6 : SocketProtocolFamily.INET);
     }
 
     public static LinuxSocket newSocketDgram(boolean ipv6) {
-        return new LinuxSocket(newSocketDgram0(ipv6));
+        return new LinuxSocket(newSocketDgram0(ipv6), ipv6 ? SocketProtocolFamily.INET6 : SocketProtocolFamily.INET);
     }
 
     public static LinuxSocket newSocketDgram() {
-        return newSocketDgram(isIPv6Preferred());
+        return newSocketDgram(isIPv6Preferred() ? SocketProtocolFamily.INET6 : SocketProtocolFamily.INET);
     }
 
     public static LinuxSocket newSocketDomain() {
-        return new LinuxSocket(newSocketDomain0());
+        return new LinuxSocket(newSocketDomain0(), SocketProtocolFamily.UNIX);
     }
 
     private static InetAddress unsafeInetAddrByName(String inetName) {
@@ -374,5 +407,6 @@ final class LinuxSocket extends Socket {
     private static native int getInterface(int fd, boolean ipv6);
     private static native int getIpMulticastLoop(int fd, boolean ipv6) throws IOException;
     private static native void setIpMulticastLoop(int fd, boolean ipv6, int enabled) throws IOException;
+    private static native int makeBlocking(int fd) throws IOException;
     private static native void setTimeToLive(int fd, int ttl) throws IOException;
 }

@@ -15,19 +15,22 @@
  */
 package io.netty5.incubator.channel.uring;
 
+import io.netty5.channel.IoHandlerFactory;
 import io.netty5.util.internal.PlatformDependent;
 import io.netty5.util.internal.SystemPropertyUtil;
+import io.netty5.util.internal.logging.InternalLogger;
+import io.netty5.util.internal.logging.InternalLoggerFactory;
 
 public final class IOUring {
-
+    private static final InternalLogger logger = InternalLoggerFactory.getInstance(IOUring.class);
     private static final Throwable UNAVAILABILITY_CAUSE;
 
     static {
         Throwable cause = null;
         try {
-            if (SystemPropertyUtil.getBoolean("io.netty.transport.noNative", false)) {
+            if (SystemPropertyUtil.getBoolean("io.netty5.transport.noNative", false)) {
                 cause = new UnsupportedOperationException(
-                        "Native transport was explicit disabled with -Dio.netty.transport.noNative=true");
+                        "Native transport was explicit disabled with -Dio.netty5.transport.noNative=true");
             } else {
                 String kernelVersion = Native.kernelVersion();
                 Native.checkKernelVersion(kernelVersion);
@@ -53,6 +56,13 @@ public final class IOUring {
         } catch (Throwable t) {
             cause = t;
         }
+        if (cause != null) {
+            if (logger.isTraceEnabled()) {
+                logger.debug("io_uring integration unavailable: {}", cause.getMessage(), cause);
+            } else {
+                logger.debug("io_uring integration unavailable: {}", cause.getMessage());
+            }
+        }
 
         UNAVAILABILITY_CAUSE = cause;
     }
@@ -70,6 +80,30 @@ public final class IOUring {
 
     public static Throwable unavailabilityCause() {
         return UNAVAILABILITY_CAUSE;
+    }
+
+    public static IoHandlerFactory newFactory() {
+        ensureAvailability();
+        return () -> {
+            RingBuffer ringBuffer = Native.createRingBuffer();
+            return new IOUringHandler(ringBuffer);
+        };
+    }
+
+    public static IoHandlerFactory newFactory(int ringSize) {
+        ensureAvailability();
+        return () -> {
+            RingBuffer ringBuffer = Native.createRingBuffer(ringSize);
+            return new IOUringHandler(ringBuffer);
+        };
+    }
+
+    public static IoHandlerFactory newFactory(int ringSize, int kernelWorkerOffloadThreshold) {
+        ensureAvailability();
+        return () -> {
+            RingBuffer ringBuffer = Native.createRingBuffer(ringSize, kernelWorkerOffloadThreshold);
+            return new IOUringHandler(ringBuffer);
+        };
     }
 
     private IOUring() {

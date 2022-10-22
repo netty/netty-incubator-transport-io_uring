@@ -19,6 +19,7 @@ import io.netty5.bootstrap.ServerBootstrap;
 import io.netty5.channel.Channel;
 import io.netty5.channel.ChannelInitializer;
 import io.netty5.channel.EventLoopGroup;
+import io.netty5.channel.MultithreadEventLoopGroup;
 import io.netty5.channel.socket.ServerSocketChannel;
 import io.netty5.channel.socket.SocketChannel;
 import io.netty5.handler.logging.LogLevel;
@@ -36,9 +37,9 @@ public class PollRemoveTest {
         assumeTrue(IOUring.isAvailable());
     }
 
-    private void io_uring_test() throws Exception {
+    private static void ioUringTest() throws Exception {
         Class<? extends ServerSocketChannel> clazz = IOUringServerSocketChannel.class;
-        final EventLoopGroup bossGroup = new IOUringEventLoopGroup(1);
+        final EventLoopGroup bossGroup = new MultithreadEventLoopGroup(1, IOUring.newFactory());
 
         try {
             ServerBootstrap b = new ServerBootstrap();
@@ -50,20 +51,20 @@ public class PollRemoveTest {
                         public void initChannel(SocketChannel ch) { }
                     });
 
-            Channel sc = b.bind(2020).sync().channel();
+            Channel sc = b.bind(2020).asStage().get();
 
             // close ServerChannel
-            sc.close().sync();
+            sc.close().asStage().sync();
         } finally {
-            bossGroup.shutdownGracefully().sync();
+            bossGroup.shutdownGracefully().asStage().sync();
         }
     }
 
     @Test
     @Timeout(10)
     public void test() throws Exception {
-        io_uring_test();
-        io_uring_test();
+        ioUringTest();
+        ioUringTest();
     }
 }
 

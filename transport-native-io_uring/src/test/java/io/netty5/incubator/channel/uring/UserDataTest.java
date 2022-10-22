@@ -15,7 +15,6 @@
  */
 package io.netty5.incubator.channel.uring;
 
-
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,13 +30,10 @@ public class UserDataTest {
                     final byte expectedOp = op;
                     final short expectedData = (short) data;
                     long udata = UserData.encode(expectedFd, expectedOp, expectedData);
-                    UserData.decode(0, 0, udata, new IOUringCompletionQueueCallback() {
-                        @Override
-                        public void handle(int actualFd, int res, int flags, byte actualOp, short actualData) {
-                            assertEquals(expectedFd, actualFd);
-                            assertEquals(expectedOp, actualOp);
-                            assertEquals(expectedData, actualData);
-                        }
+                    UserData.decode(0, 0, udata, (actualFd, res, flags, actualOp, actualData) -> {
+                        assertEquals(expectedFd, actualFd);
+                        assertEquals(expectedOp, actualOp);
+                        assertEquals(expectedData, actualData);
                     });
                 }
             }

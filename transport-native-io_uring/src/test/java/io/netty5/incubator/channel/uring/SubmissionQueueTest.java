@@ -15,17 +15,19 @@
  */
 package io.netty5.incubator.channel.uring;
 
-import io.netty5.channel.unix.Buffer;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 
+import static io.netty5.channel.unix.Buffer.allocateDirectWithNativeOrder;
+import static io.netty5.channel.unix.Buffer.free;
+import static io.netty5.channel.unix.Buffer.nativeAddressOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-public class IOUringSubmissionQueueTest {
+public class SubmissionQueueTest {
 
     @BeforeAll
     public static void loadJNI() {
@@ -35,23 +37,23 @@ public class IOUringSubmissionQueueTest {
     @Test
     public void sqeFullTest() {
         RingBuffer ringBuffer = Native.createRingBuffer(8);
-        ByteBuffer buffer = Buffer.allocateDirectWithNativeOrder(128);
+        ByteBuffer buffer = allocateDirectWithNativeOrder(128);
         try {
-            IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
-            final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
+            SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
+            final CompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
 
             assertNotNull(ringBuffer);
             assertNotNull(submissionQueue);
             assertNotNull(completionQueue);
 
-            long address = Buffer.memoryAddress(buffer);
+            long address = nativeAddressOf(buffer);
             int counter = 0;
             while (!submissionQueue.addAccept(-1, address, 128, (short) 0)) {
                 counter++;
             }
             assertEquals(8, counter);
         } finally {
-            Buffer.free(buffer);
+            free(buffer);
             ringBuffer.close();
         }
     }

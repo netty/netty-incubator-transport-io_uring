@@ -134,19 +134,98 @@ final class Native {
     static final int POLLRDHUP = NativeStaticallyReferencedJniMethods.pollrdhup();
     static final int ERRNO_ECANCELED_NEGATIVE = -NativeStaticallyReferencedJniMethods.ecanceled();
     static final int ERRNO_ETIME_NEGATIVE = -NativeStaticallyReferencedJniMethods.etime();
-    static final byte IORING_OP_POLL_ADD = NativeStaticallyReferencedJniMethods.ioringOpPollAdd();
-    static final byte IORING_OP_TIMEOUT = NativeStaticallyReferencedJniMethods.ioringOpTimeout();
-    static final byte IORING_OP_ACCEPT = NativeStaticallyReferencedJniMethods.ioringOpAccept();
-    static final byte IORING_OP_READ = NativeStaticallyReferencedJniMethods.ioringOpRead();
-    static final byte IORING_OP_WRITE = NativeStaticallyReferencedJniMethods.ioringOpWrite();
-    static final byte IORING_OP_POLL_REMOVE = NativeStaticallyReferencedJniMethods.ioringOpPollRemove();
-    static final byte IORING_OP_CONNECT = NativeStaticallyReferencedJniMethods.ioringOpConnect();
-    static final byte IORING_OP_CLOSE = NativeStaticallyReferencedJniMethods.ioringOpClose();
-    static final byte IORING_OP_WRITEV = NativeStaticallyReferencedJniMethods.ioringOpWritev();
-    static final byte IORING_OP_SENDMSG = NativeStaticallyReferencedJniMethods.ioringOpSendmsg();
-    static final byte IORING_OP_RECVMSG = NativeStaticallyReferencedJniMethods.ioringOpRecvmsg();
+
+    static final byte IORING_OP_NOP = 0;
+    static final byte IORING_OP_READV = 1;
+    static final byte IORING_OP_WRITEV = 2;
+    static final byte IORING_OP_FSYNC = 3;
+    static final byte IORING_OP_READ_FIXED = 4;
+    static final byte IORING_OP_WRITE_FIXED = 5;
+    static final byte IORING_OP_POLL_ADD = 6;
+    static final byte IORING_OP_POLL_REMOVE = 7;
+    static final byte IORING_OP_SYNC_FILE_RANGE = 8;
+    static final byte IORING_OP_SENDMSG = 9;
+    static final byte IORING_OP_RECVMSG = 10;
+    static final byte IORING_OP_TIMEOUT = 11;
+    static final byte IORING_OP_TIMEOUT_REMOVE = 12;
+    static final byte IORING_OP_ACCEPT = 13;
+    static final byte IORING_OP_ASYNC_CANCEL = 14;
+    static final byte IORING_OP_LINK_TIMEOUT = 15;
+    static final byte IORING_OP_CONNECT = 16;
+    static final byte IORING_OP_FALLOCATE = 17;
+    static final byte IORING_OP_OPENAT = 18;
+    static final byte IORING_OP_CLOSE = 19;
+    static final byte IORING_OP_FILES_UPDATE = 20;
+    static final byte IORING_OP_STATX = 21;
+    static final byte IORING_OP_READ = 22;
+    static final byte IORING_OP_WRITE = 23;
+    static final byte IORING_OP_FADVISE = 24;
+    static final byte IORING_OP_MADVISE = 25;
+    static final byte IORING_OP_SEND = 26;
+    static final byte IORING_OP_RECV = 27;
+    static final byte IORING_OP_OPENAT2 = 28;
+    static final byte IORING_OP_EPOLL_CTL = 29;
+    static final byte IORING_OP_SPLICE = 30;
+    static final byte IORING_OP_PROVIDE_BUFFERS = 31;
+    static final byte IORING_OP_REMOVE_BUFFERS = 32;
+    static final byte IORING_OP_TEE = 33;
+    static final byte IORING_OP_SHUTDOWN = 34;
+    static final byte IORING_OP_RENAMEAT = 35;
+    static final byte IORING_OP_UNLINKAT = 36;
+    static final byte IORING_OP_MKDIRAT = 37;
+    static final byte IORING_OP_SYMLINKAT = 38;
+    static final byte IORING_OP_LINKAT = 39;
+    
+    static String opToStr(byte op) {
+        switch (op) {
+            case IORING_OP_NOP: return "NOP";
+            case IORING_OP_READV: return "READV";
+            case IORING_OP_WRITEV: return "WRITEV";
+            case IORING_OP_FSYNC: return "FSYNC";
+            case IORING_OP_READ_FIXED: return "READ_FIXED";
+            case IORING_OP_WRITE_FIXED: return "WRITE_FIXED";
+            case IORING_OP_POLL_ADD: return "POLL_ADD";
+            case IORING_OP_POLL_REMOVE: return "POLL_REMOVE";
+            case IORING_OP_SYNC_FILE_RANGE: return "SYNC_FILE_RANGE";
+            case IORING_OP_SENDMSG: return "SENDMSG";
+            case IORING_OP_RECVMSG: return "RECVMSG";
+            case IORING_OP_TIMEOUT: return "TIMEOUT";
+            case IORING_OP_TIMEOUT_REMOVE: return "TIMEOUT_REMOVE";
+            case IORING_OP_ACCEPT: return "ACCEPT";
+            case IORING_OP_ASYNC_CANCEL: return "ASYNC_CANCEL";
+            case IORING_OP_LINK_TIMEOUT: return "LINK_TIMEOUT";
+            case IORING_OP_CONNECT: return "CONNECT";
+            case IORING_OP_FALLOCATE: return "FALLOCATE";
+            case IORING_OP_OPENAT: return "OPENAT";
+            case IORING_OP_CLOSE: return "CLOSE";
+            case IORING_OP_FILES_UPDATE: return "FILES_UPDATE";
+            case IORING_OP_STATX: return "STATX";
+            case IORING_OP_READ: return "READ";
+            case IORING_OP_WRITE: return "WRITE";
+            case IORING_OP_FADVISE: return "FADVISE";
+            case IORING_OP_MADVISE: return "MADVISE";
+            case IORING_OP_SEND: return "SEND";
+            case IORING_OP_RECV: return "RECV";
+            case IORING_OP_OPENAT2: return "OPENAT2";
+            case IORING_OP_EPOLL_CTL: return "EPOLL_CTL";
+            case IORING_OP_SPLICE: return "SPLICE";
+            case IORING_OP_PROVIDE_BUFFERS: return "PROVIDE_BUFFERS";
+            case IORING_OP_REMOVE_BUFFERS: return "REMOVE_BUFFERS";
+            case IORING_OP_TEE: return "TEE";
+            case IORING_OP_SHUTDOWN: return "SHUTDOWN";
+            case IORING_OP_RENAMEAT: return "RENAMEAT";
+            case IORING_OP_UNLINKAT: return "UNLINKAT";
+            case IORING_OP_MKDIRAT: return "MKDIRAT";
+            case IORING_OP_SYMLINKAT: return "SYMLINKAT";
+            case IORING_OP_LINKAT: return "LINKAT";
+            default: return "[OP CODE " + op + ']';
+        }
+    }
+
     static final int IORING_ENTER_GETEVENTS = NativeStaticallyReferencedJniMethods.ioringEnterGetevents();
     static final int IOSQE_ASYNC = NativeStaticallyReferencedJniMethods.iosqeAsync();
+    static final int IOSQE_LINK = NativeStaticallyReferencedJniMethods.iosqeLink();
+    static final int IOSQE_IO_DRAIN = NativeStaticallyReferencedJniMethods.iosqeDrain();
     static final int MSG_DONTWAIT = NativeStaticallyReferencedJniMethods.msgDontwait();
     static final int SOL_UDP = NativeStaticallyReferencedJniMethods.solUdp();
     static final int UDP_SEGMENT = NativeStaticallyReferencedJniMethods.udpSegment();
@@ -165,6 +244,10 @@ final class Native {
             IORING_OP_RECVMSG
     };
 
+    public static RingBuffer createRingBuffer() {
+        return createRingBuffer(DEFAULT_RING_SIZE);
+    }
+
     static RingBuffer createRingBuffer(int ringSize) {
         return createRingBuffer(ringSize, DEFAULT_IOSEQ_ASYNC_THRESHOLD);
     }
@@ -174,7 +257,7 @@ final class Native {
         assert values.length == 2;
         long[] submissionQueueArgs = values[0];
         assert submissionQueueArgs.length == 11;
-        IOUringSubmissionQueue submissionQueue = new IOUringSubmissionQueue(
+        SubmissionQueue submissionQueue = new SubmissionQueue(
                 submissionQueueArgs[0],
                 submissionQueueArgs[1],
                 submissionQueueArgs[2],
@@ -189,7 +272,7 @@ final class Native {
                 iosqeAsyncThreshold);
         long[] completionQueueArgs = values[1];
         assert completionQueueArgs.length == 9;
-        IOUringCompletionQueue completionQueue = new IOUringCompletionQueue(
+        CompletionQueue completionQueue = new CompletionQueue(
                 completionQueueArgs[0],
                 completionQueueArgs[1],
                 completionQueueArgs[2],
@@ -200,10 +283,6 @@ final class Native {
                 completionQueueArgs[7],
                 (int) completionQueueArgs[8]);
         return new RingBuffer(submissionQueue, completionQueue);
-    }
-
-    static RingBuffer createRingBuffer() {
-        return createRingBuffer(DEFAULT_RING_SIZE, DEFAULT_IOSEQ_ASYNC_THRESHOLD);
     }
 
     static void checkAllIOSupported(int ringFd) {
@@ -291,11 +370,11 @@ final class Native {
 
     // From io_uring native library
     private static void loadNativeLibrary() {
-        String name = PlatformDependent.normalizedOs().toLowerCase(Locale.UK).trim();
+        String name = PlatformDependent.normalizedOs().toLowerCase(Locale.ROOT).trim();
         if (!name.startsWith("linux")) {
             throw new IllegalStateException("Only supported on Linux");
         }
-        String staticLibName = "netty_transport_native_io_uring";
+        String staticLibName = "netty5_transport_native_io_uring";
         String sharedLibName = staticLibName + '_' + PlatformDependent.normalizedArch();
         ClassLoader cl = PlatformDependent.getClassLoader(Native.class);
         try {

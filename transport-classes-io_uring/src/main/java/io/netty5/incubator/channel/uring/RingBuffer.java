@@ -15,37 +15,36 @@
  */
 package io.netty5.incubator.channel.uring;
 
-
 final class RingBuffer {
-    private final IOUringSubmissionQueue ioUringSubmissionQueue;
-    private final IOUringCompletionQueue ioUringCompletionQueue;
+    private final SubmissionQueue submissionQueue;
+    private final CompletionQueue completionQueue;
 
-    RingBuffer(IOUringSubmissionQueue ioUringSubmissionQueue, IOUringCompletionQueue ioUringCompletionQueue) {
-        this.ioUringSubmissionQueue = ioUringSubmissionQueue;
-        this.ioUringCompletionQueue = ioUringCompletionQueue;
+    RingBuffer(SubmissionQueue submissionQueue, CompletionQueue completionQueue) {
+        this.submissionQueue = submissionQueue;
+        this.completionQueue = completionQueue;
     }
 
     int fd() {
-        return ioUringCompletionQueue.ringFd;
+        return completionQueue.ringFd;
     }
 
-    IOUringSubmissionQueue ioUringSubmissionQueue() {
-        return this.ioUringSubmissionQueue;
+    SubmissionQueue ioUringSubmissionQueue() {
+        return this.submissionQueue;
     }
 
-    IOUringCompletionQueue ioUringCompletionQueue() {
-        return this.ioUringCompletionQueue;
+    CompletionQueue ioUringCompletionQueue() {
+        return this.completionQueue;
     }
 
     void close() {
-        ioUringSubmissionQueue.release();
+        submissionQueue.release();
         Native.ioUringExit(
-                ioUringSubmissionQueue.submissionQueueArrayAddress,
-                ioUringSubmissionQueue.ringEntries,
-                ioUringSubmissionQueue.ringAddress,
-                ioUringSubmissionQueue.ringSize,
-                ioUringCompletionQueue.ringAddress,
-                ioUringCompletionQueue.ringSize,
-                ioUringCompletionQueue.ringFd);
+                submissionQueue.submissionQueueArrayAddress,
+                submissionQueue.ringEntries,
+                submissionQueue.ringAddress,
+                submissionQueue.ringSize,
+                completionQueue.ringAddress,
+                completionQueue.ringSize,
+                completionQueue.ringFd);
     }
 }

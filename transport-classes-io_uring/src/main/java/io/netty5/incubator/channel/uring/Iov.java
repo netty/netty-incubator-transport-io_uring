@@ -18,10 +18,12 @@ package io.netty5.incubator.channel.uring;
 import io.netty5.util.internal.PlatformDependent;
 
 /**
+ * <pre>{@code
  * struct iovec {
  *     void  *iov_base;    // Starting address
  *     size_t iov_len;     // Number of bytes to transfer
  * };
+ * }</pre>
  */
 final class Iov {
 
@@ -52,5 +54,14 @@ final class Iov {
         }
         assert Native.SIZEOF_SIZE_T == 8;
         return (int) PlatformDependent.getLong(iovAddress + Native.IOVEC_OFFSETOF_IOV_LEN);
+    }
+
+    static long sumSize(long iovAddress, int length) {
+        long sum = 0;
+        for (int i = 0; i < length; i++) {
+            sum += readBufferLength(iovAddress);
+            iovAddress += 2L * Native.SIZEOF_SIZE_T;
+        }
+        return sum;
     }
 }

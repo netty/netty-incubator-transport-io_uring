@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 The Netty Project
+ * Copyright 2020 The Netty Project
  *
  * The Netty Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -13,14 +13,11 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
+package io.netty5.incubator.channel.uring;
 
-#ifndef NETTY_IO_URING_LINUXSOCKET_H_
-#define NETTY_IO_URING_LINUXSOCKET_H_
-
-#include <jni.h>
-
-// JNI initialization hooks. Users of this file are responsible for calling these in the JNI_OnLoad and JNI_OnUnload methods.
-jint netty_io_uring_linuxsocket_JNI_OnLoad(JNIEnv* env, const char* packagePrefix);
-void netty_io_uring_linuxsocket_JNI_OnUnLoad(JNIEnv* env, const char* packagePrefix);
-
-#endif
+interface CompletionCallback {
+    /**
+     * Called for a completion event that was put into the {@link CompletionQueue}.
+     */
+    void handle(int fd, int res, int flags, byte op, short data);
+}

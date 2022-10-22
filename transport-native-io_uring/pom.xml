@@ -41,7 +41,7 @@
     <skipTests>true</skipTests>
     <jniArch>${os.detected.arch}</jniArch>
     <jni.classifier>${os.detected.name}-${jniArch}</jni.classifier>
-    <jniLibName>netty_transport_native_io_uring_${jniArch}</jniLibName>
+    <jniLibName>netty5_transport_native_io_uring_${jniArch}</jniLibName>
     <nativeLibOnlyDir>${project.build.directory}/native-lib-only</nativeLibOnlyDir>
     <extraConfigureArg />
     <extraConfigureArg2 />
@@ -218,7 +218,7 @@
                       <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                     </manifest>
                     <manifestEntries>
-                      <Bundle-NativeCode>META-INF/native/libnetty_transport_native_io_uring_${jniArch}.so; osname=Linux; processor=${jniArch},*</Bundle-NativeCode>
+                      <Bundle-NativeCode>META-INF/native/libnetty5_transport_native_io_uring_${jniArch}.so; osname=Linux; processor=${jniArch},*</Bundle-NativeCode>
                       <Automatic-Module-Name>${javaModuleName}</Automatic-Module-Name>
                       <Fragment-Host>${fragmentHost}</Fragment-Host>
                     </manifestEntries>
@@ -349,15 +349,13 @@
       <properties>
         <!-- use aarch_64 as this is also what os.detected.arch will use on an aarch64 system -->
         <jniArch>aarch_64</jniArch>
-        <!-- As we cross-compile just skip the tests because we could not load this lib on the system anyway -->
-        <skipTests>true</skipTests>
         <extraConfigureArg>--host=aarch64-linux-gnu</extraConfigureArg>
       </properties>
     </profile>
     <profile>
       <id>leak</id>
       <properties>
-        <test.argLine>-Dio.netty.leakDetectionLevel=paranoid -Dio.netty.leakDetection.targetRecords=32</test.argLine>
+        <test.argLine>-Dio.netty5.leakDetectionLevel=paranoid -Dio.netty5.leakDetection.targetRecords=32</test.argLine>
       </properties>
     </profile>
   </profiles>
@@ -372,6 +370,12 @@
       <groupId>io.netty</groupId>
       <artifactId>netty5-testsuite</artifactId>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -387,6 +391,26 @@
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-params</artifactId>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>2.19.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>2.19.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j-impl</artifactId>
+      <version>2.19.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.lmax</groupId>
+      <artifactId>disruptor</artifactId>
+      <version>3.4.4</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>

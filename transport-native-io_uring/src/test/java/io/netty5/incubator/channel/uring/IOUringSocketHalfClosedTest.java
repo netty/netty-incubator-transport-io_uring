@@ -19,8 +19,6 @@ import io.netty5.bootstrap.Bootstrap;
 import io.netty5.bootstrap.ServerBootstrap;
 import io.netty5.testsuite.transport.TestsuitePermutation;
 import io.netty5.testsuite.transport.socket.SocketHalfClosedTest;
-import io.netty5.util.internal.PlatformDependent;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -28,7 +26,7 @@ import org.junit.jupiter.api.TestInfo;
 
 import java.util.List;
 
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class IOUringSocketHalfClosedTest extends SocketHalfClosedTest {
 
@@ -42,15 +40,10 @@ public class IOUringSocketHalfClosedTest extends SocketHalfClosedTest {
         return IOUringSocketTestPermutation.INSTANCE.socket();
     }
 
-    @Disabled
+    @Override
+    @Disabled // TODO was disabled in 4.1 code as well... figure out why?
     @Test
     public void testAutoCloseFalseDoesShutdownOutput(TestInfo testInfo) throws Throwable {
-        // This test only works on Linux / BSD / MacOS as we assume some semantics that are not true for Windows.
-        Assumptions.assumeFalse(PlatformDependent.isWindows());
-        this.run(testInfo, new Runner<ServerBootstrap, Bootstrap>() {
-            public void run(ServerBootstrap serverBootstrap, Bootstrap bootstrap) throws Throwable {
-                testAutoCloseFalseDoesShutdownOutput(serverBootstrap, bootstrap);
-            }
-        });
+        super.testAutoCloseFalseDoesShutdownOutput(testInfo);
     }
 }

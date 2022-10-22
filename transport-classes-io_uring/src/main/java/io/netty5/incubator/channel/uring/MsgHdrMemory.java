@@ -15,13 +15,14 @@
  */
 package io.netty5.incubator.channel.uring;
 
-import io.netty5.buffer.ByteBuf;
+import io.netty5.buffer.Buffer;
 import io.netty5.channel.socket.DatagramPacket;
 import io.netty5.util.internal.PlatformDependent;
 
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 
-final class MsgHdrMemory {
+class MsgHdrMemory {
     private final long memory;
     private final int idx;
     private final long cmsgDataAddr;
@@ -37,7 +38,7 @@ final class MsgHdrMemory {
                 Native.SIZEOF_SOCKADDR_STORAGE + Native.SIZEOF_IOVEC);
     }
 
-    void write(LinuxSocket socket, InetSocketAddress address, long bufferAddress , int length, short segmentSize) {
+    void write(LinuxSocket socket, SocketAddress address, long bufferAddress , int length, short segmentSize) {
         long sockAddress = memory + Native.SIZEOF_MSGHDR;
         long iovAddress = sockAddress + Native.SIZEOF_SOCKADDR_STORAGE;
         long cmsgAddr = iovAddress + Native.SIZEOF_IOVEC;
@@ -45,7 +46,7 @@ final class MsgHdrMemory {
         if (address == null) {
             addressLength = socket.isIpv6() ? Native.SIZEOF_SOCKADDR_IN6 : Native.SIZEOF_SOCKADDR_IN;
             PlatformDependent.setMemory(sockAddress, Native.SIZEOF_SOCKADDR_STORAGE, (byte) 0);
-        } else {
+        } else {// todo handle domain socket addresses
             addressLength = SockaddrIn.write(socket.isIpv6(), sockAddress, address);
         }
         Iov.write(iovAddress, bufferAddress, length);
@@ -54,23 +55,22 @@ final class MsgHdrMemory {
 
     boolean hasPort(IOUringDatagramChannel channel) {
         long sockAddress = memory + Native.SIZEOF_MSGHDR;
-        if (channel.socket.isIpv6()) {
+        if (channel.isIpv6()) {
             return SockaddrIn.hasPortIpv6(sockAddress);
         }
         return SockaddrIn.hasPortIpv4(sockAddress);
     }
 
-    DatagramPacket read(IOUringDatagramChannel channel, ByteBuf buffer, int bytesRead) {
+    DatagramPacket read(IOUringDatagramChannel channel, Buffer buffer, int bytesRead) {
         long sockAddress = memory + Native.SIZEOF_MSGHDR;
-        IOUringEventLoop eventLoop = (IOUringEventLoop) channel.eventLoop();
         InetSocketAddress sender;
-        if (channel.socket.isIpv6()) {
-            byte[] ipv6Bytes = eventLoop.inet6AddressArray();
-            byte[] ipv4bytes = eventLoop.inet4AddressArray();
+        if (channel.isIpv6()) { // TODO handle domain socket addresses
+            byte[] ipv6Bytes = channel.inet6AddressArray();
+            byte[] ipv4bytes = channel.inet4AddressArray();
 
             sender = SockaddrIn.readIPv6(sockAddress, ipv6Bytes, ipv4bytes);
         } else {
-            byte[] bytes = eventLoop.inet4AddressArray();
+            byte[] bytes = channel.inet4AddressArray();
             sender = SockaddrIn.readIPv4(sockAddress, bytes);
         }
         long iovAddress = memory + Native.SIZEOF_MSGHDR + Native.SIZEOF_SOCKADDR_STORAGE;
@@ -78,11 +78,15 @@ final class MsgHdrMemory {
         int bufferLength = Iov.readBufferLength(iovAddress);
         // reconstruct the reader index based on the memoryAddress of the buffer and the bufferAddress that was used
         // in the iovec.
-        int readerIndex = (int) (bufferAddress - buffer.memoryAddress());
+        try (var itr = buffer.forEachComponent()) {
+            var cmp = itr.first();
+            assert cmp != null;
+            int readerOffset = (int) (bufferAddress - cmp.baseNativeAddress());
+            buffer.writerOffset(readerOffset + bytesRead);
+            buffer.readerOffset(readerOffset);
+        }
 
-        ByteBuf slice = buffer.slice(readerIndex, bufferLength)
-                .writerIndex(bytesRead);
-        return new DatagramPacket(slice.retain(), channel.localAddress(), sender);
+        return new DatagramPacket(buffer, channel.localAddress(), sender);
     }
 
     int idx() {

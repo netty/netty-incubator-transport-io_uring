@@ -15,9 +15,10 @@
  */
 package io.netty5.incubator.channel.uring;
 
-import io.netty5.channel.Channel;
 import io.netty5.channel.EventLoop;
 import io.netty5.channel.EventLoopGroup;
+import io.netty5.channel.IoHandlerFactory;
+import io.netty5.channel.MultithreadEventLoopGroup;
 import io.netty5.channel.ServerChannel;
 import io.netty5.testsuite.transport.AbstractSingleThreadEventLoopTest;
 import org.junit.jupiter.api.BeforeAll;
@@ -25,10 +26,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
+
+    public static final Runnable EMPTY_RUNNABLE = () -> {
+    };
 
     @BeforeAll
     public static void loadJNI() {
@@ -36,13 +39,8 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
     }
 
     @Override
-    protected EventLoopGroup newEventLoopGroup() {
-        return new IOUringEventLoopGroup(1);
-    }
-
-    @Override
-    protected Channel newChannel() {
-        return new IOUringSocketChannel();
+    protected IoHandlerFactory newIoHandlerFactory() {
+        return IOUring.newFactory();
     }
 
     @Override
@@ -51,37 +49,14 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
     }
 
     @Test
-    public void shutdownGracefullyZeroQuietBeforeStart() throws Exception {
-        EventLoopGroup group = newEventLoopGroup();
-        assertTrue(group.shutdownGracefully(0L, 2L, TimeUnit.SECONDS).await(1500L));
-    }
-
-    @Test
     public void testSubmitMultipleTasksAndEnsureTheseAreExecuted() throws Exception {
-        IOUringEventLoopGroup group = new IOUringEventLoopGroup(1);
+        EventLoopGroup group =  new MultithreadEventLoopGroup(1, newIoHandlerFactory());
         try {
             EventLoop loop = group.next();
-            loop.submit(new Runnable() {
-                @Override
-                public void run() {
-                }
-            }).sync();
-
-            loop.submit(new Runnable() {
-                @Override
-                public void run() {
-                }
-            }).sync();
-            loop.submit(new Runnable() {
-                @Override
-                public void run() {
-                }
-            }).sync();
-            loop.submit(new Runnable() {
-                @Override
-                public void run() {
-                }
-            }).sync();
+            loop.submit(EMPTY_RUNNABLE).asStage().sync();
+            loop.submit(EMPTY_RUNNABLE).asStage().sync();
+            loop.submit(EMPTY_RUNNABLE).asStage().sync();
+            loop.submit(EMPTY_RUNNABLE).asStage().sync();
         } finally {
             group.shutdownGracefully();
         }
@@ -89,13 +64,10 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
 
     @Test
     public void testSchedule() throws Exception {
-        IOUringEventLoopGroup group = new IOUringEventLoopGroup(1);
+        EventLoopGroup group = new MultithreadEventLoopGroup(1, IOUring.newFactory());
         try {
             EventLoop loop = group.next();
-            loop.schedule(new Runnable() {
-                @Override
-                public void run() { }
-            }, 1, TimeUnit.SECONDS).sync();
+            loop.schedule(EMPTY_RUNNABLE, 1, TimeUnit.SECONDS).asStage().sync();
         } finally {
             group.shutdownGracefully();
         }

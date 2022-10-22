@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Netty Project
+ * Copyright 2022 The Netty Project
  *
  * The Netty Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -15,96 +15,84 @@
  */
 package io.netty5.incubator.channel.uring;
 
-import io.netty5.buffer.ByteBuf;
+import io.netty5.buffer.Buffer;
 import io.netty5.channel.AddressedEnvelope;
-import io.netty5.channel.ChannelFuture;
-import io.netty5.channel.ChannelMetadata;
-import io.netty5.channel.ChannelOutboundBuffer;
-import io.netty5.channel.ChannelPipeline;
-import io.netty5.channel.ChannelPromise;
+import io.netty5.channel.ChannelOption;
+import io.netty5.channel.ChannelShutdownDirection;
 import io.netty5.channel.DefaultAddressedEnvelope;
+import io.netty5.channel.EventLoop;
+import io.netty5.channel.FixedReadHandleFactory;
+import io.netty5.channel.MaxMessagesWriteHandleFactory;
+import io.netty5.channel.ReadHandleFactory;
+import io.netty5.channel.WriteHandleFactory;
 import io.netty5.channel.socket.DatagramChannel;
 import io.netty5.channel.socket.DatagramPacket;
-import io.netty5.channel.socket.InternetProtocolFamily;
+import io.netty5.channel.socket.SocketProtocolFamily;
 import io.netty5.channel.unix.Errors;
-import io.netty5.channel.unix.Errors.NativeIoException;
-import io.netty5.channel.unix.SegmentedDatagramPacket;
-import io.netty5.channel.unix.Socket;
-import io.netty5.util.UncheckedBooleanSupplier;
-import io.netty5.util.internal.ObjectUtil;
-import io.netty5.util.internal.StringUtil;
+import io.netty5.channel.unix.UnixChannel;
+import io.netty5.channel.unix.UnixChannelUtil;
+import io.netty5.util.concurrent.Future;
+import io.netty5.util.concurrent.FutureListener;
+import io.netty5.util.concurrent.Promise;
+import io.netty5.util.concurrent.PromiseCombiner;
+import io.netty5.util.internal.SilentDispose;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
-import java.net.PortUnreachableException;
 import java.net.SocketAddress;
+import java.net.SocketException;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
-import static io.netty.channel.unix.Errors.ioResult;
+import static java.util.Objects.requireNonNull;
 
-public final class IOUringDatagramChannel extends AbstractIOUringChannel implements DatagramChannel {
-    private static final ChannelMetadata METADATA = new ChannelMetadata(true);
-    private static final String EXPECTED_TYPES =
-            " (expected: " + StringUtil.simpleClassName(DatagramPacket.class) + ", " +
-            StringUtil.simpleClassName(AddressedEnvelope.class) + '<' +
-            StringUtil.simpleClassName(ByteBuf.class) + ", " +
-            StringUtil.simpleClassName(InetSocketAddress.class) + ">, " +
-            StringUtil.simpleClassName(ByteBuf.class) + ')';
+public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixChannel> implements DatagramChannel {
+    private volatile boolean activeOnOpen;
+    private volatile int maxDatagramSize;
 
-    private final IOUringDatagramChannelConfig config;
     private volatile boolean connected;
+    private volatile boolean inputShutdown;
+    private volatile boolean outputShutdown;
 
-    /**
-     * Create a new instance which selects the {@link InternetProtocolFamily} to use depending
-     * on the Operation Systems default which will be chosen.
-     */
-    public IOUringDatagramChannel() {
-        this(null);
+    private final Deque<CachedMsgHdrMemory> msgHdrCache;
+    private final PendingData<Promise<Void>> pendingWrites;
+
+    // The maximum number of bytes for an InetAddress / Inet6Address
+    private final byte[] inet4AddressArray = new byte[SockaddrIn.IPV4_ADDRESS_LENGTH];
+    private final byte[] inet6AddressArray = new byte[SockaddrIn.IPV6_ADDRESS_LENGTH];
+
+    public IOUringDatagramChannel(EventLoop eventLoop) {
+        this(null, eventLoop, true, new FixedReadHandleFactory(2048),
+                new MaxMessagesWriteHandleFactory(Integer.MAX_VALUE),
+                LinuxSocket.newSocketDgram(), false);
+    }
+
+    IOUringDatagramChannel(
+            UnixChannel parent, EventLoop eventLoop, boolean supportingDisconnect,
+            ReadHandleFactory defaultReadHandleFactory, WriteHandleFactory defaultWriteHandleFactory,
+            LinuxSocket socket, boolean active) {
+        super(parent, eventLoop, supportingDisconnect, defaultReadHandleFactory, defaultWriteHandleFactory,
+                socket, null, active);
+        msgHdrCache = new ArrayDeque<>();
+        pendingWrites = PendingData.newPendingData();
     }
 
     /**
-     * Create a new instance using the given {@link InternetProtocolFamily}. If {@code null} is used it will depend
-     * on the Operation Systems default which will be chosen.
+     * Returns {@code true} if the usage of {@link io.netty5.channel.unix.SegmentedDatagramPacket} is supported.
+     *
+     * @return {@code true} if supported, {@code false} otherwise.
      */
-    public IOUringDatagramChannel(InternetProtocolFamily family) {
-        this(family == null ?
-                LinuxSocket.newSocketDgram(Socket.isIPv6Preferred()) :
-                        LinuxSocket.newSocketDgram(family == InternetProtocolFamily.IPv6), false);
-    }
-
-    /**
-     * Create a new instance which selects the {@link InternetProtocolFamily} to use depending
-     * on the Operation Systems default which will be chosen.
-     */
-    public IOUringDatagramChannel(int fd) {
-        this(new LinuxSocket(fd), true);
-    }
-
-    private IOUringDatagramChannel(LinuxSocket fd, boolean active) {
-        super(null, fd, active);
-        config = new IOUringDatagramChannelConfig(this);
-    }
-
-    @Override
-    public InetSocketAddress remoteAddress() {
-        return (InetSocketAddress) super.remoteAddress();
-    }
-
-    @Override
-    public InetSocketAddress localAddress() {
-        return (InetSocketAddress) super.localAddress();
-    }
-
-    @Override
-    public ChannelMetadata metadata() {
-        return METADATA;
+    public static boolean isSegmentedDatagramPacketSupported() {
+        return false; // TODO should be IOUring.isAvailable();
     }
 
     @Override
     public boolean isActive() {
-        return socket.isOpen() && (config.getActiveOnOpen() && isRegistered() || active);
+        return isOpen() && (getActiveOnOpen() && isRegistered() || super.isActive());
     }
 
     @Override
@@ -112,544 +100,434 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
         return connected;
     }
 
-    @Override
-    public ChannelFuture joinGroup(InetAddress multicastAddress) {
-        return joinGroup(multicastAddress, newPromise());
-    }
-
-    @Override
-    public ChannelFuture joinGroup(InetAddress multicastAddress, ChannelPromise promise) {
-        try {
-            return joinGroup(
-                    multicastAddress,
-                    NetworkInterface.getByInetAddress(localAddress().getAddress()), null, promise);
-        } catch (IOException e) {
-            promise.setFailure(e);
+    private NetworkInterface networkInterface() throws SocketException {
+        NetworkInterface iface = getNetworkInterface();
+        if (iface == null) {
+            SocketAddress localAddress = localAddress();
+            if (localAddress instanceof InetSocketAddress) {
+                return NetworkInterface.getByInetAddress(((InetSocketAddress) localAddress()).getAddress());
+            }
         }
-        return promise;
+        return null;
     }
 
     @Override
-    public ChannelFuture joinGroup(
-            InetSocketAddress multicastAddress, NetworkInterface networkInterface) {
-        return joinGroup(multicastAddress, networkInterface, newPromise());
+    public Future<Void> joinGroup(InetAddress multicastAddress) {
+        try {
+            return joinGroup(multicastAddress, networkInterface(), null);
+        } catch (IOException | UnsupportedOperationException e) {
+            return newFailedFuture(e);
+        }
     }
 
     @Override
-    public ChannelFuture joinGroup(
-            InetSocketAddress multicastAddress, NetworkInterface networkInterface,
-            ChannelPromise promise) {
-        return joinGroup(multicastAddress.getAddress(), networkInterface, null, promise);
-    }
-
-    @Override
-    public ChannelFuture joinGroup(
+    public Future<Void> joinGroup(
             InetAddress multicastAddress, NetworkInterface networkInterface, InetAddress source) {
-        return joinGroup(multicastAddress, networkInterface, source, newPromise());
+        requireNonNull(multicastAddress, "multicastAddress");
+        requireNonNull(networkInterface, "networkInterface");
+
+        if (socket.protocolFamily() == SocketProtocolFamily.UNIX) {
+            return newFailedFuture(new UnsupportedOperationException("Multicast not supported"));
+        }
+
+        Promise<Void> promise = newPromise();
+        if (executor().inEventLoop()) {
+            joinGroup0(multicastAddress, networkInterface, source, promise);
+        } else {
+            executor().execute(() -> joinGroup0(multicastAddress, networkInterface, source, promise));
+        }
+        return promise.asFuture();
     }
 
-    @Override
-    public ChannelFuture joinGroup(
-            final InetAddress multicastAddress, final NetworkInterface networkInterface,
-            final InetAddress source, final ChannelPromise promise) {
-
-        ObjectUtil.checkNotNull(multicastAddress, "multicastAddress");
-        ObjectUtil.checkNotNull(networkInterface, "networkInterface");
+    private void joinGroup0(InetAddress multicastAddress, NetworkInterface networkInterface,
+                            InetAddress source, Promise<Void> promise) {
+        assert executor().inEventLoop();
 
         try {
             socket.joinGroup(multicastAddress, networkInterface, source);
-            promise.setSuccess();
         } catch (IOException e) {
             promise.setFailure(e);
+            return;
         }
-        return promise;
+        promise.setSuccess(null);
     }
 
     @Override
-    public ChannelFuture leaveGroup(InetAddress multicastAddress) {
-        return leaveGroup(multicastAddress, newPromise());
-    }
-
-    @Override
-    public ChannelFuture leaveGroup(InetAddress multicastAddress, ChannelPromise promise) {
+    public Future<Void> leaveGroup(InetAddress multicastAddress) {
         try {
-            return leaveGroup(
-                    multicastAddress, NetworkInterface.getByInetAddress(localAddress().getAddress()), null, promise);
-        } catch (IOException e) {
-            promise.setFailure(e);
+            return leaveGroup(multicastAddress, networkInterface(), null);
+        } catch (IOException | UnsupportedOperationException e) {
+            return newFailedFuture(e);
         }
-        return promise;
     }
 
     @Override
-    public ChannelFuture leaveGroup(
-            InetSocketAddress multicastAddress, NetworkInterface networkInterface) {
-        return leaveGroup(multicastAddress, networkInterface, newPromise());
-    }
-
-    @Override
-    public ChannelFuture leaveGroup(
-            InetSocketAddress multicastAddress,
-            NetworkInterface networkInterface, ChannelPromise promise) {
-        return leaveGroup(multicastAddress.getAddress(), networkInterface, null, promise);
-    }
-
-    @Override
-    public ChannelFuture leaveGroup(
+    public Future<Void> leaveGroup(
             InetAddress multicastAddress, NetworkInterface networkInterface, InetAddress source) {
-        return leaveGroup(multicastAddress, networkInterface, source, newPromise());
+        requireNonNull(multicastAddress, "multicastAddress");
+        requireNonNull(networkInterface, "networkInterface");
+
+        if (socket.protocolFamily() == SocketProtocolFamily.UNIX) {
+            return newFailedFuture(new UnsupportedOperationException("Multicast not supported"));
+        }
+
+        Promise<Void> promise = newPromise();
+        if (executor().inEventLoop()) {
+            leaveGroup0(multicastAddress, networkInterface, source, promise);
+        } else {
+            executor().execute(() -> leaveGroup0(multicastAddress, networkInterface, source, promise));
+        }
+        return promise.asFuture();
     }
 
-    @Override
-    public ChannelFuture leaveGroup(
+    private void leaveGroup0(
             final InetAddress multicastAddress, final NetworkInterface networkInterface, final InetAddress source,
-            final ChannelPromise promise) {
-        ObjectUtil.checkNotNull(multicastAddress, "multicastAddress");
-        ObjectUtil.checkNotNull(networkInterface, "networkInterface");
+            final Promise<Void> promise) {
+        assert executor().inEventLoop();
 
         try {
             socket.leaveGroup(multicastAddress, networkInterface, source);
-            promise.setSuccess();
         } catch (IOException e) {
             promise.setFailure(e);
+            return;
         }
-        return promise;
+        promise.setSuccess(null);
     }
 
     @Override
-    public ChannelFuture block(
+    public Future<Void> block(
             InetAddress multicastAddress, NetworkInterface networkInterface,
             InetAddress sourceToBlock) {
-        return block(multicastAddress, networkInterface, sourceToBlock, newPromise());
+        requireNonNull(multicastAddress, "multicastAddress");
+        requireNonNull(sourceToBlock, "sourceToBlock");
+        requireNonNull(networkInterface, "networkInterface");
+        return newFailedFuture(new UnsupportedOperationException("Multicast block not supported"));
     }
 
     @Override
-    public ChannelFuture block(
-            final InetAddress multicastAddress, final NetworkInterface networkInterface,
-            final InetAddress sourceToBlock, final ChannelPromise promise) {
-        ObjectUtil.checkNotNull(multicastAddress, "multicastAddress");
-        ObjectUtil.checkNotNull(sourceToBlock, "sourceToBlock");
-        ObjectUtil.checkNotNull(networkInterface, "networkInterface");
-
-        promise.setFailure(new UnsupportedOperationException("Multicast not supported"));
-        return promise;
-    }
-
-    @Override
-    public ChannelFuture block(InetAddress multicastAddress, InetAddress sourceToBlock) {
-        return block(multicastAddress, sourceToBlock, newPromise());
-    }
-
-    @Override
-    public ChannelFuture block(
-            InetAddress multicastAddress, InetAddress sourceToBlock, ChannelPromise promise) {
+    public Future<Void> block(
+            InetAddress multicastAddress, InetAddress sourceToBlock) {
         try {
             return block(
                     multicastAddress,
-                    NetworkInterface.getByInetAddress(localAddress().getAddress()),
-                    sourceToBlock, promise);
-        } catch (Throwable e) {
-            promise.setFailure(e);
+                    networkInterface(),
+                    sourceToBlock);
+        } catch (IOException | UnsupportedOperationException e) {
+            return newFailedFuture(e);
         }
-        return promise;
     }
 
     @Override
-    protected AbstractUringUnsafe newUnsafe() {
-        return new IOUringDatagramChannelUnsafe();
+    protected int nextReadBufferSize() {
+        int expectedCapacity = readHandle().prepareRead();
+        if (expectedCapacity == 0) {
+            return 0;
+        }
+        int datagramSize = maxDatagramSize;
+        if (datagramSize == 0) {
+            datagramSize = expectedCapacity;
+        } else {
+            datagramSize = Math.min(datagramSize, expectedCapacity);
+        }
+        return datagramSize;
     }
 
     @Override
-    protected void doBind(SocketAddress localAddress) throws Exception {
-        if (localAddress instanceof InetSocketAddress) {
-            InetSocketAddress socketAddress = (InetSocketAddress) localAddress;
-            if (socketAddress.getAddress().isAnyLocalAddress() &&
-                    socketAddress.getAddress() instanceof Inet4Address) {
-                if (socket.family() == InternetProtocolFamily.IPv6) {
-                    localAddress = new InetSocketAddress(LinuxSocket.INET6_ANY, socketAddress.getPort());
-                }
+    protected Object submitReadForReadBuffer(Buffer buffer, short readId, boolean nonBlocking) {
+        try (var itr = buffer.forEachComponent()) {
+            var cmp = itr.firstWritable();
+            assert cmp != null;
+            long address = cmp.writableNativeAddress();
+            int writableBytes = cmp.writableBytes();
+            int flags = nonBlocking ? Native.MSG_DONTWAIT : 0;
+            if (connected) {
+                // Call recv(2) because we have a known peer.
+                submissionQueue.addRecv(fd().intValue(), address, 0, writableBytes, flags, readId);
+                return buffer;
+            }
+            // Call recvmsg(2) because we need the peer address for each packet.
+            short segmentSize = 0;
+            CachedMsgHdrMemory msgHdr = nextMsgHdr();
+            msgHdr.write(socket, null, address, writableBytes, segmentSize);
+            msgHdr.attachment = buffer;
+            submissionQueue.addRecvmsg(fd().intValue(), msgHdr.address(), readId);
+            return msgHdr;
+        }
+    }
+
+    @Override
+    protected Object prepareCompleted(Object obj, int result) {
+        if (obj instanceof CachedMsgHdrMemory) {
+            try (CachedMsgHdrMemory msgHdr = (CachedMsgHdrMemory) obj) {
+                Buffer buffer = msgHdr.attachment;
+                msgHdr.attachment = null;
+                buffer.skipWritableBytes(result);
+                return msgHdr.read(this, buffer, result);
             }
         }
-        super.doBind(localAddress);
-        active = true;
+        Buffer buffer = (Buffer) super.prepareCompleted(obj, result);
+        return new DatagramPacket(buffer, localAddress(), remoteAddress());
+    }
+
+    /**
+     * {@code byte[]} that can be used as temporary storage to encode the ipv4 address
+     */
+    byte[] inet4AddressArray() {
+        return inet4AddressArray;
+    }
+
+    /**
+     * {@code byte[]} that can be used as temporary storage to encode the ipv6 address
+     */
+    byte[] inet6AddressArray() {
+        return inet6AddressArray;
     }
 
     @Override
-    protected Object filterOutboundMessage(Object msg) {
+    protected boolean processRead(ReadSink readSink, Object read) {
+        DatagramPacket packet = (DatagramPacket) read;
+        Buffer buffer = packet.content();
+        readSink.processRead(buffer.capacity(), buffer.readableBytes(), packet);
+        return false;
+    }
+
+    @Override
+    protected Object filterOutboundMessage(Object msg) throws Exception {
         if (msg instanceof DatagramPacket) {
             DatagramPacket packet = (DatagramPacket) msg;
-            ByteBuf content = packet.content();
-            return !content.hasMemoryAddress() ?
-                    packet.replace(newDirectBuffer(packet, content)) : msg;
-        }
-
-        if (msg instanceof ByteBuf) {
-            ByteBuf buf = (ByteBuf) msg;
-            return !buf.hasMemoryAddress()? newDirectBuffer(buf) : buf;
-        }
-
-        if (msg instanceof AddressedEnvelope) {
-            @SuppressWarnings("unchecked")
-            AddressedEnvelope<Object, SocketAddress> e = (AddressedEnvelope<Object, SocketAddress>) msg;
-            if (e.content() instanceof ByteBuf &&
-                (e.recipient() == null || e.recipient() instanceof InetSocketAddress)) {
-
-                ByteBuf content = (ByteBuf) e.content();
-                return !content.hasMemoryAddress()?
-                        new DefaultAddressedEnvelope<ByteBuf, InetSocketAddress>(
-                            newDirectBuffer(e, content), (InetSocketAddress) e.recipient()) : e;
+            if (UnixChannelUtil.isBufferCopyNeededForWrite(packet.content())) {
+                return packet.replace(intoDirectBuffer(packet.content(), true));
             }
+            return msg;
         }
-
-        throw new UnsupportedOperationException(
-                "unsupported message type: " + StringUtil.simpleClassName(msg) + EXPECTED_TYPES);
+        if (msg instanceof Buffer) {
+            Buffer buf = (Buffer) msg;
+            if (UnixChannelUtil.isBufferCopyNeededForWrite(buf)) {
+                return intoDirectBuffer(buf, true);
+            }
+            return buf;
+        }
+        if (msg instanceof AddressedEnvelope) {
+            AddressedEnvelope<Object, SocketAddress> envelope = (AddressedEnvelope<Object, SocketAddress>) msg;
+            // todo check address type matches socket type (e.g. unix domain sockets or not)
+            Object content = envelope.content();
+            if (content instanceof Buffer && UnixChannelUtil.isBufferCopyNeededForWrite((Buffer) content)) {
+                Buffer buf = (Buffer) content;
+                buf = intoDirectBuffer(buf, false);
+                try {
+                    return new DefaultAddressedEnvelope<>(buf, envelope.recipient(), envelope.sender());
+                } finally {
+                    SilentDispose.dispose(envelope, logger);
+                }
+            }
+            return envelope;
+        }
+        return super.filterOutboundMessage(msg);
     }
 
     @Override
-    public IOUringDatagramChannelConfig config() {
-        return config;
+    protected void submitAllWriteMessages(WriteSink writeSink) {
+        writeSink.consumeEachFlushedMessage(this::submiteWriteMessage);
+    }
+
+    private boolean submiteWriteMessage(Object msg, Promise<Void> promise) {
+        final Buffer data;
+        final SocketAddress remoteAddress;
+        if (msg instanceof AddressedEnvelope) {
+            @SuppressWarnings("unchecked")
+            AddressedEnvelope<Buffer, SocketAddress> envelope = (AddressedEnvelope<Buffer, SocketAddress>) msg;
+            data = envelope.content();
+            remoteAddress = envelope.recipient();
+        } else {
+            data = (Buffer) msg;
+            remoteAddress = remoteAddress();
+        }
+
+        // Since we remove the messages from WriteSink/OutboundBuffer, it falls to us to close the buffer, and complete
+        // the promise.
+        promise.asFuture().addListener(data, CLOSE_BUFFER);
+        short pendingId = pendingWrites.addPending(promise);
+
+        try (var itr = data.forEachComponent()) {
+            var cmp = itr.firstReadable();
+            assert cmp != null;
+            int fd = fd().intValue();
+            if (connected) {
+                submissionQueue.addSend(fd, cmp.readableNativeAddress(), 0, cmp.readableBytes(), pendingId);
+            } else {
+                CachedMsgHdrMemory msgHdr = nextMsgHdr();
+                msgHdr.write(socket, remoteAddress, cmp.readableNativeAddress(), cmp.readableBytes(), (short) 0);
+                submissionQueue.addSendmsg(fd, msgHdr.address(), pendingId);
+                promise.asFuture().addListener(msgHdr);
+            }
+        }
+        return writeHandle().lastWrite(data.readableBytes(), data.readableBytes(), 1);
+    }
+
+    @NotNull
+    private CachedMsgHdrMemory nextMsgHdr() {
+        CachedMsgHdrMemory msgHdr = msgHdrCache.pollFirst();
+        if (msgHdr == null) {
+            msgHdr = new CachedMsgHdrMemory(msgHdrCache);
+        }
+        return msgHdr;
+    }
+
+    @Override
+    void writeComplete(int result, short data) {
+        Promise<Void> promise = pendingWrites.removePending(data);
+        if (result < 0) {
+            promise.setFailure(Errors.newIOException("send/sendmsg", result));
+        } else {
+            promise.setSuccess(null);
+        }
     }
 
     @Override
     protected void doDisconnect() throws Exception {
-        // TODO: use io_uring for this too...
-        socket.disconnect();
-        connected = active = false;
-
-        resetCachedAddresses();
+        super.doDisconnect();
+        connected = false;
+        cacheAddresses(local, null);
+        remote = null;
     }
 
     @Override
-    protected void doClose() throws Exception {
+    protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress, Buffer initialData) throws Exception {
+        boolean connected = super.doConnect(remoteAddress, localAddress, initialData);
+        if (connected) {
+            this.connected = true;
+        }
+        return connected;
+    }
+
+    @Override
+    protected void doShutdown(ChannelShutdownDirection direction) throws Exception {
+        switch (direction) {
+            case Inbound:
+                inputShutdown = true;
+                break;
+            case Outbound:
+                outputShutdown = true;
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown direction: " + direction);
+        }
+    }
+
+    @Override
+    public boolean isShutdown(ChannelShutdownDirection direction) {
+        if (!isActive()) {
+            return true;
+        }
+        switch (direction) {
+            case Inbound:
+                return inputShutdown;
+            case Outbound:
+                return outputShutdown;
+            default:
+                throw new AssertionError();
+        }
+    }
+
+    @Override
+    protected void doClose() {
         super.doClose();
-        ((IOUringDatagramChannelUnsafe) unsafe()).releaseBuffers();
-        connected = false;
-    }
-
-    final class IOUringDatagramChannelUnsafe extends AbstractUringUnsafe {
-        // These buffers are used for msghdr, iov, sockaddr_in / sockaddr_in6 when doing recvmsg / sendmsg
-        //
-        // TODO: Alternative we could also allocate these everytime from the ByteBufAllocator or we could use
-        //       some sort of other pool. Let's keep it simple for now.
-        //
-        // Consider exposing some configuration for that.
-        private final MsgHdrMemoryArray recvmsgHdrs = new MsgHdrMemoryArray(256);
-        private final MsgHdrMemoryArray sendmsgHdrs = new MsgHdrMemoryArray(256);
-        private final int[] sendmsgResArray = new int[sendmsgHdrs.capacity()];
-        private final WriteProcessor writeProcessor = new WriteProcessor();
-
-        private ByteBuf readBuffer;
-
-        private final class WriteProcessor implements ChannelOutboundBuffer.MessageProcessor {
-            private int written;
-
-            @Override
-            public boolean processMessage(Object msg) {
-                if (scheduleWrite(msg, true)) {
-                    written++;
-                    return true;
-                }
-                return false;
-            }
-
-            int write(ChannelOutboundBuffer in) {
-                written = 0;
-                try {
-                    in.forEachFlushedMessage(this);
-                } catch (Exception e) {
-                    // This should never happen as our processMessage(...) never throws.
-                    throw new IllegalStateException(e);
-                }
-                return written;
-            }
-        }
-
-        void releaseBuffers() {
-            sendmsgHdrs.release();
-            recvmsgHdrs.release();
-        }
-
-        @Override
-        protected void readComplete0(int res, int data, int outstanding) {
-            final IOUringRecvByteAllocatorHandle allocHandle = recvBufAllocHandle();
-            final ChannelPipeline pipeline = pipeline();
-            ByteBuf byteBuf = this.readBuffer;
-            assert byteBuf != null;
-            try {
-                if (data == -1) {
-                    assert outstanding == 0;
-                    // data == -1 means that we did a read(...) and not a recvmmsg(...)
-                    readComplete(pipeline, allocHandle, byteBuf, res);
-                } else {
-                    recvmsgComplete(pipeline, allocHandle, byteBuf, res, data, outstanding);
-                }
-            } catch (Throwable t) {
-                if (connected && t instanceof NativeIoException) {
-                    t = translateForConnected((NativeIoException) t);
-                }
-                pipeline.fireExceptionCaught(t);
-            }
-        }
-
-        private void readComplete(ChannelPipeline pipeline, IOUringRecvByteAllocatorHandle allocHandle,
-                                  ByteBuf byteBuf, int res) throws IOException {
-            try {
-                this.readBuffer = null;
-                if (res < 0) {
-                    // If res is negative we should pass it to ioResult(...) which will either throw
-                    // or convert it to 0 if we could not read because the socket was not readable.
-                    allocHandle.lastBytesRead(ioResult("io_uring read", res));
-                } else if (res > 0) {
-                    byteBuf.writerIndex(byteBuf.writerIndex() + res);
-                    allocHandle.lastBytesRead(res);
-                } else {
-                    allocHandle.lastBytesRead(-1);
-                }
-                if (allocHandle.lastBytesRead() <= 0) {
-                    // nothing was read, release the buffer.
-                    byteBuf.release();
-                    byteBuf = null;
-
-                    allocHandle.readComplete();
-                    pipeline.fireChannelReadComplete();
-                    return;
-                }
-
-                allocHandle.incMessagesRead(1);
-                pipeline.fireChannelRead(new DatagramPacket(byteBuf, IOUringDatagramChannel.this.localAddress(),
-                        IOUringDatagramChannel.this.remoteAddress()));
-                byteBuf = null;
-
-                if (allocHandle.continueReading(UncheckedBooleanSupplier.TRUE_SUPPLIER)) {
-                    // Let's schedule another read.
-                    scheduleRead();
-                } else {
-                    // We did not fill the whole ByteBuf so we should break the "read loop" and try again later.
-                    allocHandle.readComplete();
-                    pipeline.fireChannelReadComplete();
-                }
-            } finally {
-                if (byteBuf != null) {
-                    byteBuf.release();
-                }
-            }
-        }
-
-        private void recvmsgComplete(ChannelPipeline pipeline, IOUringRecvByteAllocatorHandle allocHandle,
-                                      ByteBuf byteBuf, int res, int idx, int outstanding) throws IOException {
-            MsgHdrMemory hdr = recvmsgHdrs.hdr(idx);
-            if (res < 0) {
-                // If res is negative we should pass it to ioResult(...) which will either throw
-                // or convert it to 0 if we could not read because the socket was not readable.
-                allocHandle.lastBytesRead(ioResult("io_uring recvmsg", res));
-            } else {
-                allocHandle.lastBytesRead(res);
-                if (hdr.hasPort(IOUringDatagramChannel.this)) {
-                    allocHandle.incMessagesRead(1);
-                    DatagramPacket packet = hdr.read(IOUringDatagramChannel.this, byteBuf, res);
-                    pipeline.fireChannelRead(packet);
-                }
-            }
-
-            if (outstanding == 0) {
-                // There are no outstanding completion events, release the readBuffer and see if we need to schedule
-                // another one or if the user will do it.
-                this.readBuffer.release();
-                this.readBuffer = null;
-                recvmsgHdrs.clear();
-                if (allocHandle.lastBytesRead() > 0 &&
-                        allocHandle.continueReading(UncheckedBooleanSupplier.TRUE_SUPPLIER)) {
-                    // Let's schedule another read.
-                    scheduleRead();
-                } else {
-                    // the read was completed with EAGAIN.
-                    allocHandle.readComplete();
-                    pipeline.fireChannelReadComplete();
-                }
-            }
-        }
-
-        @Override
-        protected int scheduleRead0() {
-            final IOUringRecvByteAllocatorHandle allocHandle = recvBufAllocHandle();
-            ByteBuf byteBuf = allocHandle.allocate(alloc());
-            assert readBuffer == null;
-            readBuffer = byteBuf;
-
-            int writable = byteBuf.writableBytes();
-            allocHandle.attemptedBytesRead(writable);
-            int datagramSize = config().getMaxDatagramPayloadSize();
-
-            int numDatagram = datagramSize == 0 ? 1 : Math.max(1, byteBuf.writableBytes() / datagramSize);
-
-            if (isConnected() && numDatagram <= 1) {
-                submissionQueue().addRead(socket.intValue(), byteBuf.memoryAddress(),
-                        byteBuf.writerIndex(), byteBuf.capacity(), (short) -1);
-                return 1;
-            } else {
-                int scheduled = scheduleRecvmsg(byteBuf, numDatagram, datagramSize);
-                if (scheduled == 0) {
-                    // We could not schedule any recvmmsg so we need to release the buffer as there will be no
-                    // completion event.
-                    readBuffer = null;
-                    byteBuf.release();
-                }
-                return scheduled;
-            }
-        }
-
-        private int scheduleRecvmsg(ByteBuf byteBuf, int numDatagram, int datagramSize) {
-            int writable = byteBuf.writableBytes();
-            IOUringSubmissionQueue submissionQueue = submissionQueue();
-            long bufferAddress = byteBuf.memoryAddress() + byteBuf.writerIndex();
-            if (numDatagram <= 1) {
-                return scheduleRecvmsg0(submissionQueue, bufferAddress, writable) ? 1 : 0;
-            }
-            int i = 0;
-            // Add multiple IORING_OP_RECVMSG to the submission queue. This basically emulates recvmmsg(...)
-            for (; i < numDatagram && writable >= datagramSize; i++) {
-                if (!scheduleRecvmsg0(submissionQueue, bufferAddress, datagramSize)) {
-                    break;
-                }
-                bufferAddress += datagramSize;
-                writable -= datagramSize;
-            }
-            return i;
-        }
-
-        private boolean scheduleRecvmsg0(IOUringSubmissionQueue submissionQueue, long bufferAddress, int bufferLength) {
-            MsgHdrMemory msgHdrMemory = recvmsgHdrs.nextHdr();
-            if (msgHdrMemory == null) {
-                // We can not continue reading before we did not submit the recvmsg(s) and received the results.
-                return false;
-            }
-            msgHdrMemory.write(socket, null, bufferAddress, bufferLength, (short) 0);
-            // We always use idx here so we can detect if no idx was used by checking if data < 0 in
-            // readComplete0(...)
-            submissionQueue.addRecvmsg(socket.intValue(), msgHdrMemory.address(), (short) msgHdrMemory.idx());
-            return true;
-        }
-
-        @Override
-        boolean writeComplete0(int res, int data, int outstanding) {
-            ChannelOutboundBuffer outboundBuffer = outboundBuffer();
-            if (data == -1) {
-                assert outstanding == 0;
-                // idx == -1 means that we did a write(...) and not a sendmsg(...) operation
-                return removeFromOutboundBuffer(outboundBuffer, res, "io_uring write");
-            }
-            // Store the result so we can handle it as soon as we have no outstanding writes anymore.
-            sendmsgResArray[data] = res;
-            if (outstanding == 0) {
-                // All writes are done as part of a batch. Let's remove these from the ChannelOutboundBuffer
-                boolean writtenSomething = false;
-                int numWritten = sendmsgHdrs.length();
-                sendmsgHdrs.clear();
-                for (int i = 0; i < numWritten; i++) {
-                    writtenSomething |= removeFromOutboundBuffer(
-                            outboundBuffer, sendmsgResArray[i], "io_uring sendmsg");
-                }
-                return writtenSomething;
-            }
-            return true;
-        }
-
-        private boolean removeFromOutboundBuffer(ChannelOutboundBuffer outboundBuffer, int res, String errormsg) {
-            if (res >= 0) {
-                // When using Datagram we should consider the message written as long as res is not negative.
-                return outboundBuffer.remove();
-            }
-            try {
-                return ioResult(errormsg, res) != 0;
-            } catch (Throwable cause) {
-                return outboundBuffer.remove(cause);
-            }
-        }
-
-        @Override
-        void connectComplete(int res) {
-            if (res >= 0) {
-                connected = true;
-            }
-            super.connectComplete(res);
-        }
-
-        @Override
-        protected int scheduleWriteMultiple(ChannelOutboundBuffer in) {
-            return writeProcessor.write(in);
-        }
-
-        @Override
-        protected int scheduleWriteSingle(Object msg) {
-            return scheduleWrite(msg, false) ? 1 : 0;
-        }
-
-        private boolean scheduleWrite(Object msg, boolean forceSendmsg) {
-            final ByteBuf data;
-            final InetSocketAddress remoteAddress;
-            final int segmentSize;
-            if (msg instanceof AddressedEnvelope) {
-                @SuppressWarnings("unchecked")
-                AddressedEnvelope<ByteBuf, InetSocketAddress> envelope =
-                        (AddressedEnvelope<ByteBuf, InetSocketAddress>) msg;
-                data = envelope.content();
-                remoteAddress = envelope.recipient();
-                if (msg instanceof SegmentedDatagramPacket) {
-                    segmentSize = ((SegmentedDatagramPacket) msg).segmentSize();
-                } else {
-                    segmentSize = 0;
-                }
-            } else {
-                data = (ByteBuf) msg;
-                remoteAddress = null;
-                segmentSize = 0;
-            }
-
-            long bufferAddress = data.memoryAddress();
-            IOUringSubmissionQueue submissionQueue = submissionQueue();
-            if (remoteAddress == null) {
-                if (forceSendmsg || segmentSize > 0) {
-                    return scheduleSendmsg(
-                            IOUringDatagramChannel.this.remoteAddress(),
-                            bufferAddress, data.readableBytes(), segmentSize);
-                }
-                submissionQueue.addWrite(socket.intValue(), bufferAddress, data.readerIndex(),
-                        data.writerIndex(), (short) -1);
-                return true;
-            }
-            return scheduleSendmsg(remoteAddress, bufferAddress, data.readableBytes(), segmentSize);
-        }
-
-        private boolean scheduleSendmsg(InetSocketAddress remoteAddress, long bufferAddress,
-                                        int bufferLength, int segmentSize) {
-            MsgHdrMemory hdr = sendmsgHdrs.nextHdr();
-            if (hdr == null) {
-                // There is no MsgHdrMemory left to use. We need to submit and wait for the writes to complete
-                // before we can write again.
-                return false;
-            }
-            hdr.write(socket, remoteAddress, bufferAddress, bufferLength, (short) segmentSize);
-            submissionQueue().addSendmsg(socket.intValue(), hdr.address(), (short) hdr.idx());
-            return true;
+        CachedMsgHdrMemory msgHdr;
+        while ((msgHdr = msgHdrCache.pollFirst()) != null) {
+            msgHdr.close();
         }
     }
 
-    private static IOException translateForConnected(NativeIoException e) {
-        // We need to correctly translate connect errors to match NIO behaviour.
-        if (e.expectedErr() == Errors.ERROR_ECONNREFUSED_NEGATIVE) {
-            PortUnreachableException error = new PortUnreachableException(e.getMessage());
-            error.initCause(e);
-            return error;
+    @Override
+    protected @Nullable Future<Void> currentWritePromise() {
+        if (pendingWrites.isEmpty()) {
+            return null;
         }
-        return e;
+        PromiseCombiner combiner = new PromiseCombiner(executor());
+        pendingWrites.forEach((id, promise) -> combiner.add(promise.asFuture()));
+        Promise<Void> allWritesPromise = newPromise();
+        combiner.finish(allWritesPromise);
+        return allWritesPromise.asFuture();
     }
 
-    /**
-     * Returns {@code true} if the usage of {@link io.netty.channel.unix.SegmentedDatagramPacket} is supported.
-     *
-     * @return {@code true} if supported, {@code false} otherwise.
-     */
-    public static boolean isSegmentedDatagramPacketSupported() {
-        return IOUring.isAvailable();
+    @SuppressWarnings("unchecked")
+    @Override
+    protected <T> T getExtendedOption(ChannelOption<T> option) {
+        if (option == ChannelOption.DATAGRAM_CHANNEL_ACTIVE_ON_REGISTRATION) {
+            return (T) Boolean.valueOf(activeOnOpen);
+        }
+        if (option == IOUringChannelOption.MAX_DATAGRAM_PAYLOAD_SIZE) {
+            return (T) Integer.valueOf(getMaxDatagramSize());
+        }
+        return super.getExtendedOption(option);
+    }
+
+    @Override
+    protected <T> void setExtendedOption(ChannelOption<T> option, T value) {
+        if (option == ChannelOption.DATAGRAM_CHANNEL_ACTIVE_ON_REGISTRATION) {
+            setActiveOnOpen((Boolean) value);
+        } else if (option == IOUringChannelOption.MAX_DATAGRAM_PAYLOAD_SIZE) {
+            setMaxDatagramSize((Integer) value);
+        }
+        super.setExtendedOption(option, value);
+    }
+
+    @Override
+    protected boolean isExtendedOptionSupported(ChannelOption<?> option) {
+        if (option == ChannelOption.DATAGRAM_CHANNEL_ACTIVE_ON_REGISTRATION ||
+                option == IOUringChannelOption.MAX_DATAGRAM_PAYLOAD_SIZE) {
+            return true;
+        }
+        return super.isExtendedOptionSupported(option);
+    }
+
+    private void setActiveOnOpen(boolean activeOnOpen) {
+        if (isRegistered()) {
+            throw new IllegalStateException("Can only changed before channel was registered");
+        }
+        this.activeOnOpen = activeOnOpen;
+    }
+
+    boolean getActiveOnOpen() {
+        return activeOnOpen;
+    }
+
+    private int getMaxDatagramSize() {
+        return maxDatagramSize;
+    }
+
+    private void setMaxDatagramSize(int maxDatagramSize) {
+        this.maxDatagramSize = maxDatagramSize;
+    }
+
+    private static class CachedMsgHdrMemory extends MsgHdrMemory
+            implements FutureListener<Void>, AutoCloseable {
+        private final Deque<CachedMsgHdrMemory> cache;
+        private Buffer attachment;
+        CachedMsgHdrMemory(Deque<CachedMsgHdrMemory> cache) {
+            super(0);
+            this.cache = cache;
+        }
+
+        @Override
+        public void operationComplete(Future<? extends Void> future) {
+            close();
+        }
+
+        @Override
+        public void close() {
+            if (!cache.offerFirst(this)) {
+                release();
+            }
+        }
+
+        @Override
+        void release() {
+            super.release();
+            if (attachment != null) {
+                attachment.close();
+                attachment = null;
+            }
+        }
     }
 }

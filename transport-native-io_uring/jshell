@@ -1,0 +1,8 @@
+#!/bin/sh
+JSHELL_CP="$(mvn -q exec:exec -Dexec.classpathScope='compile' -Dexec.executable=echo -Dexec.args='%classpath')"
+LIBDIR="$(mvn help:evaluate -Dexpression=project.build.directory | grep "^/")"
+LD_LIBRARY_PATH="$LIBDIR/native-build/target/lib/libnetty5_transport_native_io_uring_aarch_64.so"
+export JSHELL_CP
+export LD_LIBRARY_PATH
+echo $LD_LIBRARY_PATH
+jshell --class-path "$JSHELL_CP" --startup jshell.start

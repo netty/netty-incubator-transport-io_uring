@@ -15,15 +15,17 @@
  */
 package io.netty5.incubator.channel.uring;
 
+import io.netty5.channel.socket.DomainSocketAddress;
 import io.netty5.util.internal.PlatformDependent;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.UnknownHostException;
 
-import static io.netty.util.internal.PlatformDependent.BIG_ENDIAN_NATIVE_ORDER;
+import static io.netty5.util.internal.PlatformDependent.BIG_ENDIAN_NATIVE_ORDER;
 
 final class SockaddrIn {
     static final byte[] IPV4_MAPPED_IPV6_PREFIX = {
@@ -33,16 +35,24 @@ final class SockaddrIn {
 
     private SockaddrIn() { }
 
-    static int write(boolean ipv6, long memory, InetSocketAddress address) {
-        if (ipv6) {
-            return SockaddrIn.writeIPv6(memory, address.getAddress(), address.getPort());
+    static int write(boolean ipv6, long memory, SocketAddress address) {
+        if (address instanceof InetSocketAddress) {
+            InetSocketAddress inet = (InetSocketAddress) address;
+            if (ipv6) {
+                return writeIPv6(memory, inet.getAddress(), inet.getPort());
+            } else {
+                return writeIPv4(memory, inet.getAddress(), inet.getPort());
+            }
+        } else if (address instanceof DomainSocketAddress) {
+            // todo
+            throw new UnsupportedOperationException("Unknown socket address type: " + address);
         } else {
-            return SockaddrIn.writeIPv4(memory, address.getAddress(), address.getPort());
+            throw new UnsupportedOperationException("Unknown socket address type: " + address);
         }
     }
 
     /**
-     *
+     * <pre>{@code
      * struct sockaddr_in {
      *      sa_family_t    sin_family; // address family: AF_INET
      *      in_port_t      sin_port;   // port in network byte order
@@ -53,7 +63,7 @@ final class SockaddrIn {
      * struct in_addr {
      *     uint32_t       s_addr;     // address in network byte order
      * };
-     *
+     * }</pre>
      */
     static int writeIPv4(long memory, InetAddress address, int port) {
         PlatformDependent.setMemory(memory, Native.SIZEOF_SOCKADDR_IN, (byte) 0);
@@ -73,6 +83,7 @@ final class SockaddrIn {
     }
 
     /**
+     * <pre>{@code
      * struct sockaddr_in6 {
      *     sa_family_t     sin6_family;   // AF_INET6
      *     in_port_t       sin6_port;     // port number
@@ -84,6 +95,7 @@ final class SockaddrIn {
      * struct in6_addr {
      *     unsigned char s6_addr[16];   // IPv6 address
      * };
+     * }</pre>
      */
     static int writeIPv6(long memory, InetAddress address, int port) {
         PlatformDependent.setMemory(memory, Native.SIZEOF_SOCKADDR_IN6, (byte) 0);

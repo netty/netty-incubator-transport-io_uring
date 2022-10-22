@@ -23,10 +23,18 @@ final class UserData {
         return ((long) data << 48) | ((op & 0xFFL)  << 32) | fd & 0xFFFFFFFFL;
     }
 
-    static void decode(int res, int flags, long udata, IOUringCompletionQueueCallback callback) {
+    static void decode(int res, int flags, long udata, CompletionCallback callback) {
         int fd = (int) (udata & 0xFFFFFFFFL);
         byte op = (byte) ((udata >>>= 32) & 0xFFL);
         short data = (short) (udata >>> 16);
         callback.handle(fd, res, flags, op, data);
+    }
+
+    static int decodeFd(long udata) {
+        return (int) (udata & 0xFFFFFFFFL);
+    }
+
+    static byte decodeOp(long udata) {
+        return (byte) ((udata >>>= 32) & 0xFFL);
     }
 }

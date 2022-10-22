@@ -15,16 +15,22 @@
  */
 package io.netty5.incubator.channel.uring;
 
+import io.netty5.buffer.Buffer;
+import io.netty5.buffer.BufferAllocator;
+import io.netty5.buffer.DefaultBufferAllocators;
 import io.netty5.channel.unix.FileDescriptor;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
-
-import io.netty5.buffer.ByteBufAllocator;
-import io.netty5.buffer.UnpooledByteBufAllocator;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,13 +41,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import io.netty5.buffer.ByteBuf;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.io.TempDir;
-
 public class NativeTest {
+    private ExecutorService executor;
+
+    @BeforeEach
+    void createExecutor() {
+        executor = Executors.newCachedThreadPool();
+    }
+
+    @AfterEach
+    void shutDownExecutor() {
+        executor.shutdown();
+    }
 
     @BeforeAll
     public static void loadJNI() {
@@ -50,53 +61,52 @@ public class NativeTest {
 
     @Test
     public void canWriteFile(@TempDir Path tmpDir) throws Exception {
-        ByteBufAllocator allocator = new UnpooledByteBufAllocator(true);
-        final ByteBuf writeEventByteBuf = allocator.directBuffer(100);
+        BufferAllocator allocator = DefaultBufferAllocators.offHeapAllocator();
+        final Buffer writeEventBuf = allocator.allocate(100);
         final String inputString = "Hello World!";
-        writeEventByteBuf.writeCharSequence(inputString, Charset.forName("UTF-8"));
+        writeEventBuf.writeCharSequence(inputString, StandardCharsets.UTF_8);
 
         Path file = tmpDir.resolve("io_uring.tmp");
         int fd = Native.createFile(file.toString());
 
         RingBuffer ringBuffer = Native.createRingBuffer(32);
-        IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
-        IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
+        SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
+        CompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
 
         assertNotNull(ringBuffer);
         assertNotNull(submissionQueue);
         assertNotNull(completionQueue);
 
-        assertFalse(submissionQueue.addWrite(fd, writeEventByteBuf.memoryAddress(),
-                writeEventByteBuf.readerIndex(), writeEventByteBuf.writerIndex(), (short) 0));
-        submissionQueue.submit();
+        try (var itr = writeEventBuf.forEachComponent()) {
+            var cmp = itr.firstReadable();
+            assertNotNull(cmp);
+            assertFalse(submissionQueue.addWrite(fd, cmp.readableNativeAddress(), 0, cmp.readableBytes(), (short) 0));
+            submissionQueue.submit();
+        }
 
         completionQueue.ioUringWaitCqe();
-        assertEquals(1, completionQueue.process(new IOUringCompletionQueueCallback() {
-            @Override
-            public void handle(int fd, int res, int flags, byte op, short mask) {
-                assertEquals(inputString.length(), res);
-                writeEventByteBuf.release();
-            }
+        assertEquals(1, completionQueue.process((fd1, res, flags, op, mask) -> {
+            assertEquals(inputString.length(), res);
+            writeEventBuf.close();
         }));
 
-        final ByteBuf readEventByteBuf = allocator.directBuffer(100);
-        assertFalse(submissionQueue.addRead(fd, readEventByteBuf.memoryAddress(),
-                                           readEventByteBuf.writerIndex(), readEventByteBuf.capacity(), (short) 0));
-        submissionQueue.submit();
+        final Buffer readEventBuf = allocator.allocate(100);
+        try (var itr = readEventBuf.forEachComponent()) {
+            var cmp = itr.firstWritable();
+            assertFalse(submissionQueue.addRead(fd, cmp.writableNativeAddress(), 0, cmp.writableBytes(), (short) 0));
+            submissionQueue.submit();
+        }
 
         completionQueue.ioUringWaitCqe();
-        assertEquals(1, completionQueue.process(new IOUringCompletionQueueCallback() {
-            @Override
-            public void handle(int fd, int res, int flags, byte op, short mask) {
-                assertEquals(inputString.length(), res);
-                readEventByteBuf.writerIndex(res);
-            }
+        assertEquals(1, completionQueue.process((fd12, res, flags, op, mask) -> {
+            assertEquals(inputString.length(), res);
+            readEventBuf.skipWritableBytes(res);
         }));
         byte[] dataRead = new byte[inputString.length()];
-        readEventByteBuf.readBytes(dataRead);
+        readEventBuf.readBytes(dataRead, 0, inputString.length());
 
         assertArrayEquals(inputString.getBytes(), dataRead);
-        readEventByteBuf.release();
+        readEventBuf.close();
 
         ringBuffer.close();
         file.toFile().delete();
@@ -106,40 +116,29 @@ public class NativeTest {
     public void timeoutTest() throws Exception {
 
         RingBuffer ringBuffer = Native.createRingBuffer(32);
-        IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
-        final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
+        SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
+        final CompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
 
         assertNotNull(ringBuffer);
         assertNotNull(submissionQueue);
         assertNotNull(completionQueue);
 
-        Thread thread = new Thread() {
-            @Override
-            public void run() {
-                completionQueue.ioUringWaitCqe();
-                try {
-                    completionQueue.process(new IOUringCompletionQueueCallback() {
-                        @Override
-                        public void handle(int fd, int res, int flags, byte op, short mask) {
-                            assertEquals(-62, res);
-                        }
-                    });
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-        thread.start();
+        var future = executor.submit(() -> {
+            completionQueue.ioUringWaitCqe();
+            completionQueue.process((fd, res, flags, op, mask) -> assertEquals(-62, res));
+            return null;
+        });
+
         try {
             Thread.sleep(80);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        submissionQueue.addTimeout(0, (short) 0);
+        submissionQueue.addTimeout(-1, 0, (short) 0);
         submissionQueue.submit();
 
-        thread.join();
+        future.get();
         ringBuffer.close();
     }
 
@@ -147,8 +146,8 @@ public class NativeTest {
     @Test
     public void eventfdTest() throws Exception {
         RingBuffer ringBuffer = Native.createRingBuffer(32);
-        IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
-        final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
+        SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
+        final CompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
 
         assertNotNull(ringBuffer);
         assertNotNull(submissionQueue);
@@ -158,20 +157,10 @@ public class NativeTest {
         assertFalse(submissionQueue.addPollIn(eventFd.intValue()));
         submissionQueue.submit();
 
-        new Thread() {
-            @Override
-            public void run() {
-                Native.eventFdWrite(eventFd.intValue(), 1L);
-            }
-        }.start();
+        executor.submit(() -> Native.eventFdWrite(eventFd.intValue(), 1L));
 
         completionQueue.ioUringWaitCqe();
-        assertEquals(1, completionQueue.process(new IOUringCompletionQueueCallback() {
-            @Override
-            public void handle(int fd, int res, int flags, byte op, short mask) {
-                assertEquals(1, res);
-            }
-        }));
+        assertEquals(1, completionQueue.process((fd, res, flags, op, mask) -> assertEquals(1, res)));
         try {
             eventFd.close();
         } finally {
@@ -187,40 +176,28 @@ public class NativeTest {
     public void eventfdNoSignal() throws Exception {
 
         RingBuffer ringBuffer = Native.createRingBuffer(32);
-        IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
-        final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
+        SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
+        final CompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
 
         assertNotNull(ringBuffer);
         assertNotNull(submissionQueue);
         assertNotNull(completionQueue);
 
-        Thread waitingCqe = new Thread() {
-            @Override
-            public void run() {
-                completionQueue.ioUringWaitCqe();
-                assertEquals(1, completionQueue.process(new IOUringCompletionQueueCallback() {
-                    @Override
-                    public void handle(int fd, int res, int flags, byte op, short mask) {
-                        assertEquals(1, res);
-                    }
-                }));
-            }
-        };
-        waitingCqe.start();
+        var waitingCqe = executor.submit(() -> {
+            completionQueue.ioUringWaitCqe();
+            assertEquals(1, completionQueue.process((fd, res, flags, op, mask) -> assertEquals(1, res)));
+        });
         final FileDescriptor eventFd = Native.newBlockingEventFd();
         assertFalse(submissionQueue.addPollIn(eventFd.intValue()));
         submissionQueue.submit();
 
-        new Thread() {
-            @Override
-            public void run() {
-                Native.eventFdWrite(eventFd.intValue(), 1L);
-            }
-        }.start();
+        executor.submit(() -> Native.eventFdWrite(eventFd.intValue(), 1L));
 
-        waitingCqe.join();
-
-        ringBuffer.close();
+        try {
+            waitingCqe.get();
+        } finally {
+            ringBuffer.close();
+        }
     }
 
     @Test
@@ -232,8 +209,8 @@ public class NativeTest {
     @Test
     public void ioUringPollRemoveTest() throws Exception {
         RingBuffer ringBuffer = Native.createRingBuffer(32);
-        IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
-        final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
+        SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
+        final CompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
 
         FileDescriptor eventFd = Native.newBlockingEventFd();
         submissionQueue.addPollIn(eventFd.intValue());
@@ -242,43 +219,25 @@ public class NativeTest {
         submissionQueue.submit();
 
         final CountDownLatch latch = new CountDownLatch(2);
-        final AtomicReference<AssertionError> errorRef = new AtomicReference<AssertionError>();
-        Thread waitingCqe = new Thread() {
-            private final IOUringCompletionQueueCallback verifyCallback =
-                    new IOUringCompletionQueueCallback() {
-                @Override
-                public void handle(int fd, int res, int flags, byte op, short mask) {
-                    if (op == Native.IORING_OP_POLL_ADD) {
-                        assertEquals(Native.ERRNO_ECANCELED_NEGATIVE, res);
-                        latch.countDown();
-                    } else if (op == Native.IORING_OP_POLL_REMOVE) {
-                        assertEquals(0, res);
-                        latch.countDown();
-                    } else {
-                        fail("op " + op);
-                    }
-                }
-            };
-
-            @Override
-            public void run() {
-                try {
-                    completionQueue.ioUringWaitCqe();
-                    assertEquals(2, completionQueue.process(verifyCallback));
-                } catch (AssertionError error) {
-                    errorRef.set(error);
-                }
+        CompletionCallback verifyCallback = (fd, res, flags, op, mask) -> {
+            if (op == Native.IORING_OP_POLL_ADD) {
+                assertEquals(Native.ERRNO_ECANCELED_NEGATIVE, res);
+                latch.countDown();
+            } else if (op == Native.IORING_OP_POLL_REMOVE) {
+                assertEquals(0, res);
+                latch.countDown();
+            } else {
+                fail("op " + op);
             }
         };
-        waitingCqe.start();
-        waitingCqe.join();
+        var waitingCqe = executor.submit(() -> {
+            completionQueue.ioUringWaitCqe();
+            assertEquals(2, completionQueue.process(verifyCallback));
+        });
         try {
+            waitingCqe.get();
             latch.await();
             eventFd.close();
-            AssertionError error = errorRef.get();
-            if (error != null) {
-                throw error;
-            }
         } finally {
             ringBuffer.close();
         }
@@ -287,8 +246,8 @@ public class NativeTest {
     @Test
     public void testUserData() {
         RingBuffer ringBuffer = Native.createRingBuffer(32);
-        IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
-        final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
+        SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
+        final CompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
 
         try {
             // Ensure userdata works with negative and positive values
@@ -296,14 +255,11 @@ public class NativeTest {
                 submissionQueue.addWrite(-1, -1, -1, -1, (short) i);
                 assertEquals(1, submissionQueue.submitAndWait());
                 final int expectedData = i;
-                assertEquals(1, completionQueue.process(new IOUringCompletionQueueCallback() {
-                    @Override
-                    public void handle(int fd, int res, int flags, byte op, short data) {
-                        assertEquals(-1, fd);
-                        assertTrue(res < 0);
-                        assertEquals(Native.IORING_OP_WRITE, op);
-                        assertEquals(expectedData, data);
-                    }
+                assertEquals(1, completionQueue.process((fd, res, flags, op, data) -> {
+                    assertEquals(-1, fd);
+                    assertTrue(res < 0);
+                    assertEquals(Native.IORING_OP_WRITE, op);
+                    assertEquals(expectedData, data);
                 }));
             }
         } finally {
