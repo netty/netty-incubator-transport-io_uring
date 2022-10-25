@@ -48,6 +48,7 @@ import static io.netty5.channel.unix.Limits.SSIZE_MAX;
 import static io.netty5.util.internal.ObjectUtil.checkPositiveOrZero;
 
 public final class IOUringServerSocketChannel extends AbstractIOUringChannel<UnixChannel> implements ServerSocketChannel {
+    private static final short IS_ACCEPT = 1;
     private final ByteBuffer sockaddrMemory;
     private final long sockaddrPtr;
     private final long addrlenPtr;
@@ -84,26 +85,46 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
     protected void doRead(boolean wasReadPendingAlready) throws Exception {
         logger.debug("doRead (server socket): {}, wasReadPendingAlready = {}", this, wasReadPendingAlready);
         if (!wasReadPendingAlready) {
-            submissionQueue.addAccept(fd().intValue(), sockaddrPtr, addrlenPtr, (short) 0);
+            submissionQueue.addAccept(fd().intValue(), sockaddrPtr, addrlenPtr, IS_ACCEPT);
         }
     }
 
     @Override
     void readComplete(int res, short data) {
         logger.debug("readComplete (server socket): {}, fd = {}", this, res);
+        currentCompletionResult = res;
+        currentCompletionData = data;
+        readNow();
+    }
+
+    @Override
+    protected boolean doReadNow(ReadSink readSink) throws IOException {
+        int res = currentCompletionResult;
+        short data = currentCompletionData;
+        if (data != IS_ACCEPT) {
+            readSink.processRead(0, 0, null);
+            return false;
+        }
+        currentCompletionResult = 0;
+        currentCompletionData = 0;
         if (res >= 0) {
             Channel channel = newChildChannel(res);
-            pipeline().fireChannelRead(channel);
-            // todo need to schedule another read?
-        }
-        pipeline().fireChannelReadComplete();
-        if (res < 0) {
-            // Check if we did fail because there was nothing to accept atm.
-            if (res != ERRNO_EAGAIN_NEGATIVE && res != ERRNO_EWOULDBLOCK_NEGATIVE) {
+            readSink.processRead(1, 1, channel);
+        } else {
+            if (res == ERRNO_EAGAIN_NEGATIVE || res == ERRNO_EWOULDBLOCK_NEGATIVE) {
+                // Check if we failed because there was nothing to accept atm.
+                readSink.processRead(0, 0, null);
+            } else {
                 // Something bad happened. Convert to an exception.
-                pipeline().fireChannelExceptionCaught(Errors.newIOException("io_uring accept", res));
+                throw Errors.newIOException("io_uring accept", res);
             }
         }
+        return false;
+    }
+
+    @Override
+    protected boolean processRead(ReadSink readSink, Object read) {
+        throw new UnsupportedOperationException();
     }
 
     private Channel newChildChannel(int fd) {
@@ -128,11 +149,6 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
 
     @Override
     protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress, Buffer initialData) throws Exception {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected boolean processRead(ReadSink readSink, Object read) {
         throw new UnsupportedOperationException();
     }
 

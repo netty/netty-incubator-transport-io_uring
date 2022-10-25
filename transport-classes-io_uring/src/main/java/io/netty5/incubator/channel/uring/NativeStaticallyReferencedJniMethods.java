@@ -69,6 +69,7 @@ final class NativeStaticallyReferencedJniMethods {
     static native int iosqeLink();
     static native int iosqeDrain();
     static native int msgDontwait();
+    static native int msgFastopen();
     static native int cmsgSpace();
     static native int cmsgLen();
     static native int solUdp();
@@ -76,4 +77,5 @@ final class NativeStaticallyReferencedJniMethods {
     static native int cmsghdrOffsetofCmsgLen();
     static native int cmsghdrOffsetofCmsgLevel();
     static native int cmsghdrOffsetofCmsgType();
+    static native int tcpFastopenMode();
 }

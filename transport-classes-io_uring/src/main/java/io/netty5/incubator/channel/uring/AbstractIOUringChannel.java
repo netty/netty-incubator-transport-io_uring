@@ -298,7 +298,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     @Override
     protected void readLoopComplete() {
         super.readLoopComplete();
-        if (receivedRdHub && active) {
+        if (receivedRdHub || isReadPending()) {
             // Schedule this to run later, after other tasks, to not block user reads,
             // and to not have the read-loop cancel it as an unprocessed read.
             executor().execute(rdHubRead);
@@ -352,21 +352,28 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
             socket.bind(localAddress);
         }
 
-        connectRemoteAddressMem = bufferAllocator().allocate(Native.SIZEOF_SOCKADDR_STORAGE);
-        try (var itr = connectRemoteAddressMem.forEachComponent()) {
+        submitConnect(remoteSocketAddr, initialData);
+        return false;
+    }
+
+    protected void submitConnect(InetSocketAddress remoteSocketAddr, Buffer initialData) throws IOException {
+        Buffer addrBuf = bufferAllocator().allocate(Native.SIZEOF_SOCKADDR_STORAGE);
+        try (var itr = addrBuf.forEachComponent()) {
             var cmp = itr.firstWritable();
             SockaddrIn.write(socket.isIpv6(), cmp.writableNativeAddress(), remoteSocketAddr);
-            submissionQueue.addConnect(socket.intValue(), cmp.writableNativeAddress(),
+            submissionQueue.addConnect(fd().intValue(), cmp.writableNativeAddress(),
                     Native.SIZEOF_SOCKADDR_STORAGE, (short) 0);
         }
-        return false;
+        connectRemoteAddressMem = addrBuf;
     }
 
     void connectComplete(int res, short data) {
         currentCompletionResult = res;
         currentCompletionData = data;
-        SilentDispose.dispose(connectRemoteAddressMem, logger);
-        connectRemoteAddressMem = null;
+        if (connectRemoteAddressMem != null) { // Can be null if we connected with TCP Fast Open.
+            SilentDispose.dispose(connectRemoteAddressMem, logger);
+            connectRemoteAddressMem = null;
+        }
         finishConnect();
     }
 

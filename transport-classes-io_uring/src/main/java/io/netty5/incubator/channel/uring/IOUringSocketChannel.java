@@ -18,6 +18,7 @@ package io.netty5.incubator.channel.uring;
 import io.netty5.buffer.Buffer;
 import io.netty5.channel.AbstractChannel;
 import io.netty5.channel.AdaptiveReadHandleFactory;
+import io.netty5.channel.ChannelOption;
 import io.netty5.channel.ChannelPipeline;
 import io.netty5.channel.ChannelShutdownDirection;
 import io.netty5.channel.EventLoop;
@@ -26,6 +27,7 @@ import io.netty5.channel.ReadHandleFactory;
 import io.netty5.channel.WriteHandleFactory;
 import io.netty5.channel.socket.SocketChannel;
 import io.netty5.channel.socket.SocketChannelWriteHandleFactory;
+import io.netty5.channel.socket.SocketProtocolFamily;
 import io.netty5.channel.unix.Errors;
 import io.netty5.channel.unix.IovArray;
 import io.netty5.channel.unix.UnixChannelUtil;
@@ -36,6 +38,8 @@ import io.netty5.util.internal.StringUtil;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.NotYetConnectedException;
@@ -47,9 +51,13 @@ import static java.util.Objects.requireNonNull;
 
 public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringServerSocketChannel>
         implements SocketChannel {
+    private static final short IS_WRITE = 0;
+    private static final short IS_CONNECT = 1;
+
     private final IovArray writeIovs;
     private Promise<Void> writePromise;
     private boolean moreWritesPending;
+    private Buffer connectInitalData;
 
     public IOUringSocketChannel(EventLoop eventLoop) {
         this(null, eventLoop, true, new AdaptiveReadHandleFactory(),
@@ -79,6 +87,28 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     }
 
     @Override
+    protected void submitConnect(InetSocketAddress remoteAddress, Buffer initialData) throws IOException {
+        if (initialData != null && initialData.isDirect() && supportsTcpFastOpen()) {
+            assert writePromise == null;
+            connectInitalData = initialData;
+            MsgHdrMemory msgHdr = new MsgHdrMemory(0);
+            try (var itr = initialData.forEachComponent()) {
+                var cmp = itr.firstReadable();
+                msgHdr.write(socket, remoteAddress, cmp.readableNativeAddress(), cmp.readableBytes(), (short) 0);
+            }
+            submissionQueue.addSendmsg(fd().intValue(), msgHdr.address(), Native.MSG_FASTOPEN, IS_CONNECT);
+            return;
+        }
+        super.submitConnect(remoteAddress, initialData);
+    }
+
+    private boolean supportsTcpFastOpen() throws IOException {
+        return Native.IS_SUPPORTING_TCP_FASTOPEN_CLIENT &&
+                socket.protocolFamily() != SocketProtocolFamily.UNIX &&
+                socket.isTcpFastOpenConnect();
+    }
+
+    @Override
     protected void submitAllWriteMessages(WriteSink writeSink) {
         // We need to submit all messages as a single IO, in order to ensure ordering.
         // If we already have an outstanding write promise, we can't write anymore until it completes.
@@ -89,7 +119,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
         writePromise = executor().newPromise();
         writeIovs.clear();
         writeSink.consumeEachFlushedMessage(this::submitWriteMessage);
-        submissionQueue.addWritev(fd().intValue(), writeIovs.memoryAddress(0), writeIovs.count(), (short) 0);
+        submissionQueue.addWritev(fd().intValue(), writeIovs.memoryAddress(0), writeIovs.count(), IS_WRITE);
         // Super-class will submit our IOs immediately after this, so the writeIovs can be reused in the next iteration.
     }
 
@@ -148,6 +178,16 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
 
     @Override
     void writeComplete(int result, short data) {
+        if (data == IS_CONNECT) {
+            assert connectInitalData != null;
+            if (result > 0) {
+                connectInitalData.skipReadableBytes(result);
+            }
+            connectComplete(0, (short) 0);
+            connectInitalData = null;
+            return;
+        }
+        assert data == IS_WRITE;
         if (result < 0) {
             writePromise.setFailure(Errors.newIOException("write/flush", result));
         } else {
@@ -219,6 +259,36 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
             return null;
         }
         return writePromise.asFuture();
+    }
+
+    @Override
+    protected <T> T getExtendedOption(ChannelOption<T> option) {
+        if (option == ChannelOption.TCP_FASTOPEN_CONNECT) {
+            try {
+                return (T) Boolean.valueOf(socket.isTcpFastOpenConnect());
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return super.getExtendedOption(option);
+    }
+
+    @Override
+    protected <T> void setExtendedOption(ChannelOption<T> option, T value) {
+        if (option == ChannelOption.TCP_FASTOPEN_CONNECT) {
+            try {
+                socket.setTcpFastOpenConnect((Boolean) value);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return;
+        }
+        super.setExtendedOption(option, value);
+    }
+
+    @Override
+    protected boolean isExtendedOptionSupported(ChannelOption<?> option) {
+        return option == ChannelOption.TCP_FASTOPEN_CONNECT || super.isExtendedOptionSupported(option);
     }
 
     private final class RegionWriter implements WritableByteChannel, FutureListener<Void> {

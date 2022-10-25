@@ -227,8 +227,24 @@ final class Native {
     static final int IOSQE_LINK = NativeStaticallyReferencedJniMethods.iosqeLink();
     static final int IOSQE_IO_DRAIN = NativeStaticallyReferencedJniMethods.iosqeDrain();
     static final int MSG_DONTWAIT = NativeStaticallyReferencedJniMethods.msgDontwait();
+    static final int MSG_FASTOPEN = NativeStaticallyReferencedJniMethods.msgFastopen();
     static final int SOL_UDP = NativeStaticallyReferencedJniMethods.solUdp();
     static final int UDP_SEGMENT = NativeStaticallyReferencedJniMethods.udpSegment();
+    private static final int TFO_ENABLED_CLIENT_MASK = 0x1;
+    private static final int TFO_ENABLED_SERVER_MASK = 0x2;
+    private static final int TCP_FASTOPEN_MODE = NativeStaticallyReferencedJniMethods.tcpFastopenMode();
+    /**
+     * <a href ="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">tcp_fastopen</a> client mode enabled
+     * state.
+     */
+    static final boolean IS_SUPPORTING_TCP_FASTOPEN_CLIENT =
+            (TCP_FASTOPEN_MODE & TFO_ENABLED_CLIENT_MASK) == TFO_ENABLED_CLIENT_MASK;
+    /**
+     * <a href ="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">tcp_fastopen</a> server mode enabled
+     * state.
+     */
+    static final boolean IS_SUPPORTING_TCP_FASTOPEN_SERVER =
+            (TCP_FASTOPEN_MODE & TFO_ENABLED_SERVER_MASK) == TFO_ENABLED_SERVER_MASK;
 
     private static final int[] REQUIRED_IORING_OPS = {
             IORING_OP_POLL_ADD,

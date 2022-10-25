@@ -446,6 +446,26 @@ static jlong netty5_io_uring_cmsghdrData(JNIEnv* env, jclass clazz, jlong cmsghd
     return (jlong) CMSG_DATA((struct cmsghdr*) cmsghdrAddr);
 }
 
+static int getSysctlValue(const char * property, int* returnValue) {
+    int rc = -1;
+    FILE *fd=fopen(property, "r");
+    if (fd != NULL) {
+      char buf[32] = {0x0};
+      if (fgets(buf, 32, fd) != NULL) {
+        *returnValue = atoi(buf);
+        rc = 0;
+      }
+      fclose(fd);
+    }
+    return rc;
+}
+
+static jint netty5_io_uring_tcpFastopenMode(JNIEnv* env, jclass clazz) {
+    int fastopen = 0;
+    getSysctlValue("/proc/sys/net/ipv4/tcp_fastopen", &fastopen);
+    return fastopen;
+}
+
 static jint netty5_io_uring_etime(JNIEnv* env, jclass clazz) {
     return ETIME;
 }
@@ -484,6 +504,10 @@ static jint netty5_io_uring_iosqeDrain(JNIEnv* env, jclass clazz) {
 
 static jint netty5_io_uring_msgDontwait(JNIEnv* env, jclass clazz) {
     return MSG_DONTWAIT;
+}
+
+static jint netty5_io_uring_msgFastopen(JNIEnv* env, jclass clazz) {
+    return MSG_FASTOPEN;
 }
 
 static jint netty5_io_uring_cmsgSpace(JNIEnv* env, jclass clazz) {
@@ -545,11 +569,13 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
   { "iosqeLink", "()I", (void *) netty5_io_uring_iosqeLink },
   { "iosqeDrain", "()I", (void *) netty5_io_uring_iosqeDrain },
   { "msgDontwait", "()I", (void *) netty5_io_uring_msgDontwait },
+  { "msgFastopen", "()I", (void *) netty5_io_uring_msgFastopen },
   { "solUdp", "()I", (void *) netty5_io_uring_solUdp },
   { "udpSegment", "()I", (void *) netty5_io_uring_udpSegment },
   { "cmsghdrOffsetofCmsgLen", "()I", (void *) netty5_io_uring_cmsghdrOffsetofCmsgLen },
   { "cmsghdrOffsetofCmsgLevel", "()I", (void *) netty5_io_uring_cmsghdrOffsetofCmsgLevel },
   { "cmsghdrOffsetofCmsgType", "()I", (void *) netty5_io_uring_cmsghdrOffsetofCmsgType },
+  { "tcpFastopenMode", "()I", (void *) netty5_io_uring_tcpFastopenMode },
 };
 static const jint statically_referenced_fixed_method_table_size = sizeof(statically_referenced_fixed_method_table) / sizeof(statically_referenced_fixed_method_table[0]);
 

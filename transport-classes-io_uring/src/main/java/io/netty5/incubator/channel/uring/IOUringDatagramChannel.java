@@ -357,7 +357,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
             } else {
                 CachedMsgHdrMemory msgHdr = nextMsgHdr();
                 msgHdr.write(socket, remoteAddress, cmp.readableNativeAddress(), cmp.readableBytes(), (short) 0);
-                submissionQueue.addSendmsg(fd, msgHdr.address(), pendingId);
+                submissionQueue.addSendmsg(fd, msgHdr.address(), 0, pendingId);
                 promise.asFuture().addListener(msgHdr);
             }
         }

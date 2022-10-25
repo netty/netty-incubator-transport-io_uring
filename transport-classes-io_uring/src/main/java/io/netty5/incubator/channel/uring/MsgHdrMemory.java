@@ -38,7 +38,7 @@ class MsgHdrMemory {
                 Native.SIZEOF_SOCKADDR_STORAGE + Native.SIZEOF_IOVEC);
     }
 
-    void write(LinuxSocket socket, SocketAddress address, long bufferAddress , int length, short segmentSize) {
+    void write(LinuxSocket socket, SocketAddress address, long bufferAddress, int length, short segmentSize) {
         long sockAddress = memory + Native.SIZEOF_MSGHDR;
         long iovAddress = sockAddress + Native.SIZEOF_SOCKADDR_STORAGE;
         long cmsgAddr = iovAddress + Native.SIZEOF_IOVEC;
