@@ -44,9 +44,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
+import java.net.NoRouteToHostException;
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.nio.channels.UnresolvedAddressException;
 import java.util.concurrent.Executor;
 
@@ -325,12 +328,6 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
             submissionQueue.addConnect(socket.intValue(), cmp.writableNativeAddress(),
                     Native.SIZEOF_SOCKADDR_STORAGE, (short) 0);
         }
-        if (fetchLocalAddress()) {
-            // We always need to set the localAddress even if not connected yet as the bind already took place.
-            //
-            // See https://github.com/netty/netty/issues/3463
-            local = socket.localAddress();
-        }
         return false;
     }
 
@@ -350,7 +347,23 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         currentCompletionResult = 0;
         currentCompletionData = 0;
         if (res < 0) {
-            throw Errors.newIOException("connect", res);
+            var nativeException = Errors.newIOException("connect", res);
+            if (res == Errors.ERROR_ECONNREFUSED_NEGATIVE) {
+                ConnectException refused = new ConnectException(nativeException.getMessage());
+                refused.initCause(nativeException);
+                throw refused;
+            } else if (res == -113) { // EHOSTUNREACH: No route to host
+                NoRouteToHostException unreach = new NoRouteToHostException(nativeException.getMessage());
+                unreach.initCause(nativeException);
+                throw unreach;
+            } else {
+                SocketException exception = new SocketException(nativeException.getMessage());
+                exception.initCause(nativeException);
+                throw exception;
+            }
+        }
+        if (fetchLocalAddress()) {
+            local = socket.localAddress();
         }
         if (socket.finishConnect()) {
             active = true;

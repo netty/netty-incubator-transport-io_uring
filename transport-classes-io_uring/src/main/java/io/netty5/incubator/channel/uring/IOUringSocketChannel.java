@@ -54,7 +54,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     public IOUringSocketChannel(EventLoop eventLoop) {
         this(null, eventLoop, true, new AdaptiveReadHandleFactory(),
                 new SocketChannelWriteHandleFactory(Integer.MAX_VALUE, SSIZE_MAX),
-                LinuxSocket.newSocketStream(), null, true);
+                LinuxSocket.newSocketStream(), null, false);
     }
 
     IOUringSocketChannel(
