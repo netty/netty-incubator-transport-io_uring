@@ -114,7 +114,7 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
             peer = buildAddress();
         }
         return new IOUringSocketChannel(
-                this, childEventLoopGroup().next(), true,
+                this, childEventLoopGroup().next(), false,
                 new AdaptiveReadHandleFactory(), new SocketChannelWriteHandleFactory(Integer.MAX_VALUE, SSIZE_MAX),
                 new LinuxSocket(fd, socket.protocolFamily()), peer, true);
     }

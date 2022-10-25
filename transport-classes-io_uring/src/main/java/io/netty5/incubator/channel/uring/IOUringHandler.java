@@ -129,6 +129,11 @@ class IOUringHandler implements IoHandler, CompletionCallback {
             case Native.IORING_OP_CONNECT:
                 ch.connectComplete(res, data);
                 break;
+            case Native.IORING_OP_POLL_ADD:
+                if (data == Native.POLLRDHUP) {
+                    ch.completeRdHub(res);
+                }
+                break;
             case Native.IORING_OP_CLOSE:
                 ch.closeComplete(res, data);
                 break;
@@ -216,8 +221,8 @@ class IOUringHandler implements IoHandler, CompletionCallback {
             throw new RejectedExecutionException("IoEventLoop is shutting down");
         }
         int fd = ch.fd().intValue();
-        logger.debug("Adding channel: {} (fd = {})", ch.id(), fd);
-        ch.setSubmissionQueue(ringBuffer.ioUringSubmissionQueue());
+        logger.debug("Adding channel: {} (fd={})", ch.id(), fd);
+        ch.completeChannelRegister(ringBuffer.ioUringSubmissionQueue());
         if (channels.put(fd, ch) == null) {
             ringBuffer.ioUringSubmissionQueue().incrementHandledFds();
         }
@@ -227,7 +232,7 @@ class IOUringHandler implements IoHandler, CompletionCallback {
     public void deregister(IoHandle handle) {
         AbstractIOUringChannel<?> ch = (AbstractIOUringChannel<?>) handle;
         int fd = ch.fd().intValue();
-        logger.debug("Removing channel: {} (fd = {})", ch.id(), fd);
+        logger.debug("Removing channel: {} (fd={})", ch.id(), fd);
         AbstractIOUringChannel<?> existing = channels.remove(fd);
         if (existing != null) {
             ringBuffer.ioUringSubmissionQueue().decrementHandledFds();

@@ -64,6 +64,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     protected final InternalLogger logger;
     protected final LinuxSocket socket;
     private final Promise<Executor> prepareClosePromise;
+    private final Runnable rdHubRead;
 
     protected volatile boolean active;
     protected volatile SocketAddress local;
@@ -80,6 +81,8 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     private boolean readPendingRegister;
     private boolean readPendingConnect;
     private Buffer connectRemoteAddressMem;
+    private boolean scheduledRdHub;
+    private boolean receivedRdHub;
 
     protected AbstractIOUringChannel(P parent, EventLoop eventLoop, boolean supportingDisconnect,
                                      ReadHandleFactory defaultReadHandleFactory,
@@ -100,6 +103,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
              setOption(ChannelOption.BUFFER_ALLOCATOR, DefaultBufferAllocators.offHeapAllocator());
         }
         prepareClosePromise = eventLoop.newPromise();
+        rdHubRead = this::submitReadForRdHub;
         readsPending = new ObjectRing<>();
         readsCompleted = new ObjectRing<>();
         cancelledReads = new ShortObjectHashMap<>(8);
@@ -172,6 +176,23 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
             short readId = ++lastReadId;
             Object obj = submitReadForReadBuffer(readBuffer, readId, sumPackets > 1);
             readsPending.push(obj, readId);
+        }
+    }
+
+    private void submitNonBlockingRead() {
+        assert readsPending.isEmpty();
+        int bufferSize = nextReadBufferSize();
+        Buffer readBuffer = readBufferAllocator().allocate(bufferSize);
+        assert readBuffer.isDirect();
+        assert readBuffer.countWritableComponents() == 1;
+        short readId = ++lastReadId;
+        Object obj = submitReadForReadBuffer(readBuffer, readId, true);
+        readsPending.push(obj, readId);
+    }
+
+    private void submitReadForRdHub() {
+        if (active && readsPending.isEmpty()) {
+            submitNonBlockingRead();
         }
     }
 
@@ -274,6 +295,16 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
      */
     protected abstract boolean processRead(ReadSink readSink, Object read);
 
+    @Override
+    protected void readLoopComplete() {
+        super.readLoopComplete();
+        if (receivedRdHub && active) {
+            // Schedule this to run later, after other tasks, to not block user reads,
+            // and to not have the read-loop cancel it as an unprocessed read.
+            executor().execute(rdHubRead);
+        }
+    }
+
     @NotNull
     protected Buffer intoDirectBuffer(Buffer buf, boolean dispose) {
         BufferAllocator allocator = bufferAllocator();
@@ -372,6 +403,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
             } else {
                 remote = requestedRemoteAddress;
             }
+            submitPollRdHub();
             if (readPendingConnect) {
                 submitRead();
                 readPendingConnect = false;
@@ -379,6 +411,94 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
             return true;
         }
         return false;
+    }
+
+    private void submitPollRdHub() {
+        submissionQueue.addPollRdHup(fd().intValue());
+        scheduledRdHub = true;
+    }
+
+    void completeRdHub(int res) {
+        if (res == Native.ERRNO_ECANCELED_NEGATIVE) {
+            return;
+        }
+        receivedRdHub = true;
+        scheduledRdHub = false;
+        if (active && readsPending.isEmpty()) {
+            // Schedule a read to drain inbound buffer and notice the EOF.
+            submitNonBlockingRead();
+        } else {
+            // Make sure we mark the input as shut down.
+            shutdown(ChannelShutdownDirection.Inbound);
+        }
+    }
+
+    void completeChannelRegister(SubmissionQueue submissionQueue) {
+        this.submissionQueue = submissionQueue;
+        if (active) {
+            submitPollRdHub();
+        }
+        if (readPendingRegister) {
+            readPendingRegister = false;
+            read();
+        }
+    }
+
+    @Override
+    protected void doDisconnect() throws Exception {
+        logger.debug("doDisconnet: {}", this);
+        active = false;
+    }
+
+    @Override
+    protected Future<Executor> prepareToClose() {
+        logger.debug("prepareToClose: {}", this);
+        // Prevent more operations from being submitted.
+        active = false;
+        // Cancel all pending reads.
+        doClearScheduledRead();
+        // Cancel any RDHUB poll
+        if (scheduledRdHub) {
+            submissionQueue.addPollRemove(fd().intValue(), Native.POLLRDHUP);
+        }
+        // If we currently have an on-going write, we need to serialise our close operation after it.
+        Future<Void> writePromise = currentWritePromise();
+        if (writePromise != null) {
+            writePromise.addListener(f -> closeTransportNow(false));
+        } else {
+            closeTransportNow(false);
+        }
+        return prepareClosePromise.asFuture();
+    }
+
+    @Override
+    protected void doClose() {
+        while (readsPending.poll()) {
+            SilentDispose.dispose(readsPending.getPolledObject(), logger);
+        }
+        while (readsCompleted.poll()) {
+            SilentDispose.trySilentDispose(readsCompleted.getPolledObject(), logger);
+        }
+        if (connectRemoteAddressMem != null) {
+            SilentDispose.trySilentDispose(connectRemoteAddressMem, logger);
+            connectRemoteAddressMem = null;
+        }
+    }
+
+    /**
+     * @return The future for any in-flight write, or {@code null}.
+     */
+    protected abstract @Nullable Future<Void> currentWritePromise();
+
+    void closeTransportNow(boolean drainIO) {
+        submissionQueue.addClose(socket.intValue(), drainIO, (short) 0);
+    }
+
+    void closeComplete(int res, short data) {
+        logger.debug("closeComplete: {}", this);
+        if (socket.markClosed()) {
+            prepareClosePromise.setSuccess(executor());
+        }
     }
 
     @Override
@@ -636,67 +756,6 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
 
     boolean isIpv6() {
         return socket.isIpv6();
-    }
-
-    void setSubmissionQueue(SubmissionQueue submissionQueue) {
-        this.submissionQueue = submissionQueue;
-        if (readPendingRegister) {
-            readPendingRegister = false;
-            read();
-        }
-    }
-
-    @Override
-    protected void doDisconnect() throws Exception {
-        logger.debug("doDisconnet: {}", this);
-        active = false;
-    }
-
-    @Override
-    protected void doClose() {
-        while (readsPending.poll()) {
-            SilentDispose.dispose(readsPending.getPolledObject(), logger);
-        }
-        while (readsCompleted.poll()) {
-            SilentDispose.trySilentDispose(readsCompleted.getPolledObject(), logger);
-        }
-        if (connectRemoteAddressMem != null) {
-            SilentDispose.trySilentDispose(connectRemoteAddressMem, logger);
-            connectRemoteAddressMem = null;
-        }
-    }
-
-    @Override
-    protected Future<Executor> prepareToClose() {
-        logger.debug("prepareToClose: {}", this);
-        // Prevent more operations from being submitted.
-        active = false;
-        // Cancel all pending reads.
-        doClearScheduledRead();
-        // If we currently have an on-going write, we need to serialise our close operation after it.
-        Future<Void> writePromise = currentWritePromise();
-        if (writePromise != null) {
-            writePromise.addListener(f -> closeTransportNow(false));
-        } else {
-            closeTransportNow(false);
-        }
-        return prepareClosePromise.asFuture();
-    }
-
-    /**
-     * @return The future for any in-flight write, or {@code null}.
-     */
-    protected abstract @Nullable Future<Void> currentWritePromise();
-
-    void closeTransportNow(boolean drainIO) {
-        submissionQueue.addClose(socket.intValue(), drainIO, (short) 0);
-    }
-
-    void closeComplete(int res, short data) {
-        logger.debug("closeComplete: {}", this);
-        if (socket.markClosed()) {
-            prepareClosePromise.setSuccess(executor());
-        }
     }
 
     private static final class Failure {
