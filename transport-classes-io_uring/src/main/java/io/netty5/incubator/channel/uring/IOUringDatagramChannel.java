@@ -103,6 +103,14 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     }
 
     @Override
+    protected boolean doFinishConnect(SocketAddress requestedRemoteAddress) throws Exception {
+        if (currentCompletionResult >= 0) {
+            connected = true;
+        }
+        return super.doFinishConnect(requestedRemoteAddress);
+    }
+
+    @Override
     public boolean isConnected() {
         return connected;
     }
@@ -252,6 +260,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
                 // Call recv(2) because we have a known peer.
                 long udata = submissionQueue.addRecv(fd().intValue(), address, 0, writableBytes, flags, readId);
                 pendingConsumer.accept(buffer, udata);
+                return;
             }
             // Call recvmsg(2) because we need the peer address for each packet.
             short segmentSize = 0;
@@ -442,7 +451,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
         super.doClose();
         CachedMsgHdrMemory msgHdr;
         while ((msgHdr = msgHdrCache.pollFirst()) != null) {
-            msgHdr.close();
+            msgHdr.release();
         }
     }
 
@@ -512,6 +521,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
             implements FutureListener<Void>, AutoCloseable {
         private final Deque<CachedMsgHdrMemory> cache;
         private Buffer attachment;
+
         CachedMsgHdrMemory(Deque<CachedMsgHdrMemory> cache) {
             super(0);
             this.cache = cache;
@@ -532,10 +542,6 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
         @Override
         void release() {
             super.release();
-            if (attachment != null) {
-                attachment.close();
-                attachment = null;
-            }
         }
     }
 }
