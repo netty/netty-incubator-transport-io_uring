@@ -18,20 +18,27 @@ package io.netty5.incubator.channel.uring;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-final class ObjectRing<T> {
+import java.util.function.ObjLongConsumer;
+
+final class ObjectRing<T> implements ObjLongConsumer<T> {
     private Object[] objs;
-    private short[] ids;
+    private long[] ids;
     private int head; // next push index
     private int tail; // next poll index, unless same as head
     private Object polledObject;
-    private short polledId;
+    private long polledId;
 
     ObjectRing() {
         objs = new Object[16];
-        ids = new short[16];
+        ids = new long[16];
     }
 
-    void push(@NotNull T obj, short id) {
+    @Override
+    public void accept(T obj, long value) {
+        push(obj, value);
+    }
+
+    void push(@NotNull T obj, long id) {
         int nextHead = next(head);
         if (nextHead == tail) {
             expand();
@@ -47,7 +54,7 @@ final class ObjectRing<T> {
     }
 
     @SuppressWarnings("unchecked")
-    @Nullable T remove(short id) {
+    @Nullable T remove(long id) {
         if (isEmpty()) {
             return null;
         }
@@ -66,11 +73,11 @@ final class ObjectRing<T> {
                 // Found the obj; move prior entries up.
                 int i = tail;
                 Object prevObj = objs[tail];
-                short prevId = ids[tail];
+                long prevId = ids[tail];
                 do {
                     i = next(i);
                     Object tmpObj = objs[i];
-                    short tmpId = ids[i];
+                    long tmpId = ids[i];
                     objs[i] = prevObj;
                     ids[i] = prevId;
                     prevObj = tmpObj;
@@ -96,16 +103,7 @@ final class ObjectRing<T> {
         return true;
     }
 
-    boolean peek() {
-        if (isEmpty()) {
-            return false;
-        }
-        polledObject = objs[tail];
-        polledId = ids[tail];
-        return true;
-    }
-
-    boolean hasNextId(short id) {
+    boolean hasNextId(long id) {
         return !isEmpty() && ids[tail] == id;
     }
 
@@ -116,15 +114,15 @@ final class ObjectRing<T> {
         return object;
     }
 
-    short getPolledId() {
-        short id = polledId;
+    long getPolledId() {
+        long id = polledId;
         polledId = 0;
         return id;
     }
 
     private void expand() {
         Object[] nextBufs = new Object[objs.length << 1];
-        short[] nextIds = new short[ids.length << 1];
+        long[] nextIds = new long[ids.length << 1];
         int index = 0;
         while (head != tail) {
             nextBufs[index] = objs[tail];

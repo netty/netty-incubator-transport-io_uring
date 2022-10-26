@@ -34,7 +34,6 @@ import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,7 +59,7 @@ public class NativeTest {
     }
 
     @Test
-    public void canWriteFile(@TempDir Path tmpDir) throws Exception {
+    public void canWriteFile(@TempDir Path tmpDir) {
         BufferAllocator allocator = DefaultBufferAllocators.offHeapAllocator();
         final Buffer writeEventBuf = allocator.allocate(100);
         final String inputString = "Hello World!";
@@ -85,7 +84,7 @@ public class NativeTest {
         }
 
         completionQueue.ioUringWaitCqe();
-        assertEquals(1, completionQueue.process((fd1, res, flags, op, mask) -> {
+        assertEquals(1, completionQueue.process((fd1, res, flags, udata) -> {
             assertEquals(inputString.length(), res);
             writeEventBuf.close();
         }));
@@ -98,7 +97,7 @@ public class NativeTest {
         }
 
         completionQueue.ioUringWaitCqe();
-        assertEquals(1, completionQueue.process((fd12, res, flags, op, mask) -> {
+        assertEquals(1, completionQueue.process((fd12, res, flags, udata) -> {
             assertEquals(inputString.length(), res);
             readEventBuf.skipWritableBytes(res);
         }));
@@ -125,7 +124,7 @@ public class NativeTest {
 
         var future = executor.submit(() -> {
             completionQueue.ioUringWaitCqe();
-            completionQueue.process((fd, res, flags, op, mask) -> assertEquals(-62, res));
+            completionQueue.process((fd, res, flags, udata) -> assertEquals(-62, res));
             return null;
         });
 
@@ -160,7 +159,7 @@ public class NativeTest {
         executor.submit(() -> Native.eventFdWrite(eventFd.intValue(), 1L));
 
         completionQueue.ioUringWaitCqe();
-        assertEquals(1, completionQueue.process((fd, res, flags, op, mask) -> assertEquals(1, res)));
+        assertEquals(1, completionQueue.process((fd, res, flags, udata) -> assertEquals(1, res)));
         try {
             eventFd.close();
         } finally {
@@ -185,7 +184,7 @@ public class NativeTest {
 
         var waitingCqe = executor.submit(() -> {
             completionQueue.ioUringWaitCqe();
-            assertEquals(1, completionQueue.process((fd, res, flags, op, mask) -> assertEquals(1, res)));
+            assertEquals(1, completionQueue.process((fd, res, flags, udata) -> assertEquals(1, res)));
         });
         final FileDescriptor eventFd = Native.newBlockingEventFd();
         submissionQueue.addPollIn(eventFd.intValue());
@@ -219,7 +218,8 @@ public class NativeTest {
         submissionQueue.submit();
 
         final CountDownLatch latch = new CountDownLatch(2);
-        CompletionCallback verifyCallback = (fd, res, flags, op, mask) -> {
+        CompletionCallback verifyCallback = (fd, res, flags, udata) -> {
+            byte op = UserData.decodeOp(udata);
             if (op == Native.IORING_OP_POLL_ADD) {
                 assertEquals(Native.ERRNO_ECANCELED_NEGATIVE, res);
                 latch.countDown();
@@ -255,7 +255,9 @@ public class NativeTest {
                 submissionQueue.addWrite(-1, -1, -1, -1, (short) i);
                 assertEquals(1, submissionQueue.submitAndWait());
                 final int expectedData = i;
-                assertEquals(1, completionQueue.process((fd, res, flags, op, data) -> {
+                assertEquals(1, completionQueue.process((fd, res, flags, udata) -> {
+                    byte op = UserData.decodeOp(udata);
+                    short data = UserData.decodeData(udata);
                     assertEquals(-1, fd);
                     assertTrue(res < 0);
                     assertEquals(Native.IORING_OP_WRITE, op);

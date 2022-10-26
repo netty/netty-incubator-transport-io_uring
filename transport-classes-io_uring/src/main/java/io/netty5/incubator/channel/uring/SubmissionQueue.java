@@ -256,13 +256,8 @@ final class SubmissionQueue {
         return enqueueSqe(Native.IORING_OP_CLOSE, flags, 0, fd, 0, 0, 0, extraData);
     }
 
-    long addCancel(int fd, byte op, short extraData) {
-        long sqeToCancel = encode(fd, op, extraData);
-        return addCancel(sqeToCancel);
-    }
-
-    long addCancel(long sqeToCancel) {
-        return enqueueSqe(Native.IORING_OP_ASYNC_CANCEL, flags(), 0, 0, sqeToCancel, 0, 0, (short) 0);
+    long addCancel(int fd, long sqeToCancel) {
+        return enqueueSqe(Native.IORING_OP_ASYNC_CANCEL, flags(), 0, fd, sqeToCancel, 0, 0, (short) 0);
     }
 
     int submit() {
@@ -294,7 +289,7 @@ final class SubmissionQueue {
             if (ret < 0) {
                 throw new RuntimeException("ioUringEnter syscall returned " + ret);
             }
-            logger.warn("Not all submissions succeeded");
+            logger.warn("Not all submissions succeeded. Only {} of {} SQEs were submitted.", ret, toSubmit);
         }
         return ret;
     }

@@ -35,7 +35,7 @@ final class CompletionQueue {
     private static final int CQE_RES_FIELD = 8;
     private static final int CQE_FLAGS_FIELD = 12;
 
-    private static final int CQE_SIZE = 16;
+    private static final long CQE_SIZE = 16;
 
     //these unsigned integer pointers(shared with the kernel) will be changed by the kernel
     private final long kHeadAddress;

@@ -90,10 +90,10 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
     }
 
     @Override
-    void readComplete(int res, short data) {
+    void readComplete(int res, long udata) {
         logger.debug("readComplete (server socket): {}, fd = {}", this, res);
         currentCompletionResult = res;
-        currentCompletionData = data;
+        currentCompletionData = UserData.decodeData(udata);
         readNow();
     }
 
@@ -163,7 +163,7 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
     }
 
     @Override
-    void writeComplete(int result, short data) {
+    void writeComplete(int result, long udata) {
         throw new UnsupportedOperationException();
     }
 

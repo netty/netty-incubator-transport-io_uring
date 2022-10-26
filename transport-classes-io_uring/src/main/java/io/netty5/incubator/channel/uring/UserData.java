@@ -24,10 +24,8 @@ final class UserData {
     }
 
     static void decode(int res, int flags, long udata, CompletionCallback callback) {
-        int fd = (int) (udata & 0xFFFFFFFFL);
-        byte op = (byte) ((udata >>>= 32) & 0xFFL);
-        short data = (short) (udata >>> 16);
-        callback.handle(fd, res, flags, op, data);
+        int fd = decodeFd(udata);
+        callback.handle(fd, res, flags, udata);
     }
 
     static int decodeFd(long udata) {
@@ -35,6 +33,10 @@ final class UserData {
     }
 
     static byte decodeOp(long udata) {
-        return (byte) ((udata >>>= 32) & 0xFFL);
+        return (byte) ((udata >>> 32) & 0xFFL);
+    }
+
+    static short decodeData(long udata) {
+        return (short) (udata >>> 48);
     }
 }

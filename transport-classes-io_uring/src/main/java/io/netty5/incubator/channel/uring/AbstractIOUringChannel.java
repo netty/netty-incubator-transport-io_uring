@@ -32,8 +32,8 @@ import io.netty5.channel.unix.FileDescriptor;
 import io.netty5.channel.unix.UnixChannel;
 import io.netty5.channel.unix.UnixChannelOption;
 import io.netty5.util.Resource;
-import io.netty5.util.collection.ShortObjectHashMap;
-import io.netty5.util.collection.ShortObjectMap;
+import io.netty5.util.collection.LongObjectHashMap;
+import io.netty5.util.collection.LongObjectMap;
 import io.netty5.util.concurrent.Future;
 import io.netty5.util.concurrent.FutureContextListener;
 import io.netty5.util.concurrent.Promise;
@@ -52,6 +52,7 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.channels.UnresolvedAddressException;
 import java.util.concurrent.Executor;
+import java.util.function.ObjLongConsumer;
 
 import static io.netty5.channel.unix.UnixChannelUtil.computeRemoteAddr;
 
@@ -60,6 +61,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         implements UnixChannel {
     static final InternalLogger LOGGER = InternalLoggerFactory.getInstance(AbstractIOUringChannel.class);
     static final FutureContextListener<Buffer, Void> CLOSE_BUFFER = (b, f) -> SilentDispose.dispose(b, LOGGER);
+    public static final int MAX_READ_AHEAD_PACKETS = 8;
 
     protected final InternalLogger logger;
     protected final LinuxSocket socket;
@@ -74,7 +76,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
 
     protected final ObjectRing<Object> readsPending;
     protected final ObjectRing<Object> readsCompleted; // Either 'Failure', or a message (buffer, datagram, ...).
-    protected final ShortObjectMap<Object> cancelledReads;
+    protected final LongObjectMap<Object> cancelledReads;
     protected int currentCompletionResult;
     protected short currentCompletionData;
     private short lastReadId;
@@ -106,7 +108,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         rdHubRead = this::submitReadForRdHub;
         readsPending = new ObjectRing<>();
         readsCompleted = new ObjectRing<>();
-        cancelledReads = new ShortObjectHashMap<>(8);
+        cancelledReads = new LongObjectHashMap<>(8);
     }
 
     @Override
@@ -157,8 +159,8 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     }
 
     private void submitRead() {
-        // Submit reads until read handle says stop, or we fill the submission queue
-        int maxPackets = submissionQueue.remaining();
+        // Submit reads until read handle says stop, we fill the submission queue, or hit max limit
+        int maxPackets = Math.min(submissionQueue.remaining(), MAX_READ_AHEAD_PACKETS);
         int sumPackets = 0;
         int bufferSize = nextReadBufferSize();
         boolean morePackets = bufferSize > 0;
@@ -171,20 +173,21 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
             morePackets = sumPackets < maxPackets && (bufferSize = nextReadBufferSize()) > 0;
             submissionQueue.link(morePackets);
             short readId = ++lastReadId;
-            Object obj = submitReadForReadBuffer(readBuffer, readId, sumPackets > 1);
-            readsPending.push(obj, readId);
+            submitReadForReadBuffer(readBuffer, readId, sumPackets > 1, readsPending);
         }
     }
 
     private void submitNonBlockingRead() {
         assert readsPending.isEmpty();
         int bufferSize = nextReadBufferSize();
+        if (bufferSize == 0) {
+            return;
+        }
         Buffer readBuffer = readBufferAllocator().allocate(bufferSize);
         assert readBuffer.isDirect();
         assert readBuffer.countWritableComponents() == 1;
         short readId = ++lastReadId;
-        Object obj = submitReadForReadBuffer(readBuffer, readId, true);
-        readsPending.push(obj, readId);
+        submitReadForReadBuffer(readBuffer, readId, true, readsPending);
     }
 
     private void submitReadForRdHub() {
@@ -197,16 +200,17 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         return readHandle().prepareRead();
     }
 
-    protected Object submitReadForReadBuffer(Buffer buffer, short readId, boolean nonBlocking) {
+    protected void submitReadForReadBuffer(Buffer buffer, short readId, boolean nonBlocking,
+                                             ObjLongConsumer<Object> pendingConsumer) {
         try (var itr = buffer.forEachComponent()) {
             var cmp = itr.firstWritable();
             assert cmp != null;
             long address = cmp.writableNativeAddress();
             int flags = nonBlocking ? Native.MSG_DONTWAIT : 0;
-            submissionQueue.addRecv(
+            long udata = submissionQueue.addRecv(
                     fd().intValue(), address, 0, cmp.writableBytes(), flags, readId);
+            pendingConsumer.accept(buffer, udata);
         }
-        return buffer;
     }
 
     @Override
@@ -214,10 +218,10 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         // Using the lastReadId to differentiate our reads, means we avoid accidentally cancelling any future read.
         while (readsPending.poll()) {
             Object obj = readsPending.getPolledObject();
-            short id = readsPending.getPolledId();
+            long udata = readsPending.getPolledId();
             Resource.touch(obj, "read cancelled");
-            cancelledReads.put(id, obj);
-            submissionQueue.addCancel(fd().intValue(), Native.IORING_OP_RECV, id);
+            cancelledReads.put(udata, obj);
+            submissionQueue.addCancel(fd().intValue(), udata);
             // TODO We only want to cancel if we've submitted a read. We can tell by the readBuffer not being null.
             //  However, we cannot null out the buffer when we cancel, because the read might still complete, and we
             //  might not submit the cancel immediately, leading the use-after-free.
@@ -225,12 +229,12 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         }
     }
 
-    void readComplete(int res, short data) {
+    void readComplete(int res, long udata) {
         assert executor().inEventLoop();
         if (res == Native.ERRNO_ECANCELED_NEGATIVE || res == Errors.ERRNO_EAGAIN_NEGATIVE) {
-            Object obj = cancelledReads.remove(data);
+            Object obj = cancelledReads.remove(udata);
             if (obj == null) {
-                obj = readsPending.remove(data);
+                obj = readsPending.remove(udata);
             }
             if (obj != null) {
                 SilentDispose.dispose(obj, logger);
@@ -239,19 +243,19 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         }
 
         final Object obj;
-        if (readsPending.hasNextId(data) && readsPending.poll()) {
+        if (readsPending.hasNextId(udata) && readsPending.poll()) {
             obj = readsPending.getPolledObject();
         } else {
             // Out-of-order read completion? Weird. Should this ever happen?
-            obj = readsPending.remove(data);
+            obj = readsPending.remove(udata);
         }
         if (obj != null) {
             if (res >= 0) {
                 Resource.touch(obj, "read completed");
-                readsCompleted.push(prepareCompleted(obj, res), data);
+                readsCompleted.push(prepareCompleted(obj, res), udata);
             } else {
                 SilentDispose.dispose(obj, logger);
-                readsCompleted.push(new Failure(res), data);
+                readsCompleted.push(new Failure(res), udata);
             }
         }
     }
@@ -325,7 +329,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
 
     protected abstract void submitAllWriteMessages(WriteSink writeSink);
 
-    abstract void writeComplete(int result, short data);
+    abstract void writeComplete(int result, long udata);
 
     /**
      * Connect to the remote peer
@@ -364,9 +368,8 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         connectRemoteAddressMem = addrBuf;
     }
 
-    void connectComplete(int res, short data) {
+    void connectComplete(int res, long udata) {
         currentCompletionResult = res;
-        currentCompletionData = data;
         if (connectRemoteAddressMem != null) { // Can be null if we connected with TCP Fast Open.
             SilentDispose.dispose(connectRemoteAddressMem, logger);
             connectRemoteAddressMem = null;
@@ -498,7 +501,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         submissionQueue.addClose(socket.intValue(), drainIO, (short) 0);
     }
 
-    void closeComplete(int res, short data) {
+    void closeComplete(int res, long udata) {
         logger.debug("closeComplete: {}", this);
         if (socket.markClosed()) {
             prepareClosePromise.setSuccess(executor());

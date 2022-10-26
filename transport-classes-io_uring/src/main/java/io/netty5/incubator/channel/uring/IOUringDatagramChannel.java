@@ -47,6 +47,7 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.function.ObjLongConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -239,7 +240,8 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     }
 
     @Override
-    protected Object submitReadForReadBuffer(Buffer buffer, short readId, boolean nonBlocking) {
+    protected void submitReadForReadBuffer(Buffer buffer, short readId, boolean nonBlocking,
+                                           ObjLongConsumer<Object> pendingConsumer) {
         try (var itr = buffer.forEachComponent()) {
             var cmp = itr.firstWritable();
             assert cmp != null;
@@ -248,16 +250,16 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
             int flags = nonBlocking ? Native.MSG_DONTWAIT : 0;
             if (connected) {
                 // Call recv(2) because we have a known peer.
-                submissionQueue.addRecv(fd().intValue(), address, 0, writableBytes, flags, readId);
-                return buffer;
+                long udata = submissionQueue.addRecv(fd().intValue(), address, 0, writableBytes, flags, readId);
+                pendingConsumer.accept(buffer, udata);
             }
             // Call recvmsg(2) because we need the peer address for each packet.
             short segmentSize = 0;
             CachedMsgHdrMemory msgHdr = nextMsgHdr();
             msgHdr.write(socket, null, address, writableBytes, segmentSize);
             msgHdr.attachment = buffer;
-            submissionQueue.addRecvmsg(fd().intValue(), msgHdr.address(), readId);
-            return msgHdr;
+            long udata = submissionQueue.addRecvmsg(fd().intValue(), msgHdr.address(), readId);
+            pendingConsumer.accept(msgHdr, udata);
         }
     }
 
@@ -380,8 +382,8 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     }
 
     @Override
-    void writeComplete(int result, short data) {
-        Promise<Void> promise = pendingWrites.removePending(data);
+    void writeComplete(int result, long udata) {
+        Promise<Void> promise = pendingWrites.removePending(UserData.decodeData(udata));
         if (result < 0) {
             promise.setFailure(Errors.newIOException("send/sendmsg", result));
         } else {

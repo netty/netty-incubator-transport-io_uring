@@ -177,7 +177,8 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     }
 
     @Override
-    void writeComplete(int result, short data) {
+    void writeComplete(int result, long udata) {
+        short data = UserData.decodeData(udata);
         if (data == IS_CONNECT) {
             assert connectInitalData != null;
             if (result > 0) {

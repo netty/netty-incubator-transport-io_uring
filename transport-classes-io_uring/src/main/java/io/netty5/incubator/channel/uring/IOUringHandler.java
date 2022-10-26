@@ -43,7 +43,7 @@ class IOUringHandler implements IoHandler, CompletionCallback {
     private final AtomicBoolean eventfdAsyncNotify = new AtomicBoolean();
     private final FileDescriptor eventfd;
     private final long eventfdReadBuf;
-    private boolean eventfdReadSubmitted;
+    private long eventfdReadSubmitted;
 
     private volatile boolean shuttingDown;
     private boolean closeCompleted;
@@ -63,7 +63,7 @@ class IOUringHandler implements IoHandler, CompletionCallback {
         SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
         CompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
         if (!completionQueue.hasCompletions() && context.canBlock()) {
-            if (!eventfdReadSubmitted) {
+            if (eventfdReadSubmitted == 0) {
                 submitEventFdRead();
             }
             if (context.deadlineNanos() != -1) {
@@ -86,11 +86,12 @@ class IOUringHandler implements IoHandler, CompletionCallback {
     }
 
     @Override
-    public void handle(int fd, int res, int flags, byte op, short data) {
+    public void handle(int fd, int res, int flags, long udata) {
         if (fd == eventfd.intValue()) {
             handleEventFdRead();
             return;
         }
+        byte op = UserData.decodeOp(udata);
         if (fd == ringBuffer.fd()) {
             switch (op) {
                 case Native.IORING_OP_NOP:
@@ -118,32 +119,35 @@ class IOUringHandler implements IoHandler, CompletionCallback {
             case Native.IORING_OP_RECV:
             case Native.IORING_OP_ACCEPT:
             case Native.IORING_OP_RECVMSG:
-                ch.readComplete(res, data);
+                ch.readComplete(res, udata);
                 break;
             case Native.IORING_OP_WRITE:
             case Native.IORING_OP_SEND:
             case Native.IORING_OP_WRITEV:
             case Native.IORING_OP_SENDMSG:
-                ch.writeComplete(res, data);
+                ch.writeComplete(res, udata);
                 break;
             case Native.IORING_OP_CONNECT:
-                ch.connectComplete(res, data);
+                ch.connectComplete(res, udata);
                 break;
             case Native.IORING_OP_POLL_ADD:
-                if (data == Native.POLLRDHUP) {
+                if (UserData.decodeData(udata) == Native.POLLRDHUP) {
                     ch.completeRdHub(res);
                 }
                 break;
+            case Native.IORING_OP_POLL_REMOVE:
+                // Ignore poll_removes.
+                break;
             case Native.IORING_OP_CLOSE:
-                ch.closeComplete(res, data);
+                ch.closeComplete(res, udata);
                 break;
             default:
-                logger.warn("Unknown {} completion: fd={}, res={}, data={}.", Native.opToStr(op), fd, res, data);
+                logger.warn("Unknown {} completion: fd={}, res={}, udata={}.", Native.opToStr(op), fd, res, udata);
         }
     }
 
     private void handleEventFdRead() {
-        eventfdReadSubmitted = false;
+        eventfdReadSubmitted = 0;
         eventfdAsyncNotify.set(false);
         if (!shuttingDown) {
             submitEventFdRead();
@@ -151,8 +155,8 @@ class IOUringHandler implements IoHandler, CompletionCallback {
     }
 
     private void submitEventFdRead() {
-        eventfdReadSubmitted = true;
-        ringBuffer.ioUringSubmissionQueue().addEventFdRead(eventfd.intValue(), eventfdReadBuf, 0, 8, (short) 0);
+        SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
+        eventfdReadSubmitted = submissionQueue.addEventFdRead(eventfd.intValue(), eventfdReadBuf, 0, 8, (short) 0);
     }
 
     private void submitTimeout(IoExecutionContext context) {
@@ -183,9 +187,9 @@ class IOUringHandler implements IoHandler, CompletionCallback {
     public void destroy() {
         SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
         CompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
-        if (eventfdReadSubmitted) {
-            submissionQueue.addCancel(eventfd.intValue(), Native.IORING_OP_READ, (short) 0);
-            eventfdReadSubmitted = false;
+        if (eventfdReadSubmitted != 0) {
+            submissionQueue.addCancel(eventfd.intValue(), eventfdReadSubmitted);
+            eventfdReadSubmitted = 0;
         }
         if (submissionQueue.remaining() < 2) {
             submissionQueue.submit();
