@@ -80,7 +80,7 @@ public class NativeTest {
         try (var itr = writeEventBuf.forEachComponent()) {
             var cmp = itr.firstReadable();
             assertNotNull(cmp);
-            assertFalse(submissionQueue.addWrite(fd, cmp.readableNativeAddress(), 0, cmp.readableBytes(), (short) 0));
+            submissionQueue.addWrite(fd, cmp.readableNativeAddress(), 0, cmp.readableBytes(), (short) 0);
             submissionQueue.submit();
         }
 
@@ -93,7 +93,7 @@ public class NativeTest {
         final Buffer readEventBuf = allocator.allocate(100);
         try (var itr = readEventBuf.forEachComponent()) {
             var cmp = itr.firstWritable();
-            assertFalse(submissionQueue.addRead(fd, cmp.writableNativeAddress(), 0, cmp.writableBytes(), (short) 0));
+            submissionQueue.addRead(fd, cmp.writableNativeAddress(), 0, cmp.writableBytes(), (short) 0);
             submissionQueue.submit();
         }
 
@@ -154,7 +154,7 @@ public class NativeTest {
         assertNotNull(completionQueue);
 
         final FileDescriptor eventFd = Native.newBlockingEventFd();
-        assertFalse(submissionQueue.addPollIn(eventFd.intValue()));
+        submissionQueue.addPollIn(eventFd.intValue());
         submissionQueue.submit();
 
         executor.submit(() -> Native.eventFdWrite(eventFd.intValue(), 1L));
@@ -188,7 +188,7 @@ public class NativeTest {
             assertEquals(1, completionQueue.process((fd, res, flags, op, mask) -> assertEquals(1, res)));
         });
         final FileDescriptor eventFd = Native.newBlockingEventFd();
-        assertFalse(submissionQueue.addPollIn(eventFd.intValue()));
+        submissionQueue.addPollIn(eventFd.intValue());
         submissionQueue.submit();
 
         executor.submit(() -> Native.eventFdWrite(eventFd.intValue(), 1L));

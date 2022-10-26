@@ -131,6 +131,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         } else {
             local = localAddress;
         }
+        cacheAddresses(local, remoteAddress());
     }
 
     protected static void checkResolvable(InetSocketAddress addr) {
@@ -148,10 +149,6 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         // Schedule a read operation. When completed, we'll get a callback to readComplete.
         if (submissionQueue == null) {
             readPendingRegister = true;
-            return;
-        }
-        if (remoteAddress() == null) {
-            readPendingConnect = true;
             return;
         }
         if (!wasReadPendingAlready) {

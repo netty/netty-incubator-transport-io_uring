@@ -48,7 +48,8 @@ public class SubmissionQueueTest {
 
             long address = nativeAddressOf(buffer);
             int counter = 0;
-            while (!submissionQueue.addAccept(-1, address, 128, (short) 0)) {
+            while (submissionQueue.remaining() > 0) {
+                submissionQueue.addAccept(-1, address, 128, (short) 0);
                 counter++;
             }
             assertEquals(8, counter);

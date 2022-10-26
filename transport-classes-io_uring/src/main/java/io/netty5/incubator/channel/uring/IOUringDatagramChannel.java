@@ -96,6 +96,12 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     }
 
     @Override
+    protected void doBind(SocketAddress localAddress) throws Exception {
+        super.doBind(localAddress);
+        active = true;
+    }
+
+    @Override
     public boolean isConnected() {
         return connected;
     }

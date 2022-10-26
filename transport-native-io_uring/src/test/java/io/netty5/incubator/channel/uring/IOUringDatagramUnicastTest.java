@@ -30,6 +30,7 @@ import io.netty5.channel.socket.SocketProtocolFamily;
 import io.netty5.channel.unix.Errors;
 import io.netty5.channel.unix.SegmentedDatagramPacket;
 import io.netty5.testsuite.transport.TestsuitePermutation;
+import io.netty5.testsuite.transport.socket.DatagramUnicastInetTest;
 import io.netty5.testsuite.transport.socket.DatagramUnicastTest;
 import io.netty5.util.ReferenceCountUtil;
 import io.netty5.util.Send;
@@ -53,7 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
+public class IOUringDatagramUnicastTest extends DatagramUnicastInetTest {
 
     @BeforeAll
     public static void loadJNI() {
@@ -68,12 +69,7 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
     @Test
     @Timeout(8)
     public void testRecvMsgDontBlock(TestInfo testInfo) throws Throwable {
-        run(testInfo, new Runner<Bootstrap, Bootstrap>() {
-            @Override
-            public void run(Bootstrap bootstrap, Bootstrap bootstrap2) throws Throwable {
-                testRecvMsgDontBlock(bootstrap, bootstrap2);
-            }
-        });
+        run(testInfo, this::testRecvMsgDontBlock);
     }
 
     public void testRecvMsgDontBlock(Bootstrap sb, Bootstrap cb) throws Throwable {
@@ -81,9 +77,9 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
         Channel cc = null;
 
         try {
-            cb.handler(new SimpleChannelInboundHandler<Object>() {
+            cb.handler(new SimpleChannelInboundHandler<>() {
                 @Override
-                protected void messageReceived(ChannelHandlerContext ctx, Object msg) throws Exception {
+                protected void messageReceived(ChannelHandlerContext ctx, Object msg) {
                     // NOOP.
                 }
             });
@@ -121,12 +117,7 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
 
     @Test
     public void testSendSegmentedDatagramPacket(TestInfo testInfo) throws Throwable {
-        run(testInfo, new Runner<Bootstrap, Bootstrap>() {
-            @Override
-            public void run(Bootstrap bootstrap, Bootstrap bootstrap2) throws Throwable {
-                testSendSegmentedDatagramPacket(bootstrap, bootstrap2);
-            }
-        });
+        run(testInfo, this::testSendSegmentedDatagramPacket);
     }
 
     public void testSendSegmentedDatagramPacket(Bootstrap sb, Bootstrap cb) throws Throwable {
@@ -144,9 +135,9 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
         Channel cc = null;
 
         try {
-            cb.handler(new SimpleChannelInboundHandler<Object>() {
+            cb.handler(new SimpleChannelInboundHandler<>() {
                 @Override
-                protected void messageReceived(ChannelHandlerContext ctx, Object msg) throws Exception {
+                protected void messageReceived(ChannelHandlerContext ctx, Object msg) {
                     // Nothing will be sent.
                 }
             });
@@ -207,83 +198,7 @@ public class IOUringDatagramUnicastTest extends DatagramUnicastTest {
     }
 
     @Override
-    protected boolean isConnected(Channel channel) {
-        return ((DatagramChannel) channel).isConnected();
-    }
-
-    @Override
-    protected Channel setupClientChannel(Bootstrap bootstrap, byte[] bytes, CountDownLatch countDownLatch,
-                                         AtomicReference<Throwable> errorRef) throws Throwable {
-        cb.handler(new SimpleChannelInboundHandler<DatagramPacket>() {
-            @Override
-            public void messageReceived(ChannelHandlerContext ctx, DatagramPacket msg) {
-                try {
-                    Buffer buf = msg.content();
-                    assertEquals(bytes.length, buf.readableBytes());
-                    for (int i = 0; i < bytes.length; i++) {
-                        assertEquals(bytes[i], buf.getByte(buf.readerOffset() + i));
-                    }
-
-                    assertEquals(ctx.channel().localAddress(), msg.recipient());
-                } finally {
-                    countDownLatch.countDown();
-                }
-            }
-
-            @Override
-            public void channelExceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-                errorRef.compareAndSet(null, cause);
-            }
-        });
-        return cb.bind(newSocketAddress()).asStage().get();
-    }
-
-    @Override
-    protected Channel setupServerChannel(Bootstrap bootstrap, byte[] bytes, SocketAddress sender,
-                                         CountDownLatch countDownLatch, AtomicReference<Throwable> errorRef,
-                                         boolean echo) throws Throwable {
-        sb.handler(new SimpleChannelInboundHandler<DatagramPacket>() {
-            @Override
-            public void messageReceived(ChannelHandlerContext ctx, DatagramPacket msg) {
-                try {
-                    if (sender == null) {
-                        assertNotNull(msg.sender());
-                    } else {
-                        assertEquals(sender, msg.sender());
-                    }
-
-                    Buffer buf = msg.content();
-                    assertEquals(bytes.length, buf.readableBytes());
-                    for (int i = 0; i < bytes.length; i++) {
-                        assertEquals(bytes[i], buf.getByte(buf.readerOffset() + i));
-                    }
-
-                    assertEquals(ctx.channel().localAddress(), msg.recipient());
-
-                    if (echo) {
-                        buf.makeReadOnly();
-                        ctx.writeAndFlush(new DatagramPacket(buf.copy(true), msg.sender()));
-                    }
-                } finally {
-                    countDownLatch.countDown();
-                }
-            }
-
-            @Override
-            public void channelExceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-                errorRef.compareAndSet(null, cause);
-            }
-        });
-        return sb.bind(newSocketAddress()).asStage().get();
-    }
-
-    @Override
     protected boolean supportDisconnect() {
         return false;
-    }
-
-    @Override
-    protected Future<Void> write(Channel cc, Buffer buf, SocketAddress remote) {
-        return cc.write(new DatagramPacket(buf, remote));
     }
 }

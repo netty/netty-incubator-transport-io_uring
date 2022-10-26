@@ -125,7 +125,7 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
                                 null, eventLoop, true,
                                 new AdaptiveReadHandleFactory(),
                                 new SocketChannelWriteHandleFactory(Integer.MAX_VALUE, SSIZE_MAX),
-                                LinuxSocket.newSocketDgram(family), true);
+                                LinuxSocket.newSocketDgram(family), false);
                     }
 
                     @Override
