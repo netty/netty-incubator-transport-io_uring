@@ -543,6 +543,9 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         if (option == ChannelOption.SO_SNDBUF) {
             return (T) Integer.valueOf(getSendBufferSize());
         }
+        if (option == ChannelOption.SO_LINGER) {
+            return (T) Integer.valueOf(getSoLinger());
+        }
         if (option == ChannelOption.SO_REUSEADDR) {
             return (T) Boolean.valueOf(isReuseAddress());
         }
@@ -575,6 +578,9 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         } else if (option == ChannelOption.SO_SNDBUF) {
             setSendBufferSize((Integer) value);
             return;
+        } else if (option == ChannelOption.SO_LINGER) {
+            setSoLinger((Integer) value);
+            return;
         } else if (option == ChannelOption.SO_REUSEADDR) {
             setReuseAddress((Boolean) value);
             return;
@@ -602,6 +608,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         if (option == ChannelOption.SO_BROADCAST ||
                 option == ChannelOption.SO_RCVBUF ||
                 option == ChannelOption.SO_SNDBUF ||
+                option == ChannelOption.SO_LINGER ||
                 option == ChannelOption.SO_REUSEADDR ||
                 option == ChannelOption.IP_MULTICAST_LOOP_DISABLED ||
                 option == ChannelOption.IP_MULTICAST_IF ||
@@ -624,6 +631,22 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     private void setSendBufferSize(int sendBufferSize) {
         try {
             socket.setSendBufferSize(sendBufferSize);
+        } catch (IOException e) {
+            throw new ChannelException(e);
+        }
+    }
+
+    private int getSoLinger() {
+        try {
+            return socket.getSoLinger();
+        } catch (IOException e) {
+            throw new ChannelException(e);
+        }
+    }
+
+    private void setSoLinger(int soLinger) {
+        try {
+            socket.setSoLinger(soLinger);
         } catch (IOException e) {
             throw new ChannelException(e);
         }
