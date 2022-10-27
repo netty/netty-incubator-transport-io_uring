@@ -56,7 +56,8 @@ final class Native {
 
         // This needs to match all the classes that are loaded via NETTY_JNI_UTIL_LOAD_CLASS or looked up via
         // NETTY_JNI_UTIL_FIND_CLASS.
-        ClassInitializerUtil.tryLoadClasses(Native.class,
+        ClassInitializerUtil.tryLoadClasses(
+                Native.class,
                 // netty_io_uring_linuxsocket
                 PeerCredentials.class, java.io.FileDescriptor.class
         );
@@ -80,13 +81,9 @@ final class Native {
                 // Just ignore
             }
         }
-        Unix.registerInternal(new Runnable() {
-            @Override
-            public void run() {
-                registerUnix();
-            }
-        });
+        Unix.registerInternal(Native::registerUnix);
     }
+
     static final int SOCK_NONBLOCK = NativeStaticallyReferencedJniMethods.sockNonblock();
     static final int SOCK_CLOEXEC = NativeStaticallyReferencedJniMethods.sockCloexec();
     static final short AF_INET = (short) NativeStaticallyReferencedJniMethods.afInet();
@@ -271,6 +268,18 @@ final class Native {
     static RingBuffer createRingBuffer(int ringSize, int iosqeAsyncThreshold) {
         long[][] values = ioUringSetup(ringSize);
         assert values.length == 2;
+        long[] completionQueueArgs = values[1];
+        assert completionQueueArgs.length == 9;
+        CompletionQueue completionQueue = new CompletionQueue(
+                completionQueueArgs[0],
+                completionQueueArgs[1],
+                completionQueueArgs[2],
+                completionQueueArgs[3],
+                completionQueueArgs[4],
+                completionQueueArgs[5],
+                (int) completionQueueArgs[6],
+                completionQueueArgs[7],
+                (int) completionQueueArgs[8]);
         long[] submissionQueueArgs = values[0];
         assert submissionQueueArgs.length == 11;
         SubmissionQueue submissionQueue = new SubmissionQueue(
@@ -285,19 +294,8 @@ final class Native {
                 (int) submissionQueueArgs[8],
                 submissionQueueArgs[9],
                 (int) submissionQueueArgs[10],
-                iosqeAsyncThreshold);
-        long[] completionQueueArgs = values[1];
-        assert completionQueueArgs.length == 9;
-        CompletionQueue completionQueue = new CompletionQueue(
-                completionQueueArgs[0],
-                completionQueueArgs[1],
-                completionQueueArgs[2],
-                completionQueueArgs[3],
-                completionQueueArgs[4],
-                completionQueueArgs[5],
-                (int) completionQueueArgs[6],
-                completionQueueArgs[7],
-                (int) completionQueueArgs[8]);
+                iosqeAsyncThreshold,
+                completionQueue);
         return new RingBuffer(submissionQueue, completionQueue);
     }
 

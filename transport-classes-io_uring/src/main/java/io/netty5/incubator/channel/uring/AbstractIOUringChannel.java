@@ -434,9 +434,6 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         if (active && readsPending.isEmpty()) {
             // Schedule a read to drain inbound buffer and notice the EOF.
             submitNonBlockingRead();
-        } else {
-            // Make sure we mark the input as shut down.
-            shutdown(ChannelShutdownDirection.Inbound);
         }
     }
 
@@ -571,22 +568,31 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     protected <T> void setExtendedOption(ChannelOption<T> option, T value) {
         if (option == ChannelOption.SO_BROADCAST) {
             setBroadcast((Boolean) value);
+            return;
         } else if (option == ChannelOption.SO_RCVBUF) {
             setReceiveBufferSize((Integer) value);
+            return;
         } else if (option == ChannelOption.SO_SNDBUF) {
             setSendBufferSize((Integer) value);
+            return;
         } else if (option == ChannelOption.SO_REUSEADDR) {
             setReuseAddress((Boolean) value);
+            return;
         } else if (option == ChannelOption.IP_MULTICAST_LOOP_DISABLED) {
             setLoopbackModeDisabled((Boolean) value);
+            return;
         } else if (option == ChannelOption.IP_MULTICAST_IF) {
             setNetworkInterface((NetworkInterface) value);
+            return;
         } else if (option == ChannelOption.IP_MULTICAST_TTL) {
             setTimeToLive((Integer) value);
+            return;
         } else if (option == ChannelOption.IP_TOS) {
             setTrafficClass((Integer) value);
+            return;
         } else if (option == UnixChannelOption.SO_REUSEPORT) {
             setReusePort((Boolean) value);
+            return;
         }
         super.setExtendedOption(option, value);
     }

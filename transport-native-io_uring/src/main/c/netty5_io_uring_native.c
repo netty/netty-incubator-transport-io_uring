@@ -232,6 +232,10 @@ static jobjectArray netty5_io_uring_setup(JNIEnv *env, jclass clazz, jint entrie
     struct io_uring_params p;
     memset(&p, 0, sizeof(p));
 
+#ifdef IORING_SETUP_SUBMIT_ALL
+    p.flags = IORING_SETUP_SUBMIT_ALL;
+#endif
+
     jobjectArray array = (*env)->NewObjectArray(env, 2, longArrayClass, NULL);
     if (array == NULL) {
         // This will put an OOME on the stack

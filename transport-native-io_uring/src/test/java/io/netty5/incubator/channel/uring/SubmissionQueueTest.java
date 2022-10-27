@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import static io.netty5.channel.unix.Buffer.allocateDirectWithNativeOrder;
 import static io.netty5.channel.unix.Buffer.free;
 import static io.netty5.channel.unix.Buffer.nativeAddressOf;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -37,7 +38,6 @@ public class SubmissionQueueTest {
     @Test
     public void sqeFullTest() {
         RingBuffer ringBuffer = Native.createRingBuffer(8);
-        ByteBuffer buffer = allocateDirectWithNativeOrder(128);
         try {
             SubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
             final CompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
@@ -46,15 +46,19 @@ public class SubmissionQueueTest {
             assertNotNull(submissionQueue);
             assertNotNull(completionQueue);
 
-            long address = nativeAddressOf(buffer);
             int counter = 0;
             while (submissionQueue.remaining() > 0) {
-                submissionQueue.addAccept(-1, address, 128, (short) 0);
+                assertThat(submissionQueue.addNop(0, 0, (short) 1)).isNotZero();
                 counter++;
             }
             assertEquals(8, counter);
+            assertEquals(8, submissionQueue.count());
+            assertThat(submissionQueue.addNop(0, 0, (short) 1)).isNotZero();
+            assertEquals(1, submissionQueue.count());
+            submissionQueue.submitAndWait();
+            assertEquals(9, completionQueue.count());
+            assertEquals(9, completionQueue.getAsInt());
         } finally {
-            free(buffer);
             ringBuffer.close();
         }
     }

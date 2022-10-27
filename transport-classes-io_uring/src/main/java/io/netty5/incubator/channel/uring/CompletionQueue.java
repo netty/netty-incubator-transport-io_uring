@@ -20,13 +20,14 @@ import io.netty5.util.internal.logging.InternalLogger;
 import io.netty5.util.internal.logging.InternalLoggerFactory;
 
 import java.util.StringJoiner;
+import java.util.function.IntSupplier;
 
 import static io.netty5.incubator.channel.uring.UserData.decode;
 
 /**
  * Completion queue implementation for io_uring.
  */
-final class CompletionQueue {
+final class CompletionQueue implements IntSupplier {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(CompletionQueue.class);
 
     //these offsets are used to access specific properties
@@ -47,6 +48,7 @@ final class CompletionQueue {
     final long ringAddress;
     final int ringFd;
 
+    private final int ringEntries;
     private final int ringMask;
     private int ringHead;
 
@@ -60,6 +62,7 @@ final class CompletionQueue {
         this.ringAddress = ringAddress;
         this.ringFd = ringFd;
 
+        this.ringEntries = PlatformDependent.getIntVolatile(kRingEntriesAddress);
         this.ringMask = PlatformDependent.getIntVolatile(kRingMaskAddress);
         this.ringHead = PlatformDependent.getIntVolatile(kHeadAddress);
     }
@@ -70,6 +73,15 @@ final class CompletionQueue {
      */
     boolean hasCompletions() {
         return ringHead != PlatformDependent.getIntVolatile(kTailAddress);
+    }
+
+    @Override
+    public int getAsInt() {
+        return count();
+    }
+
+    int count() {
+        return PlatformDependent.getIntVolatile(kTailAddress) - ringHead;
     }
 
     /**

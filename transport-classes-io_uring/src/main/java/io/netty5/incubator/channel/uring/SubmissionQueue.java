@@ -20,6 +20,7 @@ import io.netty5.util.internal.logging.InternalLogger;
 import io.netty5.util.internal.logging.InternalLoggerFactory;
 
 import java.util.StringJoiner;
+import java.util.function.IntSupplier;
 
 import static io.netty5.incubator.channel.uring.UserData.encode;
 import static java.lang.Math.max;
@@ -64,6 +65,7 @@ final class SubmissionQueue {
     final int ringFd;
     private final long timeoutMemoryAddress;
     private final int iosqeAsyncThreshold;
+    private final IntSupplier completionCount;
     private int numHandledFds;
     private boolean link;
     private int head;
@@ -72,7 +74,7 @@ final class SubmissionQueue {
     SubmissionQueue(long kHeadAddress, long kTailAddress, long kRingMaskAddress, long kRingEntriesAddress,
                     long kFlagsAddress, long kDroppedAddress, long kArrayAddress,
                     long submissionQueueArrayAddress, int ringSize, long ringAddress, int ringFd,
-                    int iosqeAsyncThreshold) {
+                    int iosqeAsyncThreshold, IntSupplier completionCount) {
         this.kHeadAddress = kHeadAddress;
         this.kTailAddress = kTailAddress;
         this.kFlagsAddress = kFlagsAddress;
@@ -89,6 +91,7 @@ final class SubmissionQueue {
 
         this.timeoutMemoryAddress = PlatformDependent.allocateMemory(KERNEL_TIMESPEC_SIZE);
         this.iosqeAsyncThreshold = iosqeAsyncThreshold;
+        this.completionCount = completionCount;
 
         // Zero the whole SQE array first
         PlatformDependent.setMemory(submissionQueueArrayAddress, ringEntries * SQE_SIZE, (byte) 0);
@@ -289,7 +292,8 @@ final class SubmissionQueue {
             if (ret < 0) {
                 throw new RuntimeException("ioUringEnter syscall returned " + ret);
             }
-            logger.warn("Not all submissions succeeded. Only {} of {} SQEs were submitted.", ret, toSubmit);
+            logger.warn("Not all submissions succeeded. Only {} of {} SQEs were submitted, " +
+                    "while there are {} pending completions.", ret, toSubmit, completionCount.getAsInt());
         }
         return ret;
     }
@@ -314,7 +318,7 @@ final class SubmissionQueue {
     }
 
     public int remaining() {
-        return ringSize - count();
+        return ringEntries - count();
     }
 
     //delete memory
