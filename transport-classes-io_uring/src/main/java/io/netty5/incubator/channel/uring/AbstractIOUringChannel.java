@@ -218,14 +218,10 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         // Using the lastReadId to differentiate our reads, means we avoid accidentally cancelling any future read.
         while (readsPending.poll()) {
             Object obj = readsPending.getPolledObject();
-            long udata = readsPending.getPolledId();
+            long udata = readsPending.getPolledStamp();
             Resource.touch(obj, "read cancelled");
             cancelledReads.put(udata, obj);
             submissionQueue.addCancel(fd().intValue(), udata);
-            // TODO We only want to cancel if we've submitted a read. We can tell by the readBuffer not being null.
-            //  However, we cannot null out the buffer when we cancel, because the read might still complete, and we
-            //  might not submit the cancel immediately, leading the use-after-free.
-            //  Do we get CQEs for cancelled reads?
         }
     }
 
@@ -243,7 +239,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         }
 
         final Object obj;
-        if (readsPending.hasNextId(udata) && readsPending.poll()) {
+        if (readsPending.hasNextStamp(udata) && readsPending.poll()) {
             obj = readsPending.getPolledObject();
         } else {
             // Out-of-order read completion? Weird. Should this ever happen?
@@ -465,13 +461,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         if (scheduledRdHub) {
             submissionQueue.addPollRemove(fd().intValue(), Native.POLLRDHUP);
         }
-        // If we currently have an on-going write, we need to serialise our close operation after it.
-        Future<Void> writePromise = currentWritePromise();
-        if (writePromise != null) {
-            writePromise.addListener(f -> closeTransportNow(false));
-        } else {
-            closeTransportNow(false);
-        }
+        closeTransportNow(false);
         return prepareClosePromise.asFuture();
     }
 
@@ -488,11 +478,6 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
             connectRemoteAddressMem = null;
         }
     }
-
-    /**
-     * @return The future for any in-flight write, or {@code null}.
-     */
-    protected abstract @Nullable Future<Void> currentWritePromise();
 
     void closeTransportNow(boolean drainIO) {
         submissionQueue.addClose(socket.intValue(), drainIO, (short) 0);

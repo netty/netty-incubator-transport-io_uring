@@ -455,18 +455,6 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
         }
     }
 
-    @Override
-    protected @Nullable Future<Void> currentWritePromise() {
-        if (pendingWrites.isEmpty()) {
-            return null;
-        }
-        PromiseCombiner combiner = new PromiseCombiner(executor());
-        pendingWrites.forEach((id, promise) -> combiner.add(promise.asFuture()));
-        Promise<Void> allWritesPromise = newPromise();
-        combiner.finish(allWritesPromise);
-        return allWritesPromise.asFuture();
-    }
-
     @SuppressWarnings("unchecked")
     @Override
     protected <T> T getExtendedOption(ChannelOption<T> option) {

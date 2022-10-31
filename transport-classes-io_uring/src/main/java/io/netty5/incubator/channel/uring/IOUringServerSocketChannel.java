@@ -196,11 +196,6 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
     }
 
     @Override
-    protected @Nullable Future<Void> currentWritePromise() {
-        return null;
-    }
-
-    @Override
     public EventLoopGroup childEventLoopGroup() {
         return childEventLoopGroup;
     }

@@ -55,7 +55,8 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     private static final short IS_CONNECT = 1;
 
     private final IovArray writeIovs;
-    private Promise<Void> writePromise;
+    private final ObjectRing<Promise<Void>> writePromises;
+    private boolean writeInFlight;
     private boolean moreWritesPending;
     private Buffer connectInitalData;
 
@@ -72,6 +73,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
         super(parent, eventLoop, supportingDisconnect, defaultReadHandleFactory, defaultWriteHandleFactory,
                 socket, remote, active);
         writeIovs = new IovArray();
+        writePromises = new ObjectRing<>();
     }
 
     @Override
@@ -89,7 +91,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     @Override
     protected void submitConnect(InetSocketAddress remoteAddress, Buffer initialData) throws IOException {
         if (initialData != null && initialData.isDirect() && supportsTcpFastOpen()) {
-            assert writePromise == null;
+            assert writePromises.isEmpty();
             connectInitalData = initialData;
             MsgHdrMemory msgHdr = new MsgHdrMemory(0);
             try (var itr = initialData.forEachComponent()) {
@@ -109,22 +111,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     }
 
     @Override
-    protected void submitAllWriteMessages(WriteSink writeSink) {
-        // We need to submit all messages as a single IO, in order to ensure ordering.
-        // If we already have an outstanding write promise, we can't write anymore until it completes.
-        if (writePromise != null) {
-            writeSink.complete(0, 0, 0, false);
-            return;
-        }
-        writePromise = executor().newPromise();
-        writeIovs.clear();
-        writeSink.consumeEachFlushedMessage(this::submitWriteMessage);
-        submissionQueue.addWritev(fd().intValue(), writeIovs.memoryAddress(0), writeIovs.count(), IS_WRITE);
-        // Super-class will submit our IOs immediately after this, so the writeIovs can be reused in the next iteration.
-    }
-
-    @Override
-    protected Object filterOutboundMessage(Object msg) throws Exception {
+    protected Object filterOutboundMessage(Object msg) {
         // todo file descriptors???
 //        if (socket.protocolFamily() == SocketProtocolFamily.UNIX && msg instanceof FileDescriptor) {
 //            return msg;
@@ -149,12 +136,23 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
                 "unsupported message type: " + StringUtil.simpleClassName(msg));
     }
 
+    @Override
+    protected void submitAllWriteMessages(WriteSink writeSink) {
+        // We need to submit all messages as a single IO, in order to ensure ordering.
+        // If we already have an outstanding write promise, we can't write anymore until it completes.
+        if (!writeInFlight) {
+            writeSink.consumeEachFlushedMessage(this::submitWriteMessage);
+            submissionQueue.addWritev(fd().intValue(), writeIovs.memoryAddress(0), writeIovs.count(), IS_WRITE);
+            writeInFlight = true;
+        }
+    }
+
     private boolean submitWriteMessage(Object msg, Promise<Void> promise) {
         if (msg instanceof Buffer) {
             Buffer buf = (Buffer) msg;
             if (buf.readableBytes() + writeIovs.size() < writeIovs.maxBytes() &&
                     buf.countReadableComponents() + writeIovs.count() < IOV_MAX) {
-                writePromise.asFuture().cascadeTo(promise);
+                writePromises.push(promise, buf.readableBytes());
                 writeIovs.addReadable(buf);
             } else {
                 return false;
@@ -163,12 +161,10 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
             FileRegion region = (FileRegion) msg;
             RegionWriter writer = new RegionWriter(region, promise);
             writer.enqueueWrites();
-            writePromise.asFuture().addListener(writer);
         } else if (msg instanceof RegionWriter) {
             // Continuation of previous file region.
             RegionWriter writer = (RegionWriter) msg;
             writer.enqueueWrites();
-            writePromise.asFuture().addListener(writer);
         } else {
             // Should never reach here
             throw new AssertionError("Unrecognized message: " + msg);
@@ -178,6 +174,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
 
     @Override
     void writeComplete(int result, long udata) {
+        writeInFlight = false;
         short data = UserData.decodeData(udata);
         if (data == IS_CONNECT) {
             assert connectInitalData != null;
@@ -190,14 +187,47 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
         }
         assert data == IS_WRITE;
         if (result < 0) {
-            writePromise.setFailure(Errors.newIOException("write/flush", result));
+            var e = Errors.newIOException("write/flush", result);
+            writeIovs.clear();
+            while (writePromises.poll()) {
+                writePromises.getPolledObject().setFailure(e);
+            }
+            if (moreWritesPending) {
+                moreWritesPending = false;
+                writeFlushedNow();
+            }
         } else {
-            writePromise.setSuccess(null);
+            int leftover = result;
+            while (leftover > 0 || writePromises.hasNextStamp(0)) {
+                writePromises.peek();
+                int size = (int) writePromises.getPolledStamp();
+                if (size <= leftover) {
+                    writePromises.getPolledObject().setSuccess(null);
+                    writePromises.poll();
+                    leftover -= size;
+                } else {
+                    writePromises.updatePeekedStamp(size - leftover);
+                    leftover = 0;
+                }
+            }
+            boolean completedAll = writeIovs.completeBytes(result);
+            if (moreWritesPending) {
+                moreWritesPending = false;
+                writeFlushedNow();
+            } else if (!completedAll) {
+                // We did not write everything. Submit another write IO for the remainder.
+                submissionQueue.addWritev(fd().intValue(),
+                        writeIovs.memoryAddress(0), writeIovs.count(), IS_WRITE);
+                writeInFlight = true;
+            }
         }
-        writePromise = null;
-        if (moreWritesPending) {
-            moreWritesPending = false;
-            writeFlushedNow();
+    }
+
+    @Override
+    protected void writeLoopComplete(boolean allWritten) {
+        // Don't schedule new write tasks automatically
+        if (!allWritten) {
+            moreWritesPending = true;
         }
     }
 
@@ -207,7 +237,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
         // We only do one write at a time, because on TCP we have to do the writes in-order,
         // and operations in io_uring can complete out-of-order.
         moreWritesPending = true;
-        return writePromise != null;
+        return !writePromises.isEmpty();
     }
 
     @Override
@@ -252,14 +282,6 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     protected void doClose() {
         super.doClose();
         writeIovs.release();
-    }
-
-    @Override
-    protected @Nullable Future<Void> currentWritePromise() {
-        if (writePromise == null) {
-            return null;
-        }
-        return writePromise.asFuture();
     }
 
     @Override
@@ -331,9 +353,12 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
         @Override
         public int write(ByteBuffer src) throws IOException {
             if (src.remaining() + writeIovs.size() < writeIovs.maxBytes() && writeIovs.count() + 1 < IOV_MAX) {
+                Promise<Void> promise = newPromise();
                 Buffer buffer = bufferAllocator().copyOf(src);
+                promise.asFuture().addListener(buffer, CLOSE_BUFFER);
+                promise.asFuture().addListener(this);
+                writePromises.push(promise, buffer.readableBytes());
                 writeIovs.addReadable(buffer);
-                writePromise.asFuture().addListener(buffer, CLOSE_BUFFER);
                 position += buffer.readableBytes();
                 return buffer.readableBytes();
             }

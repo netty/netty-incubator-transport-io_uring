@@ -22,15 +22,15 @@ import java.util.function.ObjLongConsumer;
 
 final class ObjectRing<T> implements ObjLongConsumer<T> {
     private Object[] objs;
-    private long[] ids;
+    private long[] stamps;
     private int head; // next push index
     private int tail; // next poll index, unless same as head
     private Object polledObject;
-    private long polledId;
+    private long polledStamp;
 
     ObjectRing() {
         objs = new Object[16];
-        ids = new long[16];
+        stamps = new long[16];
     }
 
     @Override
@@ -38,14 +38,14 @@ final class ObjectRing<T> implements ObjLongConsumer<T> {
         push(obj, value);
     }
 
-    void push(@NotNull T obj, long id) {
+    void push(@NotNull T obj, long stamp) {
         int nextHead = next(head);
         if (nextHead == tail) {
             expand();
             nextHead = next(head);
         }
         objs[head] = obj;
-        ids[head] = id;
+        stamps[head] = stamp;
         head = nextHead;
     }
 
@@ -54,34 +54,34 @@ final class ObjectRing<T> implements ObjLongConsumer<T> {
     }
 
     @SuppressWarnings("unchecked")
-    @Nullable T remove(long id) {
+    @Nullable T remove(long stamp) {
         if (isEmpty()) {
             return null;
         }
-        if (ids[tail] == id) {
+        if (stamps[tail] == stamp) {
             Object obj = objs[tail];
             objs[tail] = null;
-            ids[tail] = 0;
+            stamps[tail] = 0;
             tail = next(tail);
             return (T) obj;
         }
         // iterate and do internal remove
         int index = tail;
         while (index != head) {
-            if (ids[index] == id) {
+            if (stamps[index] == stamp) {
                 Object obj = objs[index];
                 // Found the obj; move prior entries up.
                 int i = tail;
                 Object prevObj = objs[tail];
-                long prevId = ids[tail];
+                long prevStamp = stamps[tail];
                 do {
                     i = next(i);
                     Object tmpObj = objs[i];
-                    long tmpId = ids[i];
+                    long tmpStamp = stamps[i];
                     objs[i] = prevObj;
-                    ids[i] = prevId;
+                    stamps[i] = prevStamp;
                     prevObj = tmpObj;
-                    prevId = tmpId;
+                    prevStamp = tmpStamp;
                 } while (i != index);
                 tail = next(tail);
                 return (T) obj;
@@ -96,15 +96,31 @@ final class ObjectRing<T> implements ObjLongConsumer<T> {
             return false;
         }
         polledObject = objs[tail];
-        polledId = ids[tail];
+        polledStamp = stamps[tail];
         objs[tail] = null;
-        ids[tail] = 0;
+        stamps[tail] = 0;
         tail = next(tail);
         return true;
     }
 
-    boolean hasNextId(long id) {
-        return !isEmpty() && ids[tail] == id;
+    boolean peek() {
+        if (isEmpty()) {
+            return false;
+        }
+        polledObject = objs[tail];
+        polledStamp = stamps[tail];
+        return true;
+    }
+
+    void updatePeekedStamp(long stamp) {
+        if (isEmpty()) {
+            throw new IllegalStateException("No peeked stamp");
+        }
+        stamps[tail] = stamp;
+    }
+
+    boolean hasNextStamp(long stamp) {
+        return !isEmpty() && stamps[tail] == stamp;
     }
 
     @SuppressWarnings("unchecked")
@@ -114,24 +130,24 @@ final class ObjectRing<T> implements ObjLongConsumer<T> {
         return object;
     }
 
-    long getPolledId() {
-        long id = polledId;
-        polledId = 0;
+    long getPolledStamp() {
+        long id = polledStamp;
+        polledStamp = 0;
         return id;
     }
 
     private void expand() {
         Object[] nextBufs = new Object[objs.length << 1];
-        long[] nextIds = new long[ids.length << 1];
+        long[] nextStamps = new long[stamps.length << 1];
         int index = 0;
         while (head != tail) {
             nextBufs[index] = objs[tail];
-            nextIds[index] = ids[tail];
+            nextStamps[index] = stamps[tail];
             index++;
             tail = next(tail);
         }
         objs = nextBufs;
-        ids = nextIds;
+        stamps = nextStamps;
         tail = 0;
         head = index;
     }
