@@ -61,11 +61,12 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         implements UnixChannel {
     static final InternalLogger LOGGER = InternalLoggerFactory.getInstance(AbstractIOUringChannel.class);
     static final FutureContextListener<Buffer, Void> CLOSE_BUFFER = (b, f) -> SilentDispose.dispose(b, LOGGER);
-    public static final int MAX_READ_AHEAD_PACKETS = 8;
+    private static final int MAX_READ_AHEAD_PACKETS = 8;
 
     protected final InternalLogger logger;
     protected final LinuxSocket socket;
     private final Promise<Executor> prepareClosePromise;
+    private final Runnable pendingRead;
     private final Runnable rdHubRead;
 
     protected volatile boolean active;
@@ -105,6 +106,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
              setOption(ChannelOption.BUFFER_ALLOCATOR, DefaultBufferAllocators.offHeapAllocator());
         }
         prepareClosePromise = eventLoop.newPromise();
+        pendingRead = this::submitReadForPending;
         rdHubRead = this::submitReadForRdHub;
         readsPending = new ObjectRing<>();
         readsCompleted = new ObjectRing<>();
@@ -188,6 +190,12 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         assert readBuffer.countWritableComponents() == 1;
         short readId = ++lastReadId;
         submitReadForReadBuffer(readBuffer, readId, true, readsPending);
+    }
+
+    private void submitReadForPending() {
+        if (active && readsPending.isEmpty()) {
+            submitRead();
+        }
     }
 
     private void submitReadForRdHub() {
@@ -295,9 +303,14 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     @Override
     protected void readLoopComplete() {
         super.readLoopComplete();
-        if (receivedRdHub || isReadPending()) {
-            // Schedule this to run later, after other tasks, to not block user reads,
-            // and to not have the read-loop cancel it as an unprocessed read.
+        // If there are pending reads, or we received RDHUB (such that we want to drain inbound buffer),
+        // then schedule a read to run later, after other tasks.
+        // Those other tasks might issue their own reads, which we should not interferre with.
+        // Another reason we need to schedule these to run later, is that the read-loop will cancel any unprocessed
+        // reads after this method call.
+        if (isReadPending()) {
+            executor().execute(pendingRead);
+        } else if (receivedRdHub) {
             executor().execute(rdHubRead);
         }
     }
