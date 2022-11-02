@@ -75,7 +75,6 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
     @Override
     protected void doBind(SocketAddress localAddress) throws Exception {
         super.doBind(localAddress);
-        socket.makeBlocking();
         socket.listen(getBacklog());
         active = true;
         logger.debug("server listening: {}", this);
@@ -137,7 +136,7 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
         return new IOUringSocketChannel(
                 this, childEventLoopGroup().next(), false,
                 new AdaptiveReadHandleFactory(), new SocketChannelWriteHandleFactory(Integer.MAX_VALUE, SSIZE_MAX),
-                new LinuxSocket(fd, socket.protocolFamily()), peer, true);
+                LinuxSocket.wrapBlocking(fd, socket.protocolFamily()), peer, true);
     }
 
     private SocketAddress buildAddress() {

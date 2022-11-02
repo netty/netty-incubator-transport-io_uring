@@ -26,6 +26,7 @@ import io.netty5.util.internal.SocketUtils;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -41,8 +42,15 @@ final class LinuxSocket extends Socket {
     private static final InetAddress INET_ANY = unsafeInetAddrByName("0.0.0.0");
     private static final long MAX_UINT32_T = 0xFFFFFFFFL;
 
-    LinuxSocket(int fd, SocketProtocolFamily family) {
+    private LinuxSocket(int fd, SocketProtocolFamily family, boolean makeBlocking) {
         super(fd, family);
+        if (makeBlocking) {
+            try {
+                makeBlocking();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
     }
 
     @Override
@@ -305,12 +313,20 @@ final class LinuxSocket extends Socket {
         return ipv6;
     }
 
+    static LinuxSocket wrap(int fd, SocketProtocolFamily protocolFamily) {
+        return new LinuxSocket(fd, protocolFamily, true);
+    }
+
+    static LinuxSocket wrapBlocking(int fd, SocketProtocolFamily protocolFamily) {
+        return new LinuxSocket(fd, protocolFamily, false);
+    }
+
     public static LinuxSocket newSocketStream(@Nullable ProtocolFamily protocolFamily) {
         SocketProtocolFamily family = toSocketProtocolFamily(protocolFamily);
         switch (family) {
-            case INET: return new LinuxSocket(newSocketStream0(false), family);
-            case INET6: return new LinuxSocket(newSocketStream0(true), family);
-            case UNIX: return new LinuxSocket(newSocketDomain0(), family);
+            case INET: return wrap(newSocketStream0(false), family);
+            case INET6: return wrap(newSocketStream0(true), family);
+            case UNIX: return wrap(newSocketDomain0(), family);
             default: throw new AssertionError("unhandled protocol family: " + family);
         }
     }
@@ -318,9 +334,9 @@ final class LinuxSocket extends Socket {
     public static LinuxSocket newSocketDgram(@Nullable ProtocolFamily protocolFamily) {
         SocketProtocolFamily family = toSocketProtocolFamily(protocolFamily);
         switch (family) {
-            case INET: return new LinuxSocket(newSocketDgram0(false), family);
-            case INET6: return new LinuxSocket(newSocketDgram0(true), family);
-            case UNIX: return new LinuxSocket(newSocketDomainDgram0(), family);
+            case INET: return wrap(newSocketDgram0(false), family);
+            case INET6: return wrap(newSocketDgram0(true), family);
+            case UNIX: return wrap(newSocketDomainDgram0(), family);
             default: throw new AssertionError("unhandled protocol family: " + family);
         }
     }
@@ -333,7 +349,7 @@ final class LinuxSocket extends Socket {
     }
 
     public static LinuxSocket newSocketStream(boolean ipv6) {
-        return new LinuxSocket(newSocketStream0(ipv6), ipv6 ? SocketProtocolFamily.INET6 : SocketProtocolFamily.INET);
+        return wrap(newSocketStream0(ipv6), ipv6 ? SocketProtocolFamily.INET6 : SocketProtocolFamily.INET);
     }
 
     public static LinuxSocket newSocketStream() {
@@ -341,7 +357,7 @@ final class LinuxSocket extends Socket {
     }
 
     public static LinuxSocket newSocketDgram(boolean ipv6) {
-        return new LinuxSocket(newSocketDgram0(ipv6), ipv6 ? SocketProtocolFamily.INET6 : SocketProtocolFamily.INET);
+        return wrap(newSocketDgram0(ipv6), ipv6 ? SocketProtocolFamily.INET6 : SocketProtocolFamily.INET);
     }
 
     public static LinuxSocket newSocketDgram() {
@@ -349,7 +365,7 @@ final class LinuxSocket extends Socket {
     }
 
     public static LinuxSocket newSocketDomain() {
-        return new LinuxSocket(newSocketDomain0(), SocketProtocolFamily.UNIX);
+        return wrap(newSocketDomain0(), SocketProtocolFamily.UNIX);
     }
 
     private static InetAddress unsafeInetAddrByName(String inetName) {
