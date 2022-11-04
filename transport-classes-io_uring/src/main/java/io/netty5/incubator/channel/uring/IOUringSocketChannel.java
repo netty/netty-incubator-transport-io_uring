@@ -59,6 +59,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     private boolean writeInFlight;
     private boolean moreWritesPending;
     private Buffer connectInitalData;
+    private MsgHdrMemory connectMsgHdr;
 
     public IOUringSocketChannel(EventLoop eventLoop) {
         this(null, eventLoop, true, new AdaptiveReadHandleFactory(),
@@ -93,12 +94,13 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
         if (initialData != null && initialData.isDirect() && supportsTcpFastOpen()) {
             assert writePromises.isEmpty();
             connectInitalData = initialData;
-            MsgHdrMemory msgHdr = new MsgHdrMemory(0);
+            connectMsgHdr = new MsgHdrMemory(0);
             try (var itr = initialData.forEachComponent()) {
                 var cmp = itr.firstReadable();
-                msgHdr.write(socket, remoteAddress, cmp.readableNativeAddress(), cmp.readableBytes(), (short) 0);
+                connectMsgHdr.write(socket, remoteAddress, cmp.readableNativeAddress(), cmp.readableBytes(), (short) 0);
             }
-            submissionQueue.addSendmsg(fd().intValue(), msgHdr.address(), Native.MSG_FASTOPEN, IS_CONNECT);
+            submissionQueue.addSendmsg(fd().intValue(), connectMsgHdr.address(), Native.MSG_FASTOPEN, IS_CONNECT);
+            writeInFlight = true;
             return;
         }
         super.submitConnect(remoteAddress, initialData);
@@ -183,6 +185,8 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
             }
             connectComplete(0, (short) 0);
             connectInitalData = null;
+            connectMsgHdr.release();
+            connectMsgHdr = null;
             return;
         }
         assert data == IS_WRITE;
