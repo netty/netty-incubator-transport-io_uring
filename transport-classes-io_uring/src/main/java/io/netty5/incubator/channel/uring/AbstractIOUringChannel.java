@@ -86,6 +86,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     private Buffer connectRemoteAddressMem;
     private boolean scheduledRdHub;
     private boolean receivedRdHub;
+    protected WriteSink writeSink;
 
     protected AbstractIOUringChannel(P parent, EventLoop eventLoop, boolean supportingDisconnect,
                                      ReadHandleFactory defaultReadHandleFactory,
@@ -273,6 +274,13 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         if (!readsCompleted.isEmpty()) {
             readNow(); // Will call back into doReadNow.
         }
+        WriteSink writeSink = this.writeSink;
+        if (writeSink != null) {
+            writeSink.complete(0, 0, 0, false);
+            writeSink.writeLoopContinue();
+            writeSink.writeLoopEnd();
+            this.writeSink = null;
+        }
     }
 
     @Override
@@ -328,12 +336,16 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     }
 
     @Override
-    protected void doWriteNow(WriteSink writeSink) throws Exception {
+    protected void writeLoop(WriteSink writeSink) {
+        this.writeSink = writeSink;
+        writeSink.writeLoopStep();
+    }
+
+    @Override
+    protected void doWriteNow(WriteSink writeSink) {
         submitAllWriteMessages(writeSink);
         // We *MUST* submit all our messages, since we'll be releasing the outbound buffers after the doWriteNow call.
         submissionQueue.submit();
-        // Tell the write-loop to stop, but also that nothing has been written yet.
-        writeSink.complete(0, 0, 0, false);
     }
 
     protected abstract void submitAllWriteMessages(WriteSink writeSink);

@@ -150,6 +150,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     }
 
     private boolean submitWriteMessage(Object msg, Promise<Void> promise) {
+        promise.asFuture().addListener(f -> updateWritabilityIfNeeded(true, true));
         if (msg instanceof Buffer) {
             Buffer buf = (Buffer) msg;
             if (buf.readableBytes() + writeIovs.size() < writeIovs.maxBytes() &&

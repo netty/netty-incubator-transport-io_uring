@@ -348,6 +348,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     }
 
     private boolean submiteWriteMessage(Object msg, Promise<Void> promise) {
+        promise.asFuture().addListener(f -> updateWritabilityIfNeeded(true, true));
         final Buffer data;
         final SocketAddress remoteAddress;
         if (msg instanceof AddressedEnvelope) {
