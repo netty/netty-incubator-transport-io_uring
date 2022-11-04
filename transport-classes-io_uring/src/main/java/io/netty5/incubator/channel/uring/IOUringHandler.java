@@ -52,7 +52,7 @@ class IOUringHandler implements IoHandler, CompletionCallback {
         // Ensure that we load all native bits as otherwise it may fail when try to use native methods in IovArray
         IOUring.ensureAvailability();
         this.ringBuffer = ringBuffer;
-        channels = new IntObjectHashMap<>(4096);
+        channels = new IntObjectHashMap<>();
         touchedChannels = new IntObjectHashMap<>();
         eventfd = Native.newBlockingEventFd();
         eventfdReadBuf = PlatformDependent.allocateMemory(8);
