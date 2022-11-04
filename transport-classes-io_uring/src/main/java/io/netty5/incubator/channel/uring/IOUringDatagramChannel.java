@@ -34,10 +34,10 @@ import io.netty5.channel.unix.UnixChannelUtil;
 import io.netty5.util.concurrent.Future;
 import io.netty5.util.concurrent.FutureListener;
 import io.netty5.util.concurrent.Promise;
-import io.netty5.util.concurrent.PromiseCombiner;
 import io.netty5.util.internal.SilentDispose;
+import io.netty5.util.internal.logging.InternalLogger;
+import io.netty5.util.internal.logging.InternalLoggerFactory;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -52,12 +52,7 @@ import java.util.function.ObjLongConsumer;
 import static java.util.Objects.requireNonNull;
 
 public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixChannel> implements DatagramChannel {
-    private volatile boolean activeOnOpen;
-    private volatile int maxDatagramSize;
-
-    private volatile boolean connected;
-    private volatile boolean inputShutdown;
-    private volatile boolean outputShutdown;
+    private static final InternalLogger LOGGER = InternalLoggerFactory.getInstance(IOUringDatagramChannel.class);
 
     private final Deque<CachedMsgHdrMemory> msgHdrCache;
     private final PendingData<Promise<Void>> pendingWrites;
@@ -65,6 +60,12 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     // The maximum number of bytes for an InetAddress / Inet6Address
     private final byte[] inet4AddressArray = new byte[SockaddrIn.IPV4_ADDRESS_LENGTH];
     private final byte[] inet6AddressArray = new byte[SockaddrIn.IPV6_ADDRESS_LENGTH];
+
+    private volatile boolean activeOnOpen;
+    private volatile int maxDatagramSize;
+    private volatile boolean connected;
+    private volatile boolean inputShutdown;
+    private volatile boolean outputShutdown;
 
     public IOUringDatagramChannel(EventLoop eventLoop) {
         this(null, eventLoop, true, new FixedReadHandleFactory(2048),
@@ -94,6 +95,11 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     @Override
     public boolean isActive() {
         return isOpen() && (getActiveOnOpen() && isRegistered() || super.isActive());
+    }
+
+    @Override
+    protected InternalLogger logger() {
+        return LOGGER;
     }
 
     @Override
@@ -240,11 +246,9 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
         }
         int datagramSize = maxDatagramSize;
         if (datagramSize == 0) {
-            datagramSize = expectedCapacity;
-        } else {
-            datagramSize = Math.min(datagramSize, expectedCapacity);
+            return expectedCapacity;
         }
-        return datagramSize;
+        return Math.min(datagramSize, expectedCapacity);
     }
 
     @Override
@@ -334,7 +338,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
                 try {
                     return new DefaultAddressedEnvelope<>(buf, envelope.recipient(), envelope.sender());
                 } finally {
-                    SilentDispose.dispose(envelope, logger);
+                    SilentDispose.dispose(envelope, logger());
                 }
             }
             return envelope;
@@ -410,7 +414,8 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     }
 
     @Override
-    protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress, Buffer initialData) throws Exception {
+    protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress, Buffer initialData)
+            throws Exception {
         boolean connected = super.doConnect(remoteAddress, localAddress, initialData);
         if (connected) {
             this.connected = true;
@@ -419,7 +424,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     }
 
     @Override
-    protected void doShutdown(ChannelShutdownDirection direction) throws Exception {
+    protected void doShutdown(ChannelShutdownDirection direction) {
         switch (direction) {
             case Inbound:
                 inputShutdown = true;
@@ -428,7 +433,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
                 outputShutdown = true;
                 break;
             default:
-                throw new IllegalArgumentException("Unknown direction: " + direction);
+                throw new AssertionError();
         }
     }
 
@@ -474,8 +479,9 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
             setActiveOnOpen((Boolean) value);
         } else if (option == IOUringChannelOption.MAX_DATAGRAM_PAYLOAD_SIZE) {
             setMaxDatagramSize((Integer) value);
+        } else {
+            super.setExtendedOption(option, value);
         }
-        super.setExtendedOption(option, value);
     }
 
     @Override
@@ -489,7 +495,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
 
     private void setActiveOnOpen(boolean activeOnOpen) {
         if (isRegistered()) {
-            throw new IllegalStateException("Can only changed before channel was registered");
+            throw new IllegalStateException("Can only be changed before channel was registered");
         }
         this.activeOnOpen = activeOnOpen;
     }
@@ -506,7 +512,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
         this.maxDatagramSize = maxDatagramSize;
     }
 
-    private static class CachedMsgHdrMemory extends MsgHdrMemory
+    private static final class CachedMsgHdrMemory extends MsgHdrMemory
             implements FutureListener<Void>, AutoCloseable {
         private final Deque<CachedMsgHdrMemory> cache;
         private Buffer attachment;

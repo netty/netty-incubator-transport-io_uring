@@ -35,7 +35,8 @@ import io.netty5.util.concurrent.Future;
 import io.netty5.util.concurrent.FutureListener;
 import io.netty5.util.concurrent.Promise;
 import io.netty5.util.internal.StringUtil;
-import org.jetbrains.annotations.Nullable;
+import io.netty5.util.internal.logging.InternalLogger;
+import io.netty5.util.internal.logging.InternalLoggerFactory;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -51,15 +52,17 @@ import static java.util.Objects.requireNonNull;
 
 public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringServerSocketChannel>
         implements SocketChannel {
+    private static final InternalLogger LOGGER = InternalLoggerFactory.getInstance(IOUringDatagramChannel.class);
     private static final short IS_WRITE = 0;
     private static final short IS_CONNECT = 1;
 
     private final IovArray writeIovs;
     private final ObjectRing<Promise<Void>> writePromises;
-    private boolean writeInFlight;
-    private boolean moreWritesPending;
+
     private Buffer connectInitalData;
     private MsgHdrMemory connectMsgHdr;
+    private boolean writeInFlight;
+    private boolean moreWritesPending;
 
     public IOUringSocketChannel(EventLoop eventLoop) {
         this(null, eventLoop, true, new AdaptiveReadHandleFactory(),
@@ -284,6 +287,11 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     }
 
     @Override
+    protected InternalLogger logger() {
+        return LOGGER;
+    }
+
+    @Override
     protected void doClose() {
         super.doClose();
         writeIovs.release();
@@ -359,7 +367,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
         public int write(ByteBuffer src) throws IOException {
             if (src.remaining() + writeIovs.size() < writeIovs.maxBytes() && writeIovs.count() + 1 < IOV_MAX) {
                 Promise<Void> promise = newPromise();
-                Buffer buffer = bufferAllocator().copyOf(src);
+                Buffer buffer = bufferAllocatorForIO().copyOf(src);
                 promise.asFuture().addListener(buffer, CLOSE_BUFFER);
                 promise.asFuture().addListener(this);
                 writePromises.push(promise, buffer.readableBytes());

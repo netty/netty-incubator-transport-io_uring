@@ -59,7 +59,7 @@ package io.netty5.incubator.channel.uring;
  * };
  * }</pre>
  */
-final class TcpInfo {
+public final class IOUringTcpInfo {
 
     final long[] info = new long[32];
 

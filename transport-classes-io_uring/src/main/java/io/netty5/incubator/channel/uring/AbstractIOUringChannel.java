@@ -41,7 +41,6 @@ import io.netty5.util.internal.SilentDispose;
 import io.netty5.util.internal.logging.InternalLogger;
 import io.netty5.util.internal.logging.InternalLoggerFactory;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.net.ConnectException;
@@ -59,41 +58,41 @@ import static io.netty5.channel.unix.UnixChannelUtil.computeRemoteAddr;
 abstract class AbstractIOUringChannel<P extends UnixChannel>
         extends AbstractChannel<P, SocketAddress, SocketAddress>
         implements UnixChannel {
-    static final InternalLogger LOGGER = InternalLoggerFactory.getInstance(AbstractIOUringChannel.class);
-    static final FutureContextListener<Buffer, Void> CLOSE_BUFFER = (b, f) -> SilentDispose.dispose(b, LOGGER);
+    private static final InternalLogger LOGGER = InternalLoggerFactory.getInstance(AbstractIOUringChannel.class);
     private static final int MAX_READ_AHEAD_PACKETS = 8;
 
-    protected final InternalLogger logger;
+    static final FutureContextListener<Buffer, Void> CLOSE_BUFFER = (b, f) -> SilentDispose.dispose(b, LOGGER);
+
     protected final LinuxSocket socket;
-    private final Promise<Executor> prepareClosePromise;
-    private final Runnable pendingRead;
-    private final Runnable rdHubRead;
+    protected final ObjectRing<Object> readsPending;
+    protected final ObjectRing<Object> readsCompleted; // Either 'Failure', or a message (buffer, datagram, ...).
+    protected final LongObjectMap<Object> cancelledReads;
 
     protected volatile boolean active;
     protected volatile SocketAddress local;
     protected volatile SocketAddress remote;
 
     protected SubmissionQueue submissionQueue;
-
-    protected final ObjectRing<Object> readsPending;
-    protected final ObjectRing<Object> readsCompleted; // Either 'Failure', or a message (buffer, datagram, ...).
-    protected final LongObjectMap<Object> cancelledReads;
+    protected WriteSink writeSink;
     protected int currentCompletionResult;
     protected short currentCompletionData;
+
+    private final Promise<Executor> prepareClosePromise;
+    private final Runnable pendingRead;
+    private final Runnable rdHupRead;
+
     private short lastReadId;
     private boolean readPendingRegister;
     private boolean readPendingConnect;
     private Buffer connectRemoteAddressMem;
-    private boolean scheduledRdHub;
-    private boolean receivedRdHub;
-    protected WriteSink writeSink;
+    private boolean scheduledRdHup;
+    private boolean receivedRdHup;
 
     protected AbstractIOUringChannel(P parent, EventLoop eventLoop, boolean supportingDisconnect,
                                      ReadHandleFactory defaultReadHandleFactory,
                                      WriteHandleFactory defaultWriteHandleFactory,
                                      LinuxSocket socket, SocketAddress remote, boolean active) {
         super(parent, eventLoop, supportingDisconnect, defaultReadHandleFactory, defaultWriteHandleFactory);
-        this.logger = InternalLoggerFactory.getInstance(getClass());
         this.socket = socket;
         this.active = active;
         if (active) {
@@ -103,12 +102,9 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         } else if (remote != null) {
             this.remote = remote;
         }
-        if (bufferAllocator().getAllocationType() != StandardAllocationTypes.OFF_HEAP) {
-             setOption(ChannelOption.BUFFER_ALLOCATOR, DefaultBufferAllocators.offHeapAllocator());
-        }
         prepareClosePromise = eventLoop.newPromise();
         pendingRead = this::submitReadForPending;
-        rdHubRead = this::submitReadForRdHub;
+        rdHupRead = this::submitReadForRdHup;
         readsPending = new ObjectRing<>();
         readsCompleted = new ObjectRing<>();
         cancelledReads = new LongObjectHashMap<>(8);
@@ -126,7 +122,6 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
 
     @Override
     protected void doBind(SocketAddress localAddress) throws Exception {
-        logger.debug("doBind: {} to {}", this, localAddress);
         if (local instanceof InetSocketAddress) {
             checkResolvable((InetSocketAddress) local);
         }
@@ -199,7 +194,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         }
     }
 
-    private void submitReadForRdHub() {
+    private void submitReadForRdHup() {
         if (active && readsPending.isEmpty()) {
             submitNonBlockingRead();
         }
@@ -242,7 +237,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
                 obj = readsPending.remove(udata);
             }
             if (obj != null) {
-                SilentDispose.dispose(obj, logger);
+                SilentDispose.dispose(obj, logger());
             }
             return;
         }
@@ -259,7 +254,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
                 Resource.touch(obj, "read completed");
                 readsCompleted.push(prepareCompleted(obj, res), udata);
             } else {
-                SilentDispose.dispose(obj, logger);
+                SilentDispose.dispose(obj, logger());
                 readsCompleted.push(new Failure(res), udata);
             }
         }
@@ -289,16 +284,27 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
             Object completion = readsCompleted.getPolledObject();
             if (completion instanceof Failure) {
                 throw Errors.newIOException("channel.read", ((Failure) completion).result);
-            } else {
+            } else if (processRead(readSink, completion)) {
                 // Leave it to the sub-class to decide if this buffer is EOF or not.
-                if (processRead(readSink, completion)) {
-                    return true;
-                }
+                return true;
             }
         }
         // We have no more completed reads. Stop the read loop.
         readSink.processRead(0, 0, null);
         return false;
+    }
+
+    protected final BufferAllocator bufferAllocatorForIO() {
+        BufferAllocator allocator = bufferAllocator();
+        if (allocator.getAllocationType() == StandardAllocationTypes.OFF_HEAP) {
+            return allocator;
+        }
+        return DefaultBufferAllocators.offHeapAllocator();
+    }
+
+    @Override
+    protected final BufferAllocator readBufferAllocator() {
+        return bufferAllocatorForIO();
     }
 
     /**
@@ -311,22 +317,21 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     @Override
     protected void readLoopComplete() {
         super.readLoopComplete();
-        // If there are pending reads, or we received RDHUB (such that we want to drain inbound buffer),
+        // If there are pending reads, or we received RDHUP (such that we want to drain inbound buffer),
         // then schedule a read to run later, after other tasks.
         // Those other tasks might issue their own reads, which we should not interferre with.
         // Another reason we need to schedule these to run later, is that the read-loop will cancel any unprocessed
         // reads after this method call.
         if (isReadPending()) {
             executor().execute(pendingRead);
-        } else if (receivedRdHub) {
-            executor().execute(rdHubRead);
+        } else if (receivedRdHup) {
+            executor().execute(rdHupRead);
         }
     }
 
     @NotNull
     protected Buffer intoDirectBuffer(Buffer buf, boolean dispose) {
-        BufferAllocator allocator = bufferAllocator();
-        assert allocator.getAllocationType() == StandardAllocationTypes.OFF_HEAP;
+        BufferAllocator allocator = bufferAllocatorForIO();
         Buffer copy = allocator.allocate(buf.readableBytes());
         copy.writeBytes(buf);
         if (dispose) {
@@ -358,8 +363,6 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     @Override
     protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress, Buffer initialData)
             throws Exception {
-        logger.debug("doConnect: {}, remote={}, local={}, init data={}",
-                this, remoteAddress, localAddress, initialData);
         if (localAddress instanceof InetSocketAddress) {
             checkResolvable((InetSocketAddress) localAddress);
         }
@@ -379,7 +382,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     }
 
     protected void submitConnect(InetSocketAddress remoteSocketAddr, Buffer initialData) throws IOException {
-        Buffer addrBuf = bufferAllocator().allocate(Native.SIZEOF_SOCKADDR_STORAGE);
+        Buffer addrBuf = bufferAllocatorForIO().allocate(Native.SIZEOF_SOCKADDR_STORAGE);
         try (var itr = addrBuf.forEachComponent()) {
             var cmp = itr.firstWritable();
             SockaddrIn.write(socket.isIpv6(), cmp.writableNativeAddress(), remoteSocketAddr);
@@ -392,7 +395,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     void connectComplete(int res, long udata) {
         currentCompletionResult = res;
         if (connectRemoteAddressMem != null) { // Can be null if we connected with TCP Fast Open.
-            SilentDispose.dispose(connectRemoteAddressMem, logger);
+            SilentDispose.dispose(connectRemoteAddressMem, logger());
             connectRemoteAddressMem = null;
         }
         finishConnect();
@@ -400,8 +403,6 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
 
     @Override
     protected boolean doFinishConnect(SocketAddress requestedRemoteAddress) throws Exception {
-        logger.debug("doFinishConnect: {}, requestedRemoveAddress = {}, pending read = {}",
-                this, requestedRemoteAddress, readPendingConnect);
         int res = currentCompletionResult;
         currentCompletionResult = 0;
         currentCompletionData = 0;
@@ -431,7 +432,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
             } else {
                 remote = requestedRemoteAddress;
             }
-            submitPollRdHub();
+            submitPollRdHup();
             if (readPendingConnect) {
                 submitRead();
                 readPendingConnect = false;
@@ -441,17 +442,17 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         return false;
     }
 
-    private void submitPollRdHub() {
+    private void submitPollRdHup() {
         submissionQueue.addPollRdHup(fd().intValue());
-        scheduledRdHub = true;
+        scheduledRdHup = true;
     }
 
-    void completeRdHub(int res) {
+    void completeRdHup(int res) {
         if (res == Native.ERRNO_ECANCELED_NEGATIVE) {
             return;
         }
-        receivedRdHub = true;
-        scheduledRdHub = false;
+        receivedRdHup = true;
+        scheduledRdHup = false;
         if (active && readsPending.isEmpty()) {
             // Schedule a read to drain inbound buffer and notice the EOF.
             submitNonBlockingRead();
@@ -461,7 +462,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     void completeChannelRegister(SubmissionQueue submissionQueue) {
         this.submissionQueue = submissionQueue;
         if (active) {
-            submitPollRdHub();
+            submitPollRdHup();
         }
         if (readPendingRegister) {
             readPendingRegister = false;
@@ -471,19 +472,17 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
 
     @Override
     protected void doDisconnect() throws Exception {
-        logger.debug("doDisconnet: {}", this);
         active = false;
     }
 
     @Override
     protected Future<Executor> prepareToClose() {
-        logger.debug("prepareToClose: {}", this);
         // Prevent more operations from being submitted.
         active = false;
         // Cancel all pending reads.
         doClearScheduledRead();
-        // Cancel any RDHUB poll
-        if (scheduledRdHub) {
+        // Cancel any RDHUP poll
+        if (scheduledRdHup) {
             submissionQueue.addPollRemove(fd().intValue(), Native.POLLRDHUP);
         }
         closeTransportNow(false);
@@ -493,13 +492,13 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     @Override
     protected void doClose() {
         while (readsPending.poll()) {
-            SilentDispose.dispose(readsPending.getPolledObject(), logger);
+            SilentDispose.dispose(readsPending.getPolledObject(), logger());
         }
         while (readsCompleted.poll()) {
-            SilentDispose.trySilentDispose(readsCompleted.getPolledObject(), logger);
+            SilentDispose.trySilentDispose(readsCompleted.getPolledObject(), logger());
         }
         if (connectRemoteAddressMem != null) {
-            SilentDispose.trySilentDispose(connectRemoteAddressMem, logger);
+            SilentDispose.trySilentDispose(connectRemoteAddressMem, logger());
             connectRemoteAddressMem = null;
         }
     }
@@ -509,7 +508,6 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     }
 
     void closeComplete(int res, long udata) {
-        logger.debug("closeComplete: {}", this);
         if (socket.markClosed()) {
             prepareClosePromise.setSuccess(executor());
         }
@@ -540,6 +538,8 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     public String toString() {
         return getClass().getSimpleName() + "(fd: " + socket.intValue() + ")" + super.toString();
     }
+
+    protected abstract InternalLogger logger();
 
     @SuppressWarnings("unchecked")
     @Override
@@ -581,36 +581,27 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     protected <T> void setExtendedOption(ChannelOption<T> option, T value) {
         if (option == ChannelOption.SO_BROADCAST) {
             setBroadcast((Boolean) value);
-            return;
         } else if (option == ChannelOption.SO_RCVBUF) {
             setReceiveBufferSize((Integer) value);
-            return;
         } else if (option == ChannelOption.SO_SNDBUF) {
             setSendBufferSize((Integer) value);
-            return;
         } else if (option == ChannelOption.SO_LINGER) {
             setSoLinger((Integer) value);
-            return;
         } else if (option == ChannelOption.SO_REUSEADDR) {
             setReuseAddress((Boolean) value);
-            return;
         } else if (option == ChannelOption.IP_MULTICAST_LOOP_DISABLED) {
             setLoopbackModeDisabled((Boolean) value);
-            return;
         } else if (option == ChannelOption.IP_MULTICAST_IF) {
             setNetworkInterface((NetworkInterface) value);
-            return;
         } else if (option == ChannelOption.IP_MULTICAST_TTL) {
             setTimeToLive((Integer) value);
-            return;
         } else if (option == ChannelOption.IP_TOS) {
             setTrafficClass((Integer) value);
-            return;
         } else if (option == UnixChannelOption.SO_REUSEPORT) {
             setReusePort((Boolean) value);
-            return;
+        } else {
+            super.setExtendedOption(option, value);
         }
-        super.setExtendedOption(option, value);
     }
 
     @Override

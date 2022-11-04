@@ -18,6 +18,7 @@ package io.netty5.incubator.channel.uring;
 import io.netty5.buffer.Buffer;
 import io.netty5.channel.AdaptiveReadHandleFactory;
 import io.netty5.channel.Channel;
+import io.netty5.channel.ChannelOption;
 import io.netty5.channel.ChannelShutdownDirection;
 import io.netty5.channel.EventLoop;
 import io.netty5.channel.EventLoopGroup;
@@ -30,8 +31,8 @@ import io.netty5.channel.socket.SocketProtocolFamily;
 import io.netty5.channel.unix.Errors;
 import io.netty5.channel.unix.UnixChannel;
 import io.netty5.util.NetUtil;
-import io.netty5.util.concurrent.Future;
-import org.jetbrains.annotations.Nullable;
+import io.netty5.util.internal.logging.InternalLogger;
+import io.netty5.util.internal.logging.InternalLoggerFactory;
 
 import java.io.IOException;
 import java.net.SocketAddress;
@@ -47,7 +48,9 @@ import static io.netty5.channel.unix.Errors.ERRNO_EWOULDBLOCK_NEGATIVE;
 import static io.netty5.channel.unix.Limits.SSIZE_MAX;
 import static io.netty5.util.internal.ObjectUtil.checkPositiveOrZero;
 
-public final class IOUringServerSocketChannel extends AbstractIOUringChannel<UnixChannel> implements ServerSocketChannel {
+public final class IOUringServerSocketChannel extends AbstractIOUringChannel<UnixChannel>
+        implements ServerSocketChannel {
+    private static final InternalLogger LOGGER = InternalLoggerFactory.getInstance(IOUringDatagramChannel.class);
     private static final short IS_ACCEPT = 1;
     private final ByteBuffer sockaddrMemory;
     private final long sockaddrPtr;
@@ -77,12 +80,10 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
         super.doBind(localAddress);
         socket.listen(getBacklog());
         active = true;
-        logger.debug("server listening: {}", this);
     }
 
     @Override
     protected void doRead(boolean wasReadPendingAlready) throws Exception {
-        logger.debug("doRead (server socket): {}, wasReadPendingAlready = {}", this, wasReadPendingAlready);
         if (!wasReadPendingAlready) {
             submissionQueue.addAccept(fd().intValue(), sockaddrPtr, addrlenPtr, IS_ACCEPT);
         }
@@ -90,7 +91,6 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
 
     @Override
     void readComplete(int res, long udata) {
-        logger.debug("readComplete (server socket): {}, fd = {}", this, res);
         currentCompletionResult = res;
         currentCompletionData = UserData.decodeData(udata);
         readNow();
@@ -109,14 +109,12 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
         if (res >= 0) {
             Channel channel = newChildChannel(res);
             readSink.processRead(1, 1, channel);
+        } else if (res == ERRNO_EAGAIN_NEGATIVE || res == ERRNO_EWOULDBLOCK_NEGATIVE) {
+            // Check if we failed because there was nothing to accept atm.
+            readSink.processRead(0, 0, null);
         } else {
-            if (res == ERRNO_EAGAIN_NEGATIVE || res == ERRNO_EWOULDBLOCK_NEGATIVE) {
-                // Check if we failed because there was nothing to accept atm.
-                readSink.processRead(0, 0, null);
-            } else {
-                // Something bad happened. Convert to an exception.
-                throw Errors.newIOException("io_uring accept", res);
-            }
+            // Something bad happened. Convert to an exception.
+            throw Errors.newIOException("io_uring accept", res);
         }
         return false;
     }
@@ -147,7 +145,7 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
     }
 
     @Override
-    protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress, Buffer initialData) throws Exception {
+    protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress, Buffer initialData) {
         throw new UnsupportedOperationException();
     }
 
@@ -167,13 +165,18 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
     }
 
     @Override
-    protected void doShutdown(ChannelShutdownDirection direction) throws Exception {
+    protected void doShutdown(ChannelShutdownDirection direction) {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public boolean isShutdown(ChannelShutdownDirection direction) {
         return !isActive();
+    }
+
+    @Override
+    protected InternalLogger logger() {
+        return LOGGER;
     }
 
     @Override
@@ -185,10 +188,10 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
             if (local != null) {
                 try {
                     if (!Files.deleteIfExists(Path.of(local.path()))) {
-                        logger.debug("Failed to delete domain socket file: {}", local.path());
+                        logger().debug("Failed to delete domain socket file: {}", local.path());
                     }
                 } catch (IOException e) {
-                    logger.debug("Failed to delete domain socket file: {}", local.path(), e);
+                    logger().debug("Failed to delete domain socket file: {}", local.path(), e);
                 }
             }
         }
@@ -199,11 +202,36 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
         return childEventLoopGroup;
     }
 
-    public int getBacklog() {
+    @Override
+    protected <T> T getExtendedOption(ChannelOption<T> option) {
+        if (option == ChannelOption.SO_BACKLOG) {
+            return (T) Integer.valueOf(getBacklog());
+        }
+        return super.getExtendedOption(option);
+    }
+
+    @Override
+    protected <T> void setExtendedOption(ChannelOption<T> option, T value) {
+        if (option == ChannelOption.SO_BACKLOG) {
+            setBacklog((Integer) value);
+        } else {
+            super.setExtendedOption(option, value);
+        }
+    }
+
+    @Override
+    protected boolean isExtendedOptionSupported(ChannelOption<?> option) {
+        if (option == ChannelOption.SO_BACKLOG) {
+            return true;
+        }
+        return super.isExtendedOptionSupported(option);
+    }
+
+    private int getBacklog() {
         return backlog;
     }
 
-    public void setBacklog(int backlog) {
+    private void setBacklog(int backlog) {
         checkPositiveOrZero(backlog, "backlog");
         this.backlog = backlog;
     }

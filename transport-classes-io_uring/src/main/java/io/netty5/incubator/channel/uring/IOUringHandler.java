@@ -30,10 +30,12 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * {@link IoHandler} which is implemented in terms of the Linux-specific {@code io_uring} API.
  */
-class IOUringHandler implements IoHandler, CompletionCallback {
+final class IOUringHandler implements IoHandler, CompletionCallback {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(IOUringHandler.class);
 
     private final RingBuffer ringBuffer;
@@ -51,7 +53,7 @@ class IOUringHandler implements IoHandler, CompletionCallback {
     IOUringHandler(RingBuffer ringBuffer) {
         // Ensure that we load all native bits as otherwise it may fail when try to use native methods in IovArray
         IOUring.ensureAvailability();
-        this.ringBuffer = ringBuffer;
+        this.ringBuffer = requireNonNull(ringBuffer, "ringBuffer");
         channels = new IntObjectHashMap<>();
         touchedChannels = new IntObjectHashMap<>();
         eventfd = Native.newBlockingEventFd();
@@ -93,13 +95,8 @@ class IOUringHandler implements IoHandler, CompletionCallback {
         }
         byte op = UserData.decodeOp(udata);
         if (fd == ringBuffer.fd()) {
-            switch (op) {
-                case Native.IORING_OP_NOP:
-                    completeRingClose();
-                    break;
-                case Native.IORING_OP_TIMEOUT:
-                    // We don't care about the result of timeouts; they only server to wake us up to process scheduled tasks.
-                    break;
+            if (op == Native.IORING_OP_NOP) {
+                completeRingClose();
             }
             return;
         }
@@ -132,7 +129,7 @@ class IOUringHandler implements IoHandler, CompletionCallback {
                 break;
             case Native.IORING_OP_POLL_ADD:
                 if (UserData.decodeData(udata) == Native.POLLRDHUP) {
-                    ch.completeRdHub(res);
+                    ch.completeRdHup(res);
                 }
                 break;
             case Native.IORING_OP_POLL_REMOVE:
