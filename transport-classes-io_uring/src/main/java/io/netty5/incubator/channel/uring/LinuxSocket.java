@@ -327,7 +327,7 @@ final class LinuxSocket extends Socket {
             case INET: return wrap(newSocketStream0(false), family);
             case INET6: return wrap(newSocketStream0(true), family);
             case UNIX: return wrap(newSocketDomain0(), family);
-            default: throw new AssertionError("unhandled protocol family: " + family);
+            default: throw new IllegalArgumentException("Unsupported protocol family: " + family);
         }
     }
 
@@ -337,7 +337,7 @@ final class LinuxSocket extends Socket {
             case INET: return wrap(newSocketDgram0(false), family);
             case INET6: return wrap(newSocketDgram0(true), family);
             case UNIX: return wrap(newSocketDomainDgram0(), family);
-            default: throw new AssertionError("unhandled protocol family: " + family);
+            default: throw new IllegalArgumentException("Unsupported protocol family: " + family);
         }
     }
 

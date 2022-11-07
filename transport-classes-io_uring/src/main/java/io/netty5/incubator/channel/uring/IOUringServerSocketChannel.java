@@ -181,17 +181,20 @@ public final class IOUringServerSocketChannel extends AbstractIOUringChannel<Uni
 
     @Override
     protected void doClose() {
-        super.doClose();
-        free(sockaddrMemory);
-        if (socket.protocolFamily() == SocketProtocolFamily.UNIX) {
-            DomainSocketAddress local = (DomainSocketAddress) localAddress();
-            if (local != null) {
-                try {
-                    if (!Files.deleteIfExists(Path.of(local.path()))) {
-                        logger().debug("Failed to delete domain socket file: {}", local.path());
+        try {
+            super.doClose();
+        } finally {
+            free(sockaddrMemory);
+            if (socket.protocolFamily() == SocketProtocolFamily.UNIX) {
+                DomainSocketAddress local = (DomainSocketAddress) localAddress();
+                if (local != null) {
+                    try {
+                        if (!Files.deleteIfExists(Path.of(local.path()))) {
+                            logger().debug("Failed to delete domain socket file: {}", local.path());
+                        }
+                    } catch (IOException e) {
+                        logger().debug("Failed to delete domain socket file: {}", local.path(), e);
                     }
-                } catch (IOException e) {
-                    logger().debug("Failed to delete domain socket file: {}", local.path(), e);
                 }
             }
         }

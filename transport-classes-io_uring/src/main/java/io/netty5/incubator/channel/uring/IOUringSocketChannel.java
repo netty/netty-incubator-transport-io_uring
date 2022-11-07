@@ -153,7 +153,6 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
     }
 
     private boolean submitWriteMessage(Object msg, Promise<Void> promise) {
-        promise.asFuture().addListener(f -> updateWritabilityIfNeeded(true, true));
         if (msg instanceof Buffer) {
             Buffer buf = (Buffer) msg;
             if (buf.readableBytes() + writeIovs.size() < writeIovs.maxBytes() &&
@@ -175,6 +174,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
             // Should never reach here
             throw new AssertionError("Unrecognized message: " + msg);
         }
+        promise.asFuture().addListener(f -> updateWritabilityIfNeeded(true, true));
         return true;
     }
 
@@ -293,8 +293,11 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
 
     @Override
     protected void doClose() {
-        super.doClose();
-        writeIovs.release();
+        try {
+            super.doClose();
+        } finally {
+            writeIovs.release();
+        }
     }
 
     @Override
@@ -317,9 +320,9 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            return;
+        } else {
+            super.setExtendedOption(option, value);
         }
-        super.setExtendedOption(option, value);
     }
 
     @Override
@@ -367,7 +370,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
         public int write(ByteBuffer src) throws IOException {
             if (src.remaining() + writeIovs.size() < writeIovs.maxBytes() && writeIovs.count() + 1 < IOV_MAX) {
                 Promise<Void> promise = newPromise();
-                Buffer buffer = bufferAllocatorForIO().copyOf(src);
+                Buffer buffer = ioBufferAllocator().copyOf(src);
                 promise.asFuture().addListener(buffer, CLOSE_BUFFER);
                 promise.asFuture().addListener(this);
                 writePromises.push(promise, buffer.readableBytes());

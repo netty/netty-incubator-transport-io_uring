@@ -284,7 +284,8 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
             Object completion = readsCompleted.getPolledObject();
             if (completion instanceof Failure) {
                 throw Errors.newIOException("channel.read", ((Failure) completion).result);
-            } else if (processRead(readSink, completion)) {
+            }
+            if (processRead(readSink, completion)) {
                 // Leave it to the sub-class to decide if this buffer is EOF or not.
                 return true;
             }
@@ -294,7 +295,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         return false;
     }
 
-    protected final BufferAllocator bufferAllocatorForIO() {
+    protected final BufferAllocator ioBufferAllocator() {
         BufferAllocator allocator = bufferAllocator();
         if (allocator.getAllocationType() == StandardAllocationTypes.OFF_HEAP) {
             return allocator;
@@ -304,7 +305,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
 
     @Override
     protected final BufferAllocator readBufferAllocator() {
-        return bufferAllocatorForIO();
+        return ioBufferAllocator();
     }
 
     /**
@@ -331,7 +332,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
 
     @NotNull
     protected Buffer intoDirectBuffer(Buffer buf, boolean dispose) {
-        BufferAllocator allocator = bufferAllocatorForIO();
+        BufferAllocator allocator = ioBufferAllocator();
         Buffer copy = allocator.allocate(buf.readableBytes());
         copy.writeBytes(buf);
         if (dispose) {
@@ -343,7 +344,11 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     @Override
     protected void writeLoop(WriteSink writeSink) {
         this.writeSink = writeSink;
-        writeSink.writeLoopStep();
+        try {
+            writeSink.writeLoopStep();
+        } catch (Throwable e) {
+
+        }
     }
 
     @Override
@@ -382,7 +387,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
     }
 
     protected void submitConnect(InetSocketAddress remoteSocketAddr, Buffer initialData) throws IOException {
-        Buffer addrBuf = bufferAllocatorForIO().allocate(Native.SIZEOF_SOCKADDR_STORAGE);
+        Buffer addrBuf = ioBufferAllocator().allocate(Native.SIZEOF_SOCKADDR_STORAGE);
         try (var itr = addrBuf.forEachComponent()) {
             var cmp = itr.firstWritable();
             SockaddrIn.write(socket.isIpv6(), cmp.writableNativeAddress(), remoteSocketAddr);
@@ -412,15 +417,15 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
                 ConnectException refused = new ConnectException(nativeException.getMessage());
                 refused.initCause(nativeException);
                 throw refused;
-            } else if (res == -113) { // EHOSTUNREACH: No route to host
+            }
+            if (res == Errors.ERROR_EHOSTUNREACH_NEGATIVE) { // EHOSTUNREACH: No route to host
                 NoRouteToHostException unreach = new NoRouteToHostException(nativeException.getMessage());
                 unreach.initCause(nativeException);
                 throw unreach;
-            } else {
-                SocketException exception = new SocketException(nativeException.getMessage());
-                exception.initCause(nativeException);
-                throw exception;
             }
+            SocketException exception = new SocketException(nativeException.getMessage());
+            exception.initCause(nativeException);
+            throw exception;
         }
         if (fetchLocalAddress()) {
             local = socket.localAddress();
@@ -491,15 +496,17 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
 
     @Override
     protected void doClose() {
-        while (readsPending.poll()) {
-            SilentDispose.dispose(readsPending.getPolledObject(), logger());
-        }
-        while (readsCompleted.poll()) {
-            SilentDispose.trySilentDispose(readsCompleted.getPolledObject(), logger());
-        }
+        tryDisposeAll(readsPending);
+        tryDisposeAll(readsCompleted);
         if (connectRemoteAddressMem != null) {
             SilentDispose.trySilentDispose(connectRemoteAddressMem, logger());
             connectRemoteAddressMem = null;
+        }
+    }
+
+    private void tryDisposeAll(ObjectRing<?> ring) {
+        while (ring.poll()) {
+            SilentDispose.trySilentDispose(ring.getPolledObject(), logger());
         }
     }
 
@@ -536,7 +543,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
 
     @Override
     public String toString() {
-        return getClass().getSimpleName() + "(fd: " + socket.intValue() + ")" + super.toString();
+        return getClass().getSimpleName() + "(fd: " + socket.intValue() + ')' + super.toString();
     }
 
     protected abstract InternalLogger logger();

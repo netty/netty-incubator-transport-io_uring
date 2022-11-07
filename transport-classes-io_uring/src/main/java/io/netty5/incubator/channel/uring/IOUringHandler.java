@@ -22,10 +22,13 @@ import io.netty5.channel.unix.FileDescriptor;
 import io.netty5.util.collection.IntObjectHashMap;
 import io.netty5.util.collection.IntObjectMap;
 import io.netty5.util.internal.PlatformDependent;
+import io.netty5.util.internal.StringUtil;
 import io.netty5.util.internal.logging.InternalLogger;
 import io.netty5.util.internal.logging.InternalLoggerFactory;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,7 +43,7 @@ final class IOUringHandler implements IoHandler, CompletionCallback {
 
     private final RingBuffer ringBuffer;
     private final IntObjectMap<AbstractIOUringChannel<?>> channels;
-    private final IntObjectMap<AbstractIOUringChannel<?>> touchedChannels;
+    private final ArrayDeque<AbstractIOUringChannel<?>> touchedChannels;
 
     private final AtomicBoolean eventfdAsyncNotify = new AtomicBoolean();
     private final FileDescriptor eventfd;
@@ -55,7 +58,7 @@ final class IOUringHandler implements IoHandler, CompletionCallback {
         IOUring.ensureAvailability();
         this.ringBuffer = requireNonNull(ringBuffer, "ringBuffer");
         channels = new IntObjectHashMap<>();
-        touchedChannels = new IntObjectHashMap<>();
+        touchedChannels = new ArrayDeque<>();
         eventfd = Native.newBlockingEventFd();
         eventfdReadBuf = PlatformDependent.allocateMemory(8);
     }
@@ -81,10 +84,10 @@ final class IOUringHandler implements IoHandler, CompletionCallback {
     }
 
     private void notifyIoFinished() {
-        for (IntObjectMap.PrimitiveEntry<AbstractIOUringChannel<?>> entry : touchedChannels.entries()) {
-            entry.value().ioLoopCompleted();
+        AbstractIOUringChannel<?> ch;
+        while ((ch = touchedChannels.poll()) != null) {
+            ch.ioLoopCompleted();
         }
-        touchedChannels.clear();
     }
 
     @Override
@@ -110,7 +113,7 @@ final class IOUringHandler implements IoHandler, CompletionCallback {
                     Native.opToStr(op), fd, res);
             return;
         }
-        touchedChannels.put(fd, ch);
+        touchedChannels.offer(ch);
         switch (op) {
             case Native.IORING_OP_READ:
             case Native.IORING_OP_RECV:
@@ -189,6 +192,8 @@ final class IOUringHandler implements IoHandler, CompletionCallback {
             eventfdReadSubmitted = 0;
         }
         if (submissionQueue.remaining() < 2) {
+            // We need to submit 2 linked operations. Since they are linked, we cannot allow a submit-call to
+            // separate them. We don't have enough room (< 2) in the queue, so we submit now to make more room.
             submissionQueue.submit();
         }
         // Try to drain all the IO from the queue first...
@@ -217,7 +222,7 @@ final class IOUringHandler implements IoHandler, CompletionCallback {
 
     @Override
     public void register(IoHandle handle) throws Exception {
-        AbstractIOUringChannel<?> ch = (AbstractIOUringChannel<?>) handle;
+        AbstractIOUringChannel<?> ch = cast(handle);
         if (shuttingDown) {
             throw new RejectedExecutionException("IoEventLoop is shutting down");
         }
@@ -231,7 +236,7 @@ final class IOUringHandler implements IoHandler, CompletionCallback {
 
     @Override
     public void deregister(IoHandle handle) {
-        AbstractIOUringChannel<?> ch = (AbstractIOUringChannel<?>) handle;
+        AbstractIOUringChannel<?> ch = cast(handle);
         int fd = ch.fd().intValue();
         logger.debug("Removing channel: {} (fd={})", ch.id(), fd);
         AbstractIOUringChannel<?> existing = channels.remove(fd);
@@ -245,6 +250,15 @@ final class IOUringHandler implements IoHandler, CompletionCallback {
                 assert !ch.isOpen();
             }
         }
+    }
+
+    @NotNull
+    private static AbstractIOUringChannel<?> cast(IoHandle handle) {
+        if (handle instanceof AbstractIOUringChannel) {
+            return (AbstractIOUringChannel<?>) handle;
+        }
+        String typeName = StringUtil.simpleClassName(handle);
+        throw new IllegalArgumentException("Channel of type " + typeName + " not supported");
     }
 
     @Override
