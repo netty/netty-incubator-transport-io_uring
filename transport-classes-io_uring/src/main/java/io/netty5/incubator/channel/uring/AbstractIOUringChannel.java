@@ -347,7 +347,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         try {
             writeSink.writeLoopStep();
         } catch (Throwable e) {
-
+            handleWriteError(e);
         }
     }
 
