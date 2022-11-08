@@ -287,6 +287,10 @@ final class LinuxSocket extends Socket {
         setIpMulticastLoop(intValue(), ipv6, loopbackModeDisabled ? 0 : 1);
     }
 
+    void setUdpGro(boolean gro) throws IOException {
+        setUdpGro(intValue(), gro ? 1 : 0);
+    }
+
     void makeBlocking() throws IOException {
         int result = makeBlocking(intValue());
         if (result != 0) {
@@ -425,4 +429,5 @@ final class LinuxSocket extends Socket {
     private static native void setIpMulticastLoop(int fd, boolean ipv6, int enabled) throws IOException;
     private static native int makeBlocking(int fd) throws IOException;
     private static native void setTimeToLive(int fd, int ttl) throws IOException;
+    private static native void setUdpGro(int fd, int gro) throws IOException;
 }

@@ -25,6 +25,7 @@
 #include <string.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <netinet/udp.h> // SOL_UDP
 #include <linux/tcp.h> // TCP_NOTSENT_LOWAT is a linux specific define
 #include <fcntl.h>
 
@@ -631,6 +632,10 @@ static jobject netty5_io_uring_linuxsocket_getPeerCredentials(JNIEnv *env, jclas
      (*env)->SetIntArrayRegion(env, gids, 0, 1, (jint*) &credentials.gid);
      return (*env)->NewObject(env, peerCredentialsClass, peerCredentialsMethodId, credentials.pid, credentials.uid, gids);
 }
+
+static void netty5_epoll_linuxsocket_setUdpGro(JNIEnv* env, jclass clazz, jint fd, jint optval) {
+    netty5_unix_socket_setOption(env, fd, SOL_UDP, UDP_GRO, &optval, sizeof(optval));
+}
 // JNI Registered Methods End
 
 // JNI Method Registration Table Begin
@@ -674,7 +679,8 @@ static const JNINativeMethod fixed_method_table[] = {
   { "joinGroup", "(IZ[B[BII)V", (void *) netty5_io_uring_linuxsocket_joinGroup },
   { "joinSsmGroup", "(IZ[B[BII[B)V", (void *) netty5_io_uring_linuxsocket_joinSsmGroup },
   { "leaveGroup", "(IZ[B[BII)V", (void *) netty5_io_uring_linuxsocket_leaveGroup },
-  { "leaveSsmGroup", "(IZ[B[BII[B)V", (void *) netty5_io_uring_linuxsocket_leaveSsmGroup }
+  { "leaveSsmGroup", "(IZ[B[BII[B)V", (void *) netty5_io_uring_linuxsocket_leaveSsmGroup },
+  { "setUdpGro", "(II)V", (void *) netty5_epoll_linuxsocket_setUdpGro }
 };
 
 static const jint fixed_method_table_size = sizeof(fixed_method_table) / sizeof(fixed_method_table[0]);

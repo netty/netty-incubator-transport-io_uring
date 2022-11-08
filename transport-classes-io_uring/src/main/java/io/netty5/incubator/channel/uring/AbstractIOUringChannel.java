@@ -252,7 +252,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         if (obj != null) {
             if (res >= 0) {
                 Resource.touch(obj, "read completed");
-                readsCompleted.push(prepareCompleted(obj, res), udata);
+                readsCompleted.push(prepareCompletedRead(obj, res), udata);
             } else {
                 SilentDispose.dispose(obj, logger());
                 readsCompleted.push(new Failure(res), udata);
@@ -260,7 +260,7 @@ abstract class AbstractIOUringChannel<P extends UnixChannel>
         }
     }
 
-    protected Object prepareCompleted(Object obj, int result) {
+    protected Object prepareCompletedRead(Object obj, int result) {
         ((Buffer) obj).skipWritableBytes(result);
         return obj;
     }

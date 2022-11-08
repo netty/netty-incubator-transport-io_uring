@@ -43,4 +43,5 @@ public class IOUringChannelOption<T> extends UnixChannelOption<T> {
     public static final ChannelOption<Map<InetAddress, byte[]>> TCP_MD5SIG = valueOf("TCP_MD5SIG");
 
     public static final ChannelOption<Integer> MAX_DATAGRAM_PAYLOAD_SIZE = valueOf("MAX_DATAGRAM_PAYLOAD_SIZE");
+    public static final ChannelOption<Boolean> UDP_GRO = valueOf("UDP_GRO");
 }

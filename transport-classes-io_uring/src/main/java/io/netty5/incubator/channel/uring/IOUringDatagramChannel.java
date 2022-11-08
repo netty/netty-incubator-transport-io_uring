@@ -17,9 +17,10 @@ package io.netty5.incubator.channel.uring;
 
 import io.netty5.buffer.Buffer;
 import io.netty5.channel.AddressedEnvelope;
+import io.netty5.channel.ChannelException;
 import io.netty5.channel.ChannelOption;
 import io.netty5.channel.ChannelShutdownDirection;
-import io.netty5.channel.DefaultAddressedEnvelope;
+import io.netty5.channel.DefaultBufferAddressedEnvelope;
 import io.netty5.channel.EventLoop;
 import io.netty5.channel.FixedReadHandleFactory;
 import io.netty5.channel.MaxMessagesWriteHandleFactory;
@@ -27,14 +28,17 @@ import io.netty5.channel.ReadHandleFactory;
 import io.netty5.channel.WriteHandleFactory;
 import io.netty5.channel.socket.DatagramChannel;
 import io.netty5.channel.socket.DatagramPacket;
+import io.netty5.channel.socket.DomainSocketAddress;
 import io.netty5.channel.socket.SocketProtocolFamily;
 import io.netty5.channel.unix.Errors;
+import io.netty5.channel.unix.SegmentedDatagramPacket;
 import io.netty5.channel.unix.UnixChannel;
 import io.netty5.channel.unix.UnixChannelUtil;
 import io.netty5.util.concurrent.Future;
 import io.netty5.util.concurrent.FutureListener;
 import io.netty5.util.concurrent.Promise;
 import io.netty5.util.internal.SilentDispose;
+import io.netty5.util.internal.StringUtil;
 import io.netty5.util.internal.logging.InternalLogger;
 import io.netty5.util.internal.logging.InternalLoggerFactory;
 import org.jetbrains.annotations.NotNull;
@@ -53,6 +57,19 @@ import static java.util.Objects.requireNonNull;
 
 public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixChannel> implements DatagramChannel {
     private static final InternalLogger LOGGER = InternalLoggerFactory.getInstance(IOUringDatagramChannel.class);
+    private static final String EXPECTED_TYPES =
+            " (expected: " + StringUtil.simpleClassName(DatagramPacket.class) + ", " +
+                    StringUtil.simpleClassName(AddressedEnvelope.class) + '<' +
+                    StringUtil.simpleClassName(Buffer.class) + ", " +
+                    StringUtil.simpleClassName(InetSocketAddress.class) + ">, " +
+                    StringUtil.simpleClassName(Buffer.class) + ')';
+
+    private static final String EXPECTED_TYPES_DOMAIN_SOCKET =
+            " (expected: " + StringUtil.simpleClassName(DatagramPacket.class) + ", " +
+                    StringUtil.simpleClassName(AddressedEnvelope.class) + '<' +
+                    StringUtil.simpleClassName(Buffer.class) + ", " +
+                    StringUtil.simpleClassName(DomainSocketAddress.class) + ">, " +
+                    StringUtil.simpleClassName(Buffer.class) + ')';
 
     private final Deque<CachedMsgHdrMemory> msgHdrCache;
     private final PendingData<Promise<Void>> pendingWrites;
@@ -63,6 +80,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
 
     private volatile boolean activeOnOpen;
     private volatile int maxDatagramSize;
+    private volatile boolean gro;
     private volatile boolean connected;
     private volatile boolean inputShutdown;
     private volatile boolean outputShutdown;
@@ -89,7 +107,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
      * @return {@code true} if supported, {@code false} otherwise.
      */
     public static boolean isSegmentedDatagramPacketSupported() {
-        return false; // TODO should be IOUring.isAvailable();
+        return IOUring.isAvailable();
     }
 
     @Override
@@ -277,7 +295,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     }
 
     @Override
-    protected Object prepareCompleted(Object obj, int result) {
+    protected Object prepareCompletedRead(Object obj, int result) {
         if (obj instanceof CachedMsgHdrMemory) {
             try (CachedMsgHdrMemory msgHdr = (CachedMsgHdrMemory) obj) {
                 Buffer buffer = msgHdr.attachment;
@@ -286,7 +304,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
                 return msgHdr.read(this, buffer, result);
             }
         }
-        Buffer buffer = (Buffer) super.prepareCompleted(obj, result);
+        Buffer buffer = (Buffer) super.prepareCompletedRead(obj, result);
         return new DatagramPacket(buffer, localAddress(), remoteAddress());
     }
 
@@ -313,37 +331,54 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     }
 
     @Override
-    protected Object filterOutboundMessage(Object msg) throws Exception {
-        if (msg instanceof DatagramPacket) {
+    protected Object filterOutboundMessage(Object msg) {
+        if (socket.protocolFamily() == SocketProtocolFamily.UNIX) {
+            return filterOutboundMessage(msg, DomainSocketAddress.class, EXPECTED_TYPES_DOMAIN_SOCKET);
+        }
+        return filterOutboundMessage(msg, InetSocketAddress.class, EXPECTED_TYPES);
+    }
+
+    private Object filterOutboundMessage(Object msg, Class<? extends SocketAddress> recipientClass,
+                                          String expectedTypes) {
+        if (msg instanceof SegmentedDatagramPacket) {
+            SegmentedDatagramPacket packet = (SegmentedDatagramPacket) msg;
+            if (recipientClass.isInstance(packet.recipient())) {
+                Buffer content = packet.content();
+                return UnixChannelUtil.isBufferCopyNeededForWrite(content) ?
+                        packet.replace(intoDirectBuffer(content, true)) : msg;
+            }
+        } else if (msg instanceof DatagramPacket) {
             DatagramPacket packet = (DatagramPacket) msg;
-            if (UnixChannelUtil.isBufferCopyNeededForWrite(packet.content())) {
-                return packet.replace(intoDirectBuffer(packet.content(), true));
+            if (recipientClass.isInstance(packet.recipient())) {
+                Buffer content = packet.content();
+                return UnixChannelUtil.isBufferCopyNeededForWrite(content) ?
+                        packet.replace(intoDirectBuffer(content, true)) : msg;
             }
-            return msg;
-        }
-        if (msg instanceof Buffer) {
+        } else if (msg instanceof Buffer) {
             Buffer buf = (Buffer) msg;
-            if (UnixChannelUtil.isBufferCopyNeededForWrite(buf)) {
-                return intoDirectBuffer(buf, true);
-            }
-            return buf;
-        }
-        if (msg instanceof AddressedEnvelope) {
-            AddressedEnvelope<Object, SocketAddress> envelope = (AddressedEnvelope<Object, SocketAddress>) msg;
-            // todo check address type matches socket type (e.g. unix domain sockets or not)
-            Object content = envelope.content();
-            if (content instanceof Buffer && UnixChannelUtil.isBufferCopyNeededForWrite((Buffer) content)) {
-                Buffer buf = (Buffer) content;
-                buf = intoDirectBuffer(buf, false);
-                try {
-                    return new DefaultAddressedEnvelope<>(buf, envelope.recipient(), envelope.sender());
-                } finally {
-                    SilentDispose.dispose(envelope, logger());
+            return UnixChannelUtil.isBufferCopyNeededForWrite(buf)? intoDirectBuffer(buf, true) : buf;
+        } else if (msg instanceof AddressedEnvelope) {
+            @SuppressWarnings("unchecked")
+            AddressedEnvelope<Object, SocketAddress> e = (AddressedEnvelope<Object, SocketAddress>) msg;
+            if (recipientClass.isInstance(e.recipient())) {
+                InetSocketAddress recipient = (InetSocketAddress) e.recipient();
+                Object content = e.content();
+                if (content instanceof Buffer) {
+                    Buffer buf = (Buffer) content;
+                    if (UnixChannelUtil.isBufferCopyNeededForWrite(buf)) {
+                        try {
+                            return new DefaultBufferAddressedEnvelope<>(intoDirectBuffer(buf, true), recipient);
+                        } finally {
+                            SilentDispose.dispose(e, logger()); // Don't fail here, because we allocated a buffer.
+                        }
+                    }
+                    return e;
                 }
             }
-            return envelope;
         }
-        return super.filterOutboundMessage(msg);
+
+        throw new UnsupportedOperationException(
+                "unsupported message type: " + StringUtil.simpleClassName(msg) + expectedTypes);
     }
 
     @Override
@@ -355,14 +390,24 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
         promise.asFuture().addListener(f -> updateWritabilityIfNeeded(true, true));
         final Buffer data;
         final SocketAddress remoteAddress;
+        final short segmentSize;
         if (msg instanceof AddressedEnvelope) {
             @SuppressWarnings("unchecked")
             AddressedEnvelope<Buffer, SocketAddress> envelope = (AddressedEnvelope<Buffer, SocketAddress>) msg;
             data = envelope.content();
             remoteAddress = envelope.recipient();
+            if (msg instanceof SegmentedDatagramPacket) {
+                SegmentedDatagramPacket segMsg = (SegmentedDatagramPacket) msg;
+                // We only need to tell the kernel that we want to use UDP_SEGMENT if there are multiple
+                // segments in the packet.
+                segmentSize = (short) (segMsg.segmentSize() < data.readableBytes() ? segMsg.segmentSize() : 0);
+            } else {
+                segmentSize = 0;
+            }
         } else {
             data = (Buffer) msg;
             remoteAddress = remoteAddress();
+            segmentSize = 0;
         }
 
         // Since we remove the messages from WriteSink/OutboundBuffer, it falls to us to close the buffer, and complete
@@ -378,7 +423,7 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
                 submissionQueue.addSend(fd, cmp.readableNativeAddress(), 0, cmp.readableBytes(), pendingId);
             } else {
                 CachedMsgHdrMemory msgHdr = nextMsgHdr();
-                msgHdr.write(socket, remoteAddress, cmp.readableNativeAddress(), cmp.readableBytes(), (short) 0);
+                msgHdr.write(socket, remoteAddress, cmp.readableNativeAddress(), cmp.readableBytes(), segmentSize);
                 submissionQueue.addSendmsg(fd, msgHdr.address(), 0, pendingId);
                 promise.asFuture().addListener(msgHdr);
             }
@@ -470,6 +515,9 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
         if (option == IOUringChannelOption.MAX_DATAGRAM_PAYLOAD_SIZE) {
             return (T) Integer.valueOf(getMaxDatagramSize());
         }
+        if (option == IOUringChannelOption.UDP_GRO) {
+            return (T) Boolean.valueOf(isUdpGro());
+        }
         return super.getExtendedOption(option);
     }
 
@@ -479,6 +527,8 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
             setActiveOnOpen((Boolean) value);
         } else if (option == IOUringChannelOption.MAX_DATAGRAM_PAYLOAD_SIZE) {
             setMaxDatagramSize((Integer) value);
+        } else if (option == IOUringChannelOption.UDP_GRO) {
+            setUdpGro((Boolean) value);
         } else {
             super.setExtendedOption(option, value);
         }
@@ -487,7 +537,8 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
     @Override
     protected boolean isExtendedOptionSupported(ChannelOption<?> option) {
         if (option == ChannelOption.DATAGRAM_CHANNEL_ACTIVE_ON_REGISTRATION ||
-                option == IOUringChannelOption.MAX_DATAGRAM_PAYLOAD_SIZE) {
+                option == IOUringChannelOption.MAX_DATAGRAM_PAYLOAD_SIZE ||
+                option == IOUringChannelOption.UDP_GRO) {
             return true;
         }
         return super.isExtendedOptionSupported(option);
@@ -510,6 +561,29 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
 
     private void setMaxDatagramSize(int maxDatagramSize) {
         this.maxDatagramSize = maxDatagramSize;
+    }
+
+    /**
+     * Enable / disable <a href="https://lwn.net/Articles/768995/">UDP_GRO</a>.
+     * @param gro {@code true} if {@code UDP_GRO} should be enabled, {@code false} otherwise.
+     */
+    private void setUdpGro(boolean gro) {
+        try {
+            socket.setUdpGro(gro);
+        } catch (IOException e) {
+            throw new ChannelException(e);
+        }
+        this.gro = gro;
+    }
+
+    /**
+     * Returns if {@code UDP_GRO} is enabled.
+     * @return {@code true} if enabled, {@code false} otherwise.
+     */
+    private boolean isUdpGro() {
+        // We don't do a syscall here but just return the cached value due a kernel bug:
+        // https://lore.kernel.org/netdev/20210325195614.800687-1-norman_maurer@apple.com/T/#u
+        return gro;
     }
 
     private static final class CachedMsgHdrMemory extends MsgHdrMemory
