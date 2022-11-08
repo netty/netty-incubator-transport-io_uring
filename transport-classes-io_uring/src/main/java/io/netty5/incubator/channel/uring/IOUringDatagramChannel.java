@@ -592,7 +592,6 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel<UnixCha
         private Buffer attachment;
 
         CachedMsgHdrMemory(Deque<CachedMsgHdrMemory> cache) {
-            super(0);
             this.cache = cache;
         }
 

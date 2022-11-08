@@ -36,7 +36,7 @@ final class MsgHdr {
                       long msgControlAddr, long cmsgHdrDataAddress, short segmentSize) {
         PlatformDependent.putInt(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_NAMELEN, addressSize);
 
-        int msgControlLen = 0;
+        final int msgControlLen;
         if (segmentSize > 0) {
             msgControlLen = Native.CMSG_LEN;
             CmsgHdr.write(msgControlAddr, cmsgHdrDataAddress, Native.CMSG_LEN, Native.SOL_UDP,
@@ -44,6 +44,7 @@ final class MsgHdr {
         } else {
             // Set to 0 if we not explicit requested GSO.
             msgControlAddr = 0;
+            msgControlLen = 0;
         }
         if (Native.SIZEOF_SIZE_T == 4) {
             PlatformDependent.putInt(memoryAddress + Native.MSGHDR_OFFSETOF_MSG_NAME, (int) address);

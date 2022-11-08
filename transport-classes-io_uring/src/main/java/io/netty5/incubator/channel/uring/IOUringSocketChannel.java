@@ -97,7 +97,7 @@ public final class IOUringSocketChannel extends AbstractIOUringChannel<IOUringSe
         if (initialData != null && initialData.isDirect() && supportsTcpFastOpen()) {
             assert writePromises.isEmpty();
             connectInitalData = initialData;
-            connectMsgHdr = new MsgHdrMemory(0);
+            connectMsgHdr = new MsgHdrMemory();
             try (var itr = initialData.forEachComponent()) {
                 var cmp = itr.firstReadable();
                 connectMsgHdr.write(socket, remoteAddress, cmp.readableNativeAddress(), cmp.readableBytes(), (short) 0);

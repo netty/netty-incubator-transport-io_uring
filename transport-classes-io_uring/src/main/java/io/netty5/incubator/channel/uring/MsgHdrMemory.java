@@ -24,11 +24,9 @@ import java.net.SocketAddress;
 
 class MsgHdrMemory {
     private final long memory;
-    private final int idx;
     private final long cmsgDataAddr;
 
-    MsgHdrMemory(int idx) {
-        this.idx = idx;
+    MsgHdrMemory() {
         int size = Native.SIZEOF_MSGHDR + Native.SIZEOF_SOCKADDR_STORAGE + Native.SIZEOF_IOVEC + Native.CMSG_SPACE;
         memory = PlatformDependent.allocateMemory(size);
         PlatformDependent.setMemory(memory, size, (byte) 0);
@@ -87,10 +85,6 @@ class MsgHdrMemory {
         }
 
         return new DatagramPacket(buffer, channel.localAddress(), sender);
-    }
-
-    int idx() {
-        return idx;
     }
 
     long address() {
