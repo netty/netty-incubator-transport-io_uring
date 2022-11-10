@@ -1,4 +1,4 @@
-.PHONY: set-arch build run-build shell
+.PHONY: set-arch build run-build debug shell
 .DEFAULT_GOAL := run-build
 
 arch=$(shell uname -m)
@@ -19,6 +19,13 @@ ifeq ($(arch),arm64)
 	docker-compose -f docker/docker-compose.centos-7arm.yaml run compile-aarch64-build
 else
 	docker-compose -f docker/docker-compose.centos-6.yaml -f docker/docker-compose.centos-6.11.yaml run build-leak
+endif
+
+debug: build
+ifeq ($(arch),arm64)
+	docker-compose -f docker/docker-compose.centos-7arm.yaml run compile-aarch64-build-debug
+else
+	echo "Only supported on ARM"
 endif
 
 shell: build

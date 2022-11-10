@@ -77,7 +77,7 @@
 
     <checkstyle.version>8.38</checkstyle.version>
     <junit.version>5.9.0</junit.version>
-    <netty.version>4.1.82.Final</netty.version>
+    <netty.version>5.0.0.Alpha6-SNAPSHOT</netty.version>
     <netty-tcnative-boringssl-static.version>2.0.54.Final</netty-tcnative-boringssl-static.version>
     <bouncycastle.version>1.71.1</bouncycastle.version>
     <build-helper-maven-plugin.version>3.2.0</build-helper-maven-plugin.version>
@@ -344,27 +344,27 @@
     <dependencies>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-common</artifactId>
+        <artifactId>netty5-common</artifactId>
         <version>${netty.version}</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-buffer</artifactId>
+        <artifactId>netty5-buffer</artifactId>
         <version>${netty.version}</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-transport</artifactId>
+        <artifactId>netty5-transport</artifactId>
         <version>${netty.version}</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-transport-native-unix-common</artifactId>
+        <artifactId>netty5-transport-native-unix-common</artifactId>
         <version>${netty.version}</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-testsuite</artifactId>
+        <artifactId>netty5-testsuite</artifactId>
         <version>${netty.version}</version>
         <scope>test</scope>
       </dependency>
@@ -388,13 +388,13 @@
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-transport-native-unix-common-tests</artifactId>
+        <artifactId>netty5-transport-native-unix-common-tests</artifactId>
         <version>${netty.version}</version>
         <scope>test</scope>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
-        <artifactId>netty-transport-classes-epoll</artifactId>
+        <artifactId>netty5-transport-classes-epoll</artifactId>
         <version>${netty.version}</version>
         <scope>test</scope>
       </dependency>
