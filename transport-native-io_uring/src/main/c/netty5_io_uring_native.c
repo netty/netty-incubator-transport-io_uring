@@ -57,6 +57,11 @@
 #define NETTY5_JNI_UTIL_BUILD_STATIC
 #endif
 
+// Allow to compile on systems with older kernels
+#ifndef MSG_FASTOPEN
+#define MSG_FASTOPEN 0x20000000
+#endif
+
 #define NATIVE_CLASSNAME "io/netty5/incubator/channel/uring/Native"
 #define STATICALLY_CLASSNAME "io/netty5/incubator/channel/uring/NativeStaticallyReferencedJniMethods"
 #define LIBRARYNAME "netty5_transport_native_io_uring"
