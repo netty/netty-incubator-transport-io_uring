@@ -178,9 +178,13 @@ final class IOUringSubmissionQueue {
     }
 
     boolean addSendmsg(int fd, long msgHdr, short extraData) {
+        return addSendmsg(fd, msgHdr, 0, extraData);
+    }
+
+    boolean addSendmsg(int fd, long msgHdr, int flags, short extraData) {
         // Use Native.MSG_DONTWAIT due a io_uring bug which did have it not respect non-blocking fds.
         // see https://lore.kernel.org/io-uring/371592A7-A199-4F5C-A906-226FFC6CEED9@googlemail.com/T/#u
-        return enqueueSqe(Native.IORING_OP_SENDMSG, flags(), Native.MSG_DONTWAIT, fd, msgHdr, 1, 0, extraData);
+        return enqueueSqe(Native.IORING_OP_SENDMSG, flags(), Native.MSG_DONTWAIT | flags, fd, msgHdr, 1, 0, extraData);
     }
 
     boolean addRead(int fd, long bufferAddress, int pos, int limit, short extraData) {

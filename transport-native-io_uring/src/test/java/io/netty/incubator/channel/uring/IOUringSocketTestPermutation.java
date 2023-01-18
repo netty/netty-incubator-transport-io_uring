@@ -19,6 +19,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFactory;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.channel.socket.nio.NioDatagramChannel;
@@ -32,11 +33,6 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -73,7 +69,7 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
                                             .channel(IOUringServerSocketChannel.class);
             }
         });
-        if (isServerFastOpen()) {
+        if (IOUring.isTcpFastOpenServerSideAvailable()) {
             toReturn.add(new BootstrapFactory<ServerBootstrap>() {
                 @Override
                 public ServerBootstrap newInstance() {
@@ -112,6 +108,25 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
                     }
                 }
         );
+    }
+
+
+    @Override
+    public List<BootstrapFactory<Bootstrap>> clientSocketWithFastOpen() {
+        List<BootstrapFactory<Bootstrap>> factories = clientSocket();
+
+        if (IOUring.isTcpFastOpenClientSideAvailable()) {
+            int insertIndex = factories.size() - 1; // Keep NIO fixture last.
+            factories.add(insertIndex, new BootstrapFactory<Bootstrap>() {
+                @Override
+                public Bootstrap newInstance() {
+                    return new Bootstrap().group(IO_URING_WORKER_GROUP).channel(IOUringSocketChannel.class)
+                            .option(ChannelOption.TCP_FASTOPEN_CONNECT, true);
+                }
+            });
+        }
+
+        return factories;
     }
 
     @Override
@@ -155,40 +170,5 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
         );
 
         return combo(bfs, bfs);
-    }
-
-    public boolean isServerFastOpen() {
-        return AccessController.doPrivileged(new PrivilegedAction<Integer>() {
-            @Override
-            public Integer run() {
-                int fastopen = 0;
-                File file = new File("/proc/sys/net/ipv4/tcp_fastopen");
-                if (file.exists()) {
-                    BufferedReader in = null;
-                    try {
-                        in = new BufferedReader(new FileReader(file));
-                        fastopen = Integer.parseInt(in.readLine());
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("{}: {}", file, fastopen);
-                        }
-                    } catch (Exception e) {
-                        logger.debug("Failed to get TCP_FASTOPEN from: {}", file, e);
-                    } finally {
-                        if (in != null) {
-                            try {
-                                in.close();
-                            } catch (Exception e) {
-                                // Ignored.
-                            }
-                        }
-                    }
-                } else {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("{}: {} (non-existent)", file, fastopen);
-                    }
-                }
-                return fastopen;
-            }
-        }) == 3;
     }
 }

@@ -29,10 +29,12 @@ import io.netty.util.NetUtil;
 import java.io.IOException;
 import java.util.Map;
 
+import static io.netty.channel.ChannelOption.TCP_FASTOPEN;
 import static io.netty.util.internal.ObjectUtil.checkPositiveOrZero;
 
 public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig implements ServerSocketChannelConfig {
     private volatile int backlog = NetUtil.SOMAXCONN;
+    private volatile int pendingFastOpenRequestsThreshold;
 
     IOUringServerSocketChannelConfig(AbstractIOUringServerChannel channel) {
         super(channel, new ServerChannelRecvByteBufAllocator());
@@ -43,7 +45,7 @@ public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig
     public Map<ChannelOption<?>, Object> getOptions() {
         return getOptions(super.getOptions(), ChannelOption.SO_RCVBUF, ChannelOption.SO_REUSEADDR,
                 ChannelOption.SO_BACKLOG, IOUringChannelOption.SO_REUSEPORT, IOUringChannelOption.IP_FREEBIND,
-                IOUringChannelOption.IP_TRANSPARENT, IOUringChannelOption.TCP_DEFER_ACCEPT);
+                IOUringChannelOption.IP_TRANSPARENT, IOUringChannelOption.TCP_DEFER_ACCEPT, ChannelOption.TCP_FASTOPEN);
     }
 
     @SuppressWarnings("unchecked")
@@ -70,6 +72,9 @@ public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig
         if (option == IOUringChannelOption.TCP_DEFER_ACCEPT) {
             return (T) Integer.valueOf(getTcpDeferAccept());
         }
+        if (option == TCP_FASTOPEN) {
+            return (T) Integer.valueOf(getTcpFastopen());
+        }
         return super.getOption(option);
     }
 
@@ -90,6 +95,8 @@ public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig
             setIpTransparent((Boolean) value);
         } else if (option == IOUringChannelOption.TCP_DEFER_ACCEPT) {
             setTcpDeferAccept((Integer) value);
+        } else if (option == TCP_FASTOPEN) {
+            setTcpFastopen((Integer) value);
         } else {
             return super.setOption(option, value);
         }
@@ -314,5 +321,29 @@ public final class IOUringServerSocketChannelConfig extends DefaultChannelConfig
         } catch (IOException e) {
             throw new ChannelException(e);
         }
+    }
+
+    /**
+     * Returns threshold value of number of pending for fast open connect.
+     *
+     * @see <a href="https://tools.ietf.org/html/rfc7413#appendix-A.2">RFC 7413 Passive Open</a>
+     */
+    public int getTcpFastopen() {
+        return pendingFastOpenRequestsThreshold;
+    }
+
+    /**
+     * Enables tcpFastOpen on the server channel. If the underlying os doesn't support TCP_FASTOPEN setting this has no
+     * effect. This has to be set before doing listen on the socket otherwise this takes no effect.
+     *
+     * @param pendingFastOpenRequestsThreshold number of requests to be pending for fastopen at a given point in time
+     * for security.
+     *
+     * @see <a href="https://tools.ietf.org/html/rfc7413#appendix-A.2">RFC 7413 Passive Open</a>
+     */
+    public IOUringServerSocketChannelConfig setTcpFastopen(int pendingFastOpenRequestsThreshold) {
+        this.pendingFastOpenRequestsThreshold = checkPositiveOrZero(pendingFastOpenRequestsThreshold,
+                "pendingFastOpenRequestsThreshold");
+        return this;
     }
 }

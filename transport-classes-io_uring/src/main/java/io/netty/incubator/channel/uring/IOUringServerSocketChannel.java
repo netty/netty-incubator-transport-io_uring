@@ -62,6 +62,12 @@ public final class IOUringServerSocketChannel extends AbstractIOUringServerChann
     @Override
     public void doBind(SocketAddress localAddress) throws Exception {
         super.doBind(localAddress);
+        if (IOUring.isTcpFastOpenServerSideAvailable()) {
+            int fastOpen = config().getTcpFastopen();
+            if (fastOpen > 0) {
+                socket.setTcpFastOpen(fastOpen);
+            }
+        }
         socket.listen(config.getBacklog());
         active = true;
     }

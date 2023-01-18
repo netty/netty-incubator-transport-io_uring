@@ -26,10 +26,14 @@ import io.netty.util.internal.ThrowableUtil;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.channels.Selector;
 import java.nio.file.Path;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.Locale;
 
@@ -147,7 +151,10 @@ final class Native {
     static final byte IORING_OP_RECVMSG = NativeStaticallyReferencedJniMethods.ioringOpRecvmsg();
     static final int IORING_ENTER_GETEVENTS = NativeStaticallyReferencedJniMethods.ioringEnterGetevents();
     static final int IOSQE_ASYNC = NativeStaticallyReferencedJniMethods.iosqeAsync();
+
     static final int MSG_DONTWAIT = NativeStaticallyReferencedJniMethods.msgDontwait();
+    static final int MSG_FASTOPEN = NativeStaticallyReferencedJniMethods.msgFastopen();
+
     static final int SOL_UDP = NativeStaticallyReferencedJniMethods.solUdp();
     static final int UDP_SEGMENT = NativeStaticallyReferencedJniMethods.udpSegment();
 
@@ -164,6 +171,23 @@ final class Native {
             IORING_OP_SENDMSG,
             IORING_OP_RECVMSG
     };
+
+    private static final int TFO_ENABLED_CLIENT_MASK = 0x1;
+    private static final int TFO_ENABLED_SERVER_MASK = 0x2;
+
+    private static final int TCP_FASTOPEN_MODE = tcpFastopenMode();
+    /**
+     * <a href ="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">tcp_fastopen</a> client mode enabled
+     * state.
+     */
+    static final boolean IS_SUPPORTING_TCP_FASTOPEN_CLIENT =
+            (TCP_FASTOPEN_MODE & TFO_ENABLED_CLIENT_MASK) == TFO_ENABLED_CLIENT_MASK;
+    /**
+     * <a href ="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">tcp_fastopen</a> server mode enabled
+     * state.
+     */
+    static final boolean IS_SUPPORTING_TCP_FASTOPEN_SERVER =
+            (TCP_FASTOPEN_MODE & TFO_ENABLED_SERVER_MASK) == TFO_ENABLED_SERVER_MASK;
 
     static RingBuffer createRingBuffer(int ringSize) {
         return createRingBuffer(ringSize, DEFAULT_IOSEQ_ASYNC_THRESHOLD);
@@ -309,5 +333,40 @@ final class Native {
                 throw e1;
             }
         }
+    }
+
+    private static int tcpFastopenMode() {
+        return AccessController.doPrivileged(new PrivilegedAction<Integer>() {
+            @Override
+            public Integer run() {
+                int fastopen = 0;
+                File file = new File("/proc/sys/net/ipv4/tcp_fastopen");
+                if (file.exists()) {
+                    BufferedReader in = null;
+                    try {
+                        in = new BufferedReader(new FileReader(file));
+                        fastopen = Integer.parseInt(in.readLine());
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("{}: {}", file, fastopen);
+                        }
+                    } catch (Exception e) {
+                        logger.debug("Failed to get TCP_FASTOPEN from: {}", file, e);
+                    } finally {
+                        if (in != null) {
+                            try {
+                                in.close();
+                            } catch (Exception e) {
+                                // Ignored.
+                            }
+                        }
+                    }
+                } else {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("{}: {} (non-existent)", file, fastopen);
+                    }
+                }
+                return fastopen;
+            }
+        });
     }
 }

@@ -15,6 +15,7 @@
  */
 package io.netty.incubator.channel.uring;
 
+import io.netty.channel.ChannelOption;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.SystemPropertyUtil;
 
@@ -59,6 +60,26 @@ public final class IOUring {
 
     public static boolean isAvailable() {
         return UNAVAILABILITY_CAUSE == null;
+    }
+
+    /**
+     * Returns {@code true} if the epoll native transport is both {@linkplain #isAvailable() available} and supports
+     * {@linkplain ChannelOption#TCP_FASTOPEN_CONNECT client-side TCP FastOpen}.
+     *
+     * @return {@code true} if it's possible to use client-side TCP FastOpen via io_uring, otherwise {@code false}.
+     */
+    public static boolean isTcpFastOpenClientSideAvailable() {
+        return isAvailable() && Native.IS_SUPPORTING_TCP_FASTOPEN_CLIENT;
+    }
+
+    /**
+     * Returns {@code true} if the epoll native transport is both {@linkplain #isAvailable() available} and supports
+     * {@linkplain ChannelOption#TCP_FASTOPEN server-side TCP FastOpen}.
+     *
+     * @return {@code true} if it's possible to use server-side TCP FastOpen via io_uring, otherwise {@code false}.
+     */
+    public static boolean isTcpFastOpenServerSideAvailable() {
+        return isAvailable() && Native.IS_SUPPORTING_TCP_FASTOPEN_SERVER;
     }
 
     public static void ensureAvailability() {
