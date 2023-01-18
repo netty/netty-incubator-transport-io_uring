@@ -52,6 +52,11 @@
 #define UDP_SEGMENT 103
 #endif
 
+// MSG_FASTOPEN is defined in linux 3.6. We define this here so older kernels can compile.
+#ifndef MSG_FASTOPEN
+#define MSG_FASTOPEN 0x20000000
+#endif
+
 // Add define if NETTY_IO_URING_BUILD_STATIC is defined so it is picked up in netty_jni_util.c
 #ifdef NETTY_IO_URING_BUILD_STATIC
 #define NETTY_JNI_UTIL_BUILD_STATIC
@@ -522,6 +527,10 @@ static jint netty_io_uring_msgDontwait(JNIEnv* env, jclass clazz) {
     return MSG_DONTWAIT;
 }
 
+static jint netty_io_uring_msgFastopen(JNIEnv* env, jclass clazz) {
+    return MSG_FASTOPEN;
+}
+
 static jint netty_io_uring_cmsgSpace(JNIEnv* env, jclass clazz) {
     return CMSG_SPACE(sizeof(uint16_t));
 }
@@ -590,6 +599,7 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
   { "ioringEnterGetevents", "()I", (void *) netty_io_uring_ioringEnterGetevents },
   { "iosqeAsync", "()I", (void *) netty_io_uring_iosqeAsync },
   { "msgDontwait", "()I", (void *) netty_io_uring_msgDontwait },
+  { "msgFastopen", "()I", (void *) netty_io_uring_msgFastopen },
   { "solUdp", "()I", (void *) netty_io_uring_solUdp },
   { "udpSegment", "()I", (void *) netty_io_uring_udpSegment },
   { "cmsghdrOffsetofCmsgLen", "()I", (void *) netty_io_uring_cmsghdrOffsetofCmsgLen },

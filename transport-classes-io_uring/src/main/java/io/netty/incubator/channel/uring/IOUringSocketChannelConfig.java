@@ -34,6 +34,7 @@ import static io.netty.channel.ChannelOption.*;
 
 public final class IOUringSocketChannelConfig extends DefaultChannelConfig implements SocketChannelConfig {
     private volatile boolean allowHalfClosure;
+    private volatile boolean tcpFastopen;
 
     IOUringSocketChannelConfig(Channel channel) {
         super(channel);
@@ -50,7 +51,7 @@ public final class IOUringSocketChannelConfig extends DefaultChannelConfig imple
                 ALLOW_HALF_CLOSURE, IOUringChannelOption.TCP_CORK, IOUringChannelOption.TCP_NOTSENT_LOWAT,
                 IOUringChannelOption.TCP_KEEPCNT, IOUringChannelOption.TCP_KEEPIDLE, IOUringChannelOption.TCP_KEEPINTVL,
                 IOUringChannelOption.TCP_QUICKACK, IOUringChannelOption.IP_TRANSPARENT,
-                IOUringChannelOption.TCP_FASTOPEN_CONNECT);
+                ChannelOption.TCP_FASTOPEN_CONNECT);
     }
 
     @SuppressWarnings("unchecked")
@@ -104,7 +105,7 @@ public final class IOUringSocketChannelConfig extends DefaultChannelConfig imple
         if (option == IOUringChannelOption.IP_TRANSPARENT) {
             return (T) Boolean.valueOf(isIpTransparent());
         }
-        if (option == IOUringChannelOption.TCP_FASTOPEN_CONNECT) {
+        if (option == ChannelOption.TCP_FASTOPEN_CONNECT) {
             return (T) Boolean.valueOf(isTcpFastOpenConnect());
         }
         return super.getOption(option);
@@ -146,7 +147,7 @@ public final class IOUringSocketChannelConfig extends DefaultChannelConfig imple
             setIpTransparent((Boolean) value);
         } else if (option == IOUringChannelOption.TCP_QUICKACK) {
             setTcpQuickAck((Boolean) value);
-        } else if (option == IOUringChannelOption.TCP_FASTOPEN_CONNECT) {
+        } else if (option == ChannelOption.TCP_FASTOPEN_CONNECT) {
             setTcpFastOpenConnect((Boolean) value);
         } else {
             return super.setOption(option, value);
@@ -532,28 +533,18 @@ public final class IOUringSocketChannelConfig extends DefaultChannelConfig imple
     }
 
     /**
-     * Set the {@code TCP_FASTOPEN_CONNECT} option on the socket. Requires Linux kernel 4.11 or later. See
-     * <a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=19f6d3f3">this commit</a>
-     * for more details.
+     * Enables client TCP fast open. See this <a href="https://lwn.net/Articles/508865/">LWN article</a> for more info.
      */
     public IOUringSocketChannelConfig setTcpFastOpenConnect(boolean fastOpenConnect) {
-        try {
-            ((IOUringSocketChannel) channel).socket.setTcpFastOpenConnect(fastOpenConnect);
-            return this;
-        } catch (IOException e) {
-            throw new ChannelException(e);
-        }
+        this.tcpFastopen = fastOpenConnect;
+        return this;
     }
 
     /**
      * Returns {@code true} if {@code TCP_FASTOPEN_CONNECT} is enabled, {@code false} otherwise.
      */
     public boolean isTcpFastOpenConnect() {
-        try {
-            return ((IOUringSocketChannel) channel).socket.isTcpFastOpenConnect();
-        } catch (IOException e) {
-            throw new ChannelException(e);
-        }
+        return tcpFastopen;
     }
 
     @Override
