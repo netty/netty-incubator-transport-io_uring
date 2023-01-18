@@ -74,6 +74,7 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
     private static final int WRITE_SCHEDULED = 1 << 4;
     private static final int READ_SCHEDULED = 1 << 5;
     private static final int CONNECT_SCHEDULED = 1 << 6;
+
     // A byte is enough for now.
     private byte ioState;
 
@@ -596,14 +597,23 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
          * Called once a write was completed.
          */
         final void writeComplete(int res, int data) {
-            if (data == Native.MSG_FASTOPEN) {
+            if ((ioState & CONNECT_SCHEDULED) != 0) {
+                // The writeComplete(...) callback was called because of a sendmsg(...) result that was used for
+                // TCP_FASTOPEN_CONNECT.
                 freeMsgHdrArray();
                 if (res > 0) {
+                    // Connect complete!
                     outboundBuffer().removeBytes(res);
                     connectComplete(res);
-                } else {
+                } else if (res == ERRNO_EINPROGRESS_NEGATIVE || res == 0) {
+                    // This happens when we (as a client) have no pre-existing cookie for doing a fast-open connection.
+                    // In this case, our TCP connection will be established normally, but no data was transmitted at this time.
+                    // We'll just transmit the data with normal writes later.
                     // Let's submit a normal connect.
                     submitConnect((InetSocketAddress) requestedRemoteAddress);
+                } else {
+                    // There was an error, handle it as a normal connect error.
+                    connectComplete(res);
                 }
                 return;
             }
@@ -679,12 +689,29 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
                 if (connectPromise != null) {
                     throw new ConnectionPendingException();
                 }
+                if (localAddress instanceof InetSocketAddress) {
+                    checkResolvable((InetSocketAddress) localAddress);
+                }
 
-                doConnect(remoteAddress, localAddress);
+                if (remoteAddress instanceof InetSocketAddress) {
+                    checkResolvable((InetSocketAddress) remoteAddress);
+                }
+
+                if (remote != null) {
+                    // Check if already connected before trying to connect. This is needed as connect(...) will not return -1
+                    // and set errno to EISCONN if a previous connect(...) attempt was setting errno to EINPROGRESS and finished
+                    // later.
+                    throw new AlreadyConnectedException();
+                }
+
+                if (localAddress != null) {
+                    socket.bind(localAddress);
+                }
+
                 InetSocketAddress inetSocketAddress = (InetSocketAddress) remoteAddress;
 
                 ByteBuf initialData = null;
-                if (Native.IS_SUPPORTING_TCP_FASTOPEN_CLIENT &&
+                if (IOUring.isTcpFastOpenClientSideAvailable() &&
                         config().getOption(ChannelOption.TCP_FASTOPEN_CONNECT) == Boolean.TRUE) {
                     ChannelOutboundBuffer outbound = unsafe().outboundBuffer();
                     outbound.addFlush();
@@ -695,9 +722,10 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
                 }
                 if (initialData != null) {
                     AbstractIOUringChannel.this.msgHdrMemoryArray = new MsgHdrMemoryArray(1);
-                    msgHdrMemoryArray.hdr(0).write(socket, inetSocketAddress, initialData.memoryAddress(), initialData.readableBytes(), (short) 0);
+                    MsgHdrMemory hdr = msgHdrMemoryArray.hdr(0);
+                    hdr.write(socket, inetSocketAddress, initialData.memoryAddress(), initialData.readableBytes(), (short) 0);
                     final IOUringSubmissionQueue ioUringSubmissionQueue = submissionQueue();
-                    ioUringSubmissionQueue.addSendmsg(socket.intValue(), msgHdrMemoryArray.hdr(0).address(), Native.MSG_FASTOPEN, (short) Native.MSG_FASTOPEN);
+                    ioUringSubmissionQueue.addSendmsg(socket.intValue(), hdr.address(), Native.MSG_FASTOPEN, (short) 0);
                 } else {
                     submitConnect(inetSocketAddress);
                 }
@@ -811,30 +839,6 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
     @Override
     protected SocketAddress remoteAddress0() {
         return remote;
-    }
-
-    /**
-     * Connect to the remote peer
-     */
-    private void doConnect(SocketAddress remoteAddress, SocketAddress localAddress) throws Exception {
-        if (localAddress instanceof InetSocketAddress) {
-            checkResolvable((InetSocketAddress) localAddress);
-        }
-
-        if (remoteAddress instanceof InetSocketAddress) {
-            checkResolvable((InetSocketAddress) remoteAddress);
-        }
-
-        if (remote != null) {
-            // Check if already connected before trying to connect. This is needed as connect(...) will not return -1
-            // and set errno to EISCONN if a previous connect(...) attempt was setting errno to EINPROGRESS and finished
-            // later.
-            throw new AlreadyConnectedException();
-        }
-
-        if (localAddress != null) {
-            socket.bind(localAddress);
-        }
     }
 
     private static boolean isAllowHalfClosure(ChannelConfig config) {
