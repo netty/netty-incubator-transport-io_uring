@@ -30,8 +30,6 @@ import io.netty.testsuite.transport.TestsuitePermutation.BootstrapComboFactory;
 import io.netty.testsuite.transport.TestsuitePermutation.BootstrapFactory;
 import io.netty.testsuite.transport.socket.SocketTestPermutation;
 import io.netty.util.concurrent.DefaultThreadFactory;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,8 +43,6 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
             new IOUringEventLoopGroup(BOSSES, new DefaultThreadFactory("testsuite-io_uring-boss", true));
     static final EventLoopGroup IO_URING_WORKER_GROUP =
             new IOUringEventLoopGroup(WORKERS, new DefaultThreadFactory("testsuite-io_uring-worker", true));
-
-    private static final InternalLogger logger = InternalLoggerFactory.getInstance(IOUringSocketTestPermutation.class);
 
     @Override
     public List<BootstrapComboFactory<ServerBootstrap, Bootstrap>> socket() {
@@ -76,7 +72,7 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
                     ServerBootstrap serverBootstrap = new ServerBootstrap().group(IO_URING_BOSS_GROUP,
                                                                                   IO_URING_WORKER_GROUP)
                                                                            .channel(IOUringServerSocketChannel.class);
-                    serverBootstrap.option(IOUringChannelOption.TCP_FASTOPEN, 5);
+                    serverBootstrap.option(ChannelOption.TCP_FASTOPEN, 5);
                     return serverBootstrap;
                 }
             });
