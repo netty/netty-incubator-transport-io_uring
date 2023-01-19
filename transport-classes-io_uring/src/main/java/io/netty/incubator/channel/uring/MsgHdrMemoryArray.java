@@ -29,7 +29,7 @@ final class MsgHdrMemoryArray {
     }
 
     MsgHdrMemory nextHdr() {
-        if (idx == hdrs.length - 1) {
+        if (idx == hdrs.length) {
             return null;
         }
         return hdrs[idx++];
