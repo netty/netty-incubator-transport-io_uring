@@ -17,7 +17,6 @@ package io.netty.incubator.channel.uring;
 
 import io.netty.channel.unix.FileDescriptor;
 
-import java.io.File;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
@@ -67,7 +66,7 @@ public class NativeTest {
         assertNotNull(completionQueue);
 
         assertFalse(submissionQueue.addWrite(fd, writeEventByteBuf.memoryAddress(),
-                writeEventByteBuf.readerIndex(), writeEventByteBuf.writerIndex(), (short) 0));
+                                            writeEventByteBuf.readerIndex(), writeEventByteBuf.writerIndex(), (short) 0));
         submissionQueue.submit();
 
         completionQueue.ioUringWaitCqe();
@@ -81,7 +80,7 @@ public class NativeTest {
 
         final ByteBuf readEventByteBuf = allocator.directBuffer(100);
         assertFalse(submissionQueue.addRead(fd, readEventByteBuf.memoryAddress(),
-                                           readEventByteBuf.writerIndex(), readEventByteBuf.capacity(), (short) 0));
+                                            readEventByteBuf.writerIndex(), readEventByteBuf.capacity(), (short) 0));
         submissionQueue.submit();
 
         completionQueue.ioUringWaitCqe();
@@ -293,7 +292,7 @@ public class NativeTest {
         try {
             // Ensure userdata works with negative and positive values
             for (int i = Short.MIN_VALUE; i <= Short.MAX_VALUE; i++) {
-                submissionQueue.addWrite(-1, -1, -1, -1, (short) i);
+                submissionQueue.addSend(-1, -1, -1, -1, (short) i);
                 assertEquals(1, submissionQueue.submitAndWait());
                 final int expectedData = i;
                 assertEquals(1, completionQueue.process(new IOUringCompletionQueueCallback() {
@@ -301,7 +300,7 @@ public class NativeTest {
                     public void handle(int fd, int res, int flags, byte op, short data) {
                         assertEquals(-1, fd);
                         assertTrue(res < 0);
-                        assertEquals(Native.IORING_OP_WRITE, op);
+                        assertEquals(Native.IORING_OP_SEND, op);
                         assertEquals(expectedData, data);
                     }
                 }));

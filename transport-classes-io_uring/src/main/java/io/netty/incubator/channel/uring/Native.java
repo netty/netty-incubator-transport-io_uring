@@ -143,6 +143,8 @@ final class Native {
     static final byte IORING_OP_ACCEPT = NativeStaticallyReferencedJniMethods.ioringOpAccept();
     static final byte IORING_OP_READ = NativeStaticallyReferencedJniMethods.ioringOpRead();
     static final byte IORING_OP_WRITE = NativeStaticallyReferencedJniMethods.ioringOpWrite();
+    static final byte IORING_OP_RECV = NativeStaticallyReferencedJniMethods.ioringOpRecv();
+    static final byte IORING_OP_SEND = NativeStaticallyReferencedJniMethods.ioringOpSend();
     static final byte IORING_OP_POLL_REMOVE = NativeStaticallyReferencedJniMethods.ioringOpPollRemove();
     static final byte IORING_OP_CONNECT = NativeStaticallyReferencedJniMethods.ioringOpConnect();
     static final byte IORING_OP_CLOSE = NativeStaticallyReferencedJniMethods.ioringOpClose();
@@ -164,6 +166,8 @@ final class Native {
             IORING_OP_ACCEPT,
             IORING_OP_READ,
             IORING_OP_WRITE,
+            IORING_OP_RECV,
+            IORING_OP_SEND,
             IORING_OP_POLL_REMOVE,
             IORING_OP_CONNECT,
             IORING_OP_CLOSE,

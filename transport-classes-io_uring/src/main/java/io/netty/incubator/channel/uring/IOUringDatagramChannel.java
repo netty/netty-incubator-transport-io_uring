@@ -493,8 +493,8 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
             int numDatagram = datagramSize == 0 ? 1 : Math.max(1, byteBuf.writableBytes() / datagramSize);
 
             if (isConnected() && numDatagram <= 1) {
-                submissionQueue().addRead(socket.intValue(), byteBuf.memoryAddress(),
-                        byteBuf.writerIndex(), byteBuf.capacity(), (short) -1);
+                submissionQueue().addRecv(socket.intValue(), byteBuf.memoryAddress(),
+                                          byteBuf.writerIndex(), byteBuf.capacity(), (short) -1);
                 return 1;
             } else {
                 int scheduled = scheduleRecvmsg(byteBuf, numDatagram, datagramSize);
@@ -623,8 +623,8 @@ public final class IOUringDatagramChannel extends AbstractIOUringChannel impleme
                             IOUringDatagramChannel.this.remoteAddress(),
                             bufferAddress, data.readableBytes(), segmentSize);
                 }
-                submissionQueue.addWrite(socket.intValue(), bufferAddress, data.readerIndex(),
-                        data.writerIndex(), (short) -1);
+                submissionQueue.addSend(socket.intValue(), bufferAddress, data.readerIndex(),
+                                        data.writerIndex(), (short) -1);
                 return true;
             }
             return scheduleSendmsg(remoteAddress, bufferAddress, data.readableBytes(), segmentSize);

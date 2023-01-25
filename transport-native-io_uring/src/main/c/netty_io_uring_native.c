@@ -499,6 +499,14 @@ static jbyte netty_io_uring_ioringOpWrite(JNIEnv* env, jclass clazz) {
     return IORING_OP_WRITE;
 }
 
+static jbyte netty_io_uring_ioringOpRecv(JNIEnv* env, jclass clazz) {
+    return IORING_OP_RECV;
+}
+
+static jbyte netty_io_uring_ioringOpSend(JNIEnv* env, jclass clazz) {
+    return IORING_OP_SEND;
+}
+
 static jbyte netty_io_uring_ioringOpConnect(JNIEnv* env, jclass clazz) {
     return IORING_OP_CONNECT;
 }
@@ -592,6 +600,8 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
   { "ioringOpAccept", "()B", (void *) netty_io_uring_ioringOpAccept },
   { "ioringOpRead", "()B", (void *) netty_io_uring_ioringOpRead },
   { "ioringOpWrite", "()B", (void *) netty_io_uring_ioringOpWrite },
+  { "ioringOpRecv", "()B", (void *) netty_io_uring_ioringOpRecv },
+  { "ioringOpSend", "()B", (void *) netty_io_uring_ioringOpSend },
   { "ioringOpConnect", "()B", (void *) netty_io_uring_ioringOpConnect },
   { "ioringOpClose", "()B", (void *) netty_io_uring_ioringOpClose },
   { "ioringOpSendmsg", "()B", (void *) netty_io_uring_ioringOpSendmsg },

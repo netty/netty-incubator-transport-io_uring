@@ -71,6 +71,8 @@ final class NativeStaticallyReferencedJniMethods {
     static native byte ioringOpAccept();
     static native byte ioringOpRead();
     static native byte ioringOpWrite();
+    static native byte ioringOpRecv();
+    static native byte ioringOpSend();
     static native byte ioringOpConnect();
     static native byte ioringOpClose();
     static native byte ioringOpSendmsg();
