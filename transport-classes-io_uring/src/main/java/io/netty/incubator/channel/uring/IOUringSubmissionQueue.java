@@ -199,6 +199,14 @@ final class IOUringSubmissionQueue {
         return enqueueSqe(Native.IORING_OP_WRITE, flags(), 0, fd, bufferAddress + pos, limit - pos, 0, extraData);
     }
 
+    boolean addRecv(int fd, long bufferAddress, int pos, int limit, short extraData) {
+        return enqueueSqe(Native.IORING_OP_RECV, flags(), 0, fd, bufferAddress + pos, limit - pos, 0, extraData);
+    }
+
+    boolean addSend(int fd, long bufferAddress, int pos, int limit, short extraData) {
+        return enqueueSqe(Native.IORING_OP_SEND, flags(), 0, fd, bufferAddress + pos, limit - pos, 0, extraData);
+    }
+
     boolean addAccept(int fd, long address, long addressLength, short extraData) {
         return enqueueSqe(Native.IORING_OP_ACCEPT, flags(), Native.SOCK_NONBLOCK | Native.SOCK_CLOEXEC, fd,
                 address, 0, addressLength, extraData);

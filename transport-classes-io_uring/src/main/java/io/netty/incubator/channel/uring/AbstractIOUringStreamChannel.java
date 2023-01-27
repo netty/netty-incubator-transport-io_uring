@@ -238,8 +238,8 @@ abstract class AbstractIOUringStreamChannel extends AbstractIOUringChannel imple
             assert iovArray == null;
             ByteBuf buf = (ByteBuf) msg;
             IOUringSubmissionQueue submissionQueue = submissionQueue();
-            submissionQueue.addWrite(socket.intValue(), buf.memoryAddress(), buf.readerIndex(),
-                    buf.writerIndex(), (short) 0);
+            submissionQueue.addSend(socket.intValue(), buf.memoryAddress(), buf.readerIndex(),
+                                    buf.writerIndex(), (short) 0);
             return 1;
         }
 
@@ -254,8 +254,8 @@ abstract class AbstractIOUringStreamChannel extends AbstractIOUringChannel imple
 
             readBuffer = byteBuf;
 
-            submissionQueue.addRead(socket.intValue(), byteBuf.memoryAddress(),
-                    byteBuf.writerIndex(), byteBuf.capacity(), (short) 0);
+            submissionQueue.addRecv(socket.intValue(), byteBuf.memoryAddress(),
+                                    byteBuf.writerIndex(), byteBuf.capacity(), (short) 0);
             return 1;
         }
 
