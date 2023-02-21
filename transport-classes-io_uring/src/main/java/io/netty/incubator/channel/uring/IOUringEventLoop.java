@@ -275,7 +275,9 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
                         return;
                     }
                 } else {
-                    logger.trace("IGNORING IORING_POLL_REMOVE on not closed fd");
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("IGNORING IORING_POLL_REMOVE on not closed fd = {}", fd);
+                    }
                 }
             } else if (op == Native.IORING_OP_CONNECT) {
                 handleConnect(channel, res);
