@@ -265,11 +265,17 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
                 } else if (res == 0) {
                     logger.trace("IORING_POLL_REMOVE successful");
                 }
-                channel.clearPollFlag(data);
-                if (!channel.ioScheduled()) {
-                    // We cancelled the POLL ops which means we are done and should remove the mapping.
-                    remove(channel);
-                    return;
+                // fd reuse can replace a closed channel (with pending POLL_REMOVE CQEs)
+                // with a new one: better not making it to mess-up with its state!
+                if (!channel.isOpen()) {
+                    channel.clearPollFlag(data);
+                    if (!channel.ioScheduled()) {
+                        // We cancelled the POLL ops which means we are done and should remove the mapping.
+                        remove(channel);
+                        return;
+                    }
+                } else {
+                    logger.trace("IGNORING IORING_POLL_REMOVE on not closed fd");
                 }
             } else if (op == Native.IORING_OP_CONNECT) {
                 handleConnect(channel, res);
