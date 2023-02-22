@@ -336,7 +336,8 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
 
         @Override
         public void close(ChannelPromise promise) {
-            if ((ioState & (WRITE_SCHEDULED | READ_SCHEDULED | CONNECT_SCHEDULED)) == 0) {
+            if ((ioState & (WRITE_SCHEDULED | READ_SCHEDULED)) == 0) {
+                // force close can ignore any CONNECT_SCHEDULED
                 forceClose(promise);
             } else {
                 if (delayedClose == null || delayedClose.isVoid()) {
