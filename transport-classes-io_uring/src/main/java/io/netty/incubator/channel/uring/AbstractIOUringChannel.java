@@ -653,7 +653,7 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
             ioState &= ~CONNECT_SCHEDULED;
             freeRemoteAddressMemory();
 
-            if (res == ERRNO_EINPROGRESS_NEGATIVE) {
+            if (res == ERRNO_EINPROGRESS_NEGATIVE || res == ERROR_EALREADY_NEGATIVE) {
                 // connect not complete yet need to wait for poll_out event
                 schedulePollOut();
             } else {
