@@ -605,7 +605,9 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
                 if (res > 0) {
                     // Connect complete!
                     outboundBuffer().removeBytes(res);
-                    connectComplete(res);
+
+                    // Explicit pass in 0 as this is returned by a connect(...) call when it was successful.
+                    connectComplete(0);
                 } else if (res == ERRNO_EINPROGRESS_NEGATIVE || res == 0) {
                     // This happens when we (as a client) have no pre-existing cookie for doing a fast-open connection.
                     // In this case, our TCP connection will be established normally, but no data was transmitted at this time.
