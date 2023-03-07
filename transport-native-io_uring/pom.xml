@@ -29,6 +29,8 @@
 
 
   <properties>
+    <javaModuleNameClassifier>${os.detected.name}.${os.detected.arch}</javaModuleNameClassifier>
+    <javaModuleNameWithClassifier>${javaModuleName}.${javaModuleNameClassifier}</javaModuleNameWithClassifier>
     <javaModuleName>io.netty.incubator.transport.io_uring</javaModuleName>
     <fragmentHost>io.netty.incubator.netty-incubator-transport-classes-io_uring</fragmentHost>
     <unix.common.lib.name>netty-unix-common</unix.common.lib.name>
@@ -219,7 +221,7 @@
                     </manifest>
                     <manifestEntries>
                       <Bundle-NativeCode>META-INF/native/libnetty_transport_native_io_uring_${jniArch}.so; osname=Linux; processor=${jniArch},*</Bundle-NativeCode>
-                      <Automatic-Module-Name>${javaModuleName}</Automatic-Module-Name>
+                      <Automatic-Module-Name>${javaModuleNameWithClassifier}</Automatic-Module-Name>
                       <Fragment-Host>${fragmentHost}</Fragment-Host>
                     </manifestEntries>
                     <index>true</index>
@@ -338,6 +340,7 @@
       <properties>
         <!-- use aarch_64 as this is also what os.detected.arch will use on an aarch64 system -->
         <jniArch>aarch_64</jniArch>
+        <javaModuleNameClassifier>${os.detected.name}.${jniArch}</javaModuleNameClassifier>
         <!-- As we cross-compile just skip the tests because we could not load this lib on the system anyway -->
         <skipTests>true</skipTests>
         <extraConfigureArg>--host=aarch64-linux-gnu</extraConfigureArg>
@@ -349,6 +352,7 @@
       <properties>
         <!-- use aarch_64 as this is also what os.detected.arch will use on an aarch64 system -->
         <jniArch>aarch_64</jniArch>
+        <javaModuleNameClassifier>${os.detected.name}.${jniArch}</javaModuleNameClassifier>
         <!-- As we cross-compile just skip the tests because we could not load this lib on the system anyway -->
         <skipTests>true</skipTests>
         <extraConfigureArg>--host=aarch64-linux-gnu</extraConfigureArg>
