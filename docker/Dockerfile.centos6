@@ -1,5 +1,7 @@
 FROM centos:6.10
 
+ENV MAVEN_VERSION 3.9.1
+
 # Update as we need to use the vault now.
 RUN sed -i -e 's/^mirrorlist/#mirrorlist/g' -e 's/^#baseurl=http:\/\/mirror.centos.org\/centos\/$releasever\//baseurl=https:\/\/linuxsoft.cern.ch\/centos-vault\/\/6.10\//g' /etc/yum.repos.d/CentOS-Base.repo
 
@@ -27,16 +29,13 @@ ENV JAVA_VERSION $java_version
 # Installing Java removing some unnecessary SDKMAN files
 RUN bash -c "source $HOME/.sdkman/bin/sdkman-init.sh && \
     yes | sdk install java $JAVA_VERSION && \
+    yes | sdk install maven $MAVEN_VERSION && \
     rm -rf $HOME/.sdkman/archives/* && \
     rm -rf $HOME/.sdkman/tmp/*"
 
 RUN echo 'export JAVA_HOME="/root/.sdkman/candidates/java/current"' >> ~/.bashrc
 RUN echo 'PATH=/root/.sdkman/candidates/java/current/bin:$PATH' >> ~/.bashrc
 
-WORKDIR /opt
-RUN curl https://dlcdn.apache.org/maven/maven-3/3.9.0/binaries/apache-maven-3.9.0-bin.tar.gz | tar -xz
-RUN echo 'PATH=/opt/apache-maven-3.9.0/bin/:$PATH' >> ~/.bashrc
-
 # Prepare our own build
-ENV PATH /opt/apache-maven-3.9.0/bin/:$PATH
+ENV PATH /root/.sdkman/candidates/maven/current:$PATH
 ENV JAVA_HOME /root/.sdkman/candidates/java/current/
