@@ -23,7 +23,7 @@ As an example this is how you would include the dependency in maven for x86_64:
 <dependency>
     <groupId>io.netty.incubator</groupId>
     <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-    <version>0.0.12.Final</version>
+    <version>0.0.21.Final</version>
     <classifier>linux-x86_64</classifier>
 </dependency>
 ```
@@ -31,7 +31,7 @@ As an example this is how you would include the dependency in maven for x86_64:
 And in gradle:
 ```
 dependencies {
-    implementation 'io.netty.incubator:netty-incubator-transport-native-io_uring:0.0.12.Final:linux-x86_64'
+    implementation 'io.netty.incubator:netty-incubator-transport-native-io_uring:0.0.21.Final:linux-x86_64'
 }
 ```
 
