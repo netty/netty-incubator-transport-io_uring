@@ -206,6 +206,7 @@ static void netty_io_uring_ring_buffer_exit(JNIEnv *env, jclass clazz,
 
 static jboolean netty_io_uring_probe(JNIEnv *env, jclass clazz, jint ring_fd, jintArray ops) {
     jboolean supported = JNI_FALSE;
+    jint *opsElements = NULL;
     struct io_uring_probe *probe;
     size_t mallocLen = sizeof(*probe) + 256 * sizeof(struct io_uring_probe_op);
     probe = malloc(mallocLen);
@@ -217,7 +218,7 @@ static jboolean netty_io_uring_probe(JNIEnv *env, jclass clazz, jint ring_fd, ji
     }
 
     jsize opsLen = (*env)->GetArrayLength(env, ops);
-    jint *opsElements = (*env)->GetIntArrayElements(env, ops, 0);
+    opsElements = (*env)->GetIntArrayElements(env, ops, 0);
     int i;
     for (i = 0; i < opsLen; i++) {
         int op = opsElements[i];
@@ -229,6 +230,9 @@ static jboolean netty_io_uring_probe(JNIEnv *env, jclass clazz, jint ring_fd, ji
     supported = JNI_TRUE;
 done:
     free(probe);
+    if (opsElements != NULL) {
+        (*env)->ReleaseIntArrayElements(env, ops, opsElements, JNI_ABORT);
+    }
     return supported;
 }
 
