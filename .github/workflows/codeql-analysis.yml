@@ -46,6 +46,7 @@ jobs:
 
     # Cache .m2/repository
     - uses: actions/cache@v3
+      continue-on-error: true
       env:
         cache-name: ${{ matrix.language }}-cache-m2-repository
       with:

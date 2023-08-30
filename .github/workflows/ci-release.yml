@@ -38,6 +38,7 @@ jobs:
 
       # Cache .m2/repository
       - uses: actions/cache@v3
+        continue-on-error: true
         env:
           cache-name: release-cache-m2-repository
         with:
@@ -116,7 +117,7 @@ jobs:
         run: mkdir -p ~/local-staging
 
       # Enable caching of Docker layers
-      - uses: satackey/action-docker-layer-caching@v0.0.11
+      - uses: jpribyl/action-docker-layer-caching@v0.1.1
         env:
           docker-cache-name: staging-${{ matrix.setup }}-cache-docker
         continue-on-error: true
