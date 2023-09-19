@@ -43,13 +43,6 @@ jobs:
 
     name: ${{ matrix.setup }}
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: false
-
       - uses: actions/checkout@v3
 
       # Cache .m2/repository
@@ -60,14 +53,6 @@ jobs:
           key: build-${{ matrix.setup }}-cache-m2-repository-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             build-${{ matrix.setup }}-cache-m2-repository-
-
-      # Enable caching of Docker layers
-      - uses: jpribyl/action-docker-layer-caching@v0.1.1
-        continue-on-error: true
-        with:
-          key: build-${{ matrix.setup }}-docker-cache-{hash}
-          restore-keys: |
-            build-${{ matrix.setup }}-docker-cache-
 
       - name: Build docker image
         run: docker-compose ${{ matrix.docker-compose-build }}
