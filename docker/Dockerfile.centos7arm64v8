@@ -39,3 +39,7 @@ RUN echo 'PATH=/root/.sdkman/candidates/java/current/bin:$PATH' >> ~/.bashrc
 # Prepare our own build
 ENV PATH /root/.sdkman/candidates/maven/current:$PATH
 ENV JAVA_HOME /root/.sdkman/candidates/java/current/
+
+# Cleanup
+RUN yum clean all && \
+    rm -rf /var/cache/yum
