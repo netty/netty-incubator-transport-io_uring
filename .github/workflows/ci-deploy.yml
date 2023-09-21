@@ -117,7 +117,7 @@ jobs:
       - name: Merge staging repositories
         run: bash ./.github/scripts/merge_local_staging.sh ~/local-staging ~/linux-aarch64-local-staging ~/linux-x86_64-local-staging
 
-      - uses: s4u/maven-settings-action@v2.2.0
+      - uses: s4u/maven-settings-action@v2.8.0
         with:
           servers: |
             [{
