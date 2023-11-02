@@ -63,7 +63,7 @@ import static io.netty.util.internal.ObjectUtil.*;
 
 abstract class AbstractIOUringChannel extends AbstractChannel implements UnixChannel {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractIOUringChannel.class);
-    private static final ChannelMetadata METADATA = new ChannelMetadata(false);
+    private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
     final LinuxSocket socket;
     protected volatile boolean active;
 
