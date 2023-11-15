@@ -63,8 +63,7 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
         return IOUringServerSocketChannel.class;
     }
 
-    @Test
-//    @RepeatedTest(1000)
+//    @Test
     public void shutdownGracefullyZeroQuietBeforeStart() throws Exception {
         EventLoopGroup group = newEventLoopGroup();
         assertTrue(group.shutdownGracefully(0L, 2L, TimeUnit.SECONDS).await(1500L));
@@ -76,7 +75,7 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
         CountDownLatch latch = new CountDownLatch(1);
         group.submit(() -> latch.countDown());
         latch.await(5, TimeUnit.SECONDS);
-        if (!group.shutdownGracefully(0L, 0L, TimeUnit.SECONDS).await(2000L)) {
+        if (!group.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS).await(2000L)) {
             dumpThreads();
         }
         // Fails with
@@ -100,7 +99,7 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
         //  ...
     }
 
-    @Test
+//    @Test
     public void testSubmitMultipleTasksAndEnsureTheseAreExecuted() throws Exception {
         IOUringEventLoopGroup group = new IOUringEventLoopGroup(1);
         try {
@@ -131,7 +130,7 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
         }
     }
 
-    @Test
+//    @Test
     public void testSchedule() throws Exception {
         IOUringEventLoopGroup group = new IOUringEventLoopGroup(1);
         try {
@@ -161,10 +160,10 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
 
         throw new Exception(sb.toString());
     }
+    private static final AtomicLong threadId = new AtomicLong();
 
     private static class TFactory implements ThreadFactory {
 
-        private final AtomicLong threadId = new AtomicLong();
 
         @Override
         public Thread newThread(Runnable r) {

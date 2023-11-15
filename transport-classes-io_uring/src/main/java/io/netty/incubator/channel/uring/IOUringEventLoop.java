@@ -59,6 +59,7 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
 
     private final IOUringCompletionQueueCallback callback = IOUringEventLoop.this::handle;
     private final Runnable submitIOTask = () -> getRingBuffer().ioUringSubmissionQueue().submit();
+    private final int hash;
 
     private long prevDeadlineNanos = NONE;
     private boolean pendingWakeup;
@@ -73,6 +74,7 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
         ringBuffer = Native.createRingBuffer(ringSize, iosqeAsyncThreshold);
 
         eventfd = Native.newBlockingEventFd();
+        this.hash = hashCode();
         logger.trace("New EventLoop: {}", this.toString());
     }
 
@@ -154,8 +156,11 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
         final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
         final IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
 
-        // Lets add the eventfd related events before starting to do any real work.
+        // Let's add the eventfd related events before starting to do any real work.
+        // We also need to make sure we submit this work to avoid the chance that we
+        // never submit the read operation in the case of short lived loops.
         addEventFdRead(submissionQueue);
+        submissionQueue.submit();
 
         for (;;) {
             try {
@@ -180,12 +185,13 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
                         // Check there were any completion events to process
                         if (!completionQueue.hasCompletions()) {
                             // Block if there is nothing to process after this try again to call process(....)
-                            logger.trace("submitAndWait {}", this);
+                            logger.debug("submitAndWait {}", hash);
                             submissionQueue.submitAndWait();
                         }
                     }
                 } finally {
                     if (nextWakeupNanos.get() == AWAKE || nextWakeupNanos.getAndSet(AWAKE) == AWAKE) {
+                        logger.debug( "Setting pendingWakeup - {}", hash);
                         pendingWakeup = true;
                     }
                 }
@@ -238,8 +244,10 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
     }
 
     private void handle(int fd, int res, int flags, byte op, short data) {
+        logger.debug("Event fd: {} - {}", fd, hash);
         if (op == Native.IORING_OP_READ && eventfd.intValue() == fd) {
             pendingWakeup = false;
+            logger.debug( "Clearing pendingWakeup (handle) - {}", hash);
             addEventFdRead(ringBuffer.ioUringSubmissionQueue());
         } else if (op == Native.IORING_OP_TIMEOUT) {
             if (res == Native.ERRNO_ETIME_NEGATIVE) {
@@ -316,6 +324,7 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
 
     @Override
     protected void cleanup() {
+        logger.debug("Cleanup called, {}", hash);
         IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
         IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
         if (pendingWakeup) {
@@ -327,6 +336,7 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
                 public void handle(int fd, int res, int flags, byte op, short data) {
                     if (op == Native.IORING_OP_READ && eventfd.intValue() == fd) {
                         pendingWakeup = false;
+                        logger.debug( "Clearing pendingWakeup (cleanup) - {}", hash);
                     } else {
                         // Delegate to the original handle(...) method so we not miss some completions.
                         IOUringEventLoop.this.handle(fd, res, flags, op, data);
@@ -368,10 +378,13 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
 
     @Override
     protected void wakeup(boolean inEventLoop) {
+        boolean sent = false;
         if (!inEventLoop && nextWakeupNanos.getAndSet(AWAKE) != AWAKE) {
             // write to the evfd which will then wake-up epoll_wait(...)
+            sent = true;
             Native.eventFdWrite(eventfd.intValue(), 1L);
         }
+        logger.debug("wakeup ({}) - {}", sent, hash);
     }
 
     /**
