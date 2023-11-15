@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Netty Project
+ * Copyright 2020, 2023 The Netty Project
  *
  * The Netty Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -21,8 +21,10 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.testsuite.transport.AbstractSingleThreadEventLoopTest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -54,6 +56,16 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
     public void shutdownGracefullyZeroQuietBeforeStart() throws Exception {
         EventLoopGroup group = newEventLoopGroup();
         assertTrue(group.shutdownGracefully(0L, 2L, TimeUnit.SECONDS).await(1500L));
+    }
+
+    @RepeatedTest(100)
+    public void shutdownNotSoGracefully() throws Exception {
+        // Test for race conditions to ensure we don't have race conditions that prevent a loop from shutting down.
+        EventLoopGroup group = newEventLoopGroup();
+        CountDownLatch latch = new CountDownLatch(1);
+        group.submit(() -> latch.countDown());
+        latch.await(5, TimeUnit.SECONDS);
+        assertTrue(group.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS).await(1500L));
     }
 
     @Test

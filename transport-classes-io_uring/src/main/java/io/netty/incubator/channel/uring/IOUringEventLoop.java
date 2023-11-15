@@ -154,8 +154,11 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
         final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
         final IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
 
-        // Lets add the eventfd related events before starting to do any real work.
+        // Let's add the eventfd related events before starting to do any real work.
         addEventFdRead(submissionQueue);
+        // We also need to submit this work because for short-lived event loops its possible
+        // to never enter a submitAndWait() call before shutting dwn.
+        submissionQueue.submit();
 
         for (;;) {
             try {
