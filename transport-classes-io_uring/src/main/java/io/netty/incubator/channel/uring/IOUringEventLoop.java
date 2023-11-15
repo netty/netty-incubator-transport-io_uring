@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Netty Project
+ * Copyright 2023 The Netty Project
  *
  * The Netty Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -158,7 +158,9 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
         addEventFdRead(submissionQueue);
         // We also need to submit this work because for short-lived event loops its possible
         // to never enter a submitAndWait() call before shutting dwn.
-        submissionQueue.submit();
+        if (submissionQueue.submit() != 1) {
+            throw new AssertionError("Failed to submit EventFdRead");
+        }
 
         for (;;) {
             try {

@@ -1,0 +1,45 @@
+FROM arm64v8/centos:7.9.2009
+
+ENV MAVEN_VERSION 3.9.1
+
+# Install requirements
+RUN yum install -y \
+	apr-devel \
+	autoconf \
+	automake \
+	git \
+	glibc-devel \
+	libaio-devel \
+	libtool \
+	lksctp-tools \
+	make \
+	openssl-devel \
+	redhat-lsb-core \
+	tar \
+	unzip \
+	wget \
+	zip
+
+# Downloading and installing SDKMAN!
+RUN curl -s "https://get.sdkman.io" | bash
+
+ARG java_version="8.0.322-zulu"
+ENV JAVA_VERSION $java_version
+
+# Installing Java removing some unnecessary SDKMAN files
+RUN bash -c "source $HOME/.sdkman/bin/sdkman-init.sh && \
+    yes | sdk install java $JAVA_VERSION && \
+    yes | sdk install maven $MAVEN_VERSION && \
+    rm -rf $HOME/.sdkman/archives/* && \
+    rm -rf $HOME/.sdkman/tmp/*"
+
+RUN echo 'export JAVA_HOME="/root/.sdkman/candidates/java/current"' >> ~/.bashrc
+RUN echo 'PATH=/root/.sdkman/candidates/java/current/bin:$PATH' >> ~/.bashrc
+
+# Prepare our own build
+ENV PATH /root/.sdkman/candidates/maven/current:$PATH
+ENV JAVA_HOME /root/.sdkman/candidates/java/current/
+
+# Cleanup
+RUN yum clean all && \
+    rm -rf /var/cache/yum
