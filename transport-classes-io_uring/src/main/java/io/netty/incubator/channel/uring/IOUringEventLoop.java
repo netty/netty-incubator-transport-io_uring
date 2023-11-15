@@ -158,8 +158,9 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
         addEventFdRead(submissionQueue);
         // We also need to submit this work because for short-lived event loops its possible
         // to never enter a submitAndWait() call before shutting dwn.
-        if (submissionQueue.submit() != 1) {
-            throw new AssertionError("Failed to submit EventFdRead");
+        final int initialFlushResult = submissionQueue.submit();
+        if (initialFlushResult != 1) {
+            throw new AssertionError("Failed to submit EventFdRead. Result: " + initialFlushResult);
         }
 
         for (;;) {
