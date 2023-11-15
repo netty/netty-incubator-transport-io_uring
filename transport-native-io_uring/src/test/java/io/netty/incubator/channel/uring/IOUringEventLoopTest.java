@@ -21,16 +21,27 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.testsuite.transport.AbstractSingleThreadEventLoopTest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
+
+    ThreadFactory threadFactory;
+
+    @BeforeEach
+    public void setup() {
+        threadFactory = new TFactory();
+    }
 
     @BeforeAll
     public static void loadJNI() {
@@ -39,7 +50,7 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
 
     @Override
     protected EventLoopGroup newEventLoopGroup() {
-        return new IOUringEventLoopGroup(1);
+        return new IOUringEventLoopGroup(1, threadFactory);
     }
 
     @Override
@@ -53,6 +64,7 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
     }
 
     @Test
+//    @RepeatedTest(1000)
     public void shutdownGracefullyZeroQuietBeforeStart() throws Exception {
         EventLoopGroup group = newEventLoopGroup();
         assertTrue(group.shutdownGracefully(0L, 2L, TimeUnit.SECONDS).await(1500L));
@@ -64,7 +76,28 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
         CountDownLatch latch = new CountDownLatch(1);
         group.submit(() -> latch.countDown());
         latch.await(5, TimeUnit.SECONDS);
-        assertTrue(group.shutdownGracefully(0L, 0L, TimeUnit.SECONDS).await(1500L));
+        if (!group.shutdownGracefully(0L, 0L, TimeUnit.SECONDS).await(2000L)) {
+            dumpThreads();
+        }
+        // Fails with
+        // [ERROR] Tests run: 1010, Failures: 0, Errors: 1, Skipped: 3, Time elapsed: 4.527 s <<< FAILURE! - in io.netty.incubator.channel.uring.IOUringEventLoopTest
+        // [ERROR] shutdownNonGraceful[301]  Time elapsed: 2.009 s  <<< ERROR!
+        // java.lang.Exception:
+        // What IO threads doing? Stack traces:
+        // Thread io_uring-0:
+        //		io.netty.incubator.channel.uring.Native.ioUringEnter(Native Method)
+        //		io.netty.incubator.channel.uring.IOUringCompletionQueue.ioUringWaitCqe(IOUringCompletionQueue.java:99)
+        //		io.netty.incubator.channel.uring.IOUringEventLoop.cleanup(IOUringEventLoop.java:338)
+        //		io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:1044)
+        //		io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+        //		java.lang.Thread.run(Thread.java:750)
+        //
+        //	at io.netty.incubator.channel.uring.IOUringEventLoopTest.dumpThreads(IOUringEventLoopTest.java:162)
+        //	at io.netty.incubator.channel.uring.IOUringEventLoopTest.shutdownNonGraceful(IOUringEventLoopTest.java:80)
+        //	at sun.reflect.GeneratedMethodAccessor2.invoke(Unknown Source)
+        //	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+        //	at java.lang.reflect.Method.invoke(Method.java:498)
+        //  ...
     }
 
     @Test
@@ -109,6 +142,35 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
             }, 1, TimeUnit.SECONDS).sync();
         } finally {
             group.shutdownGracefully();
+        }
+    }
+
+    private static void dumpThreads() throws Exception {
+        final StringBuilder sb = new StringBuilder();
+        sb.append("What IO threads doing? Stack traces:\n");
+        for (Map.Entry<Thread, StackTraceElement[]> entry : Thread.getAllStackTraces().entrySet()) {
+            if (!entry.getKey().getName().startsWith("io_uring-")) {
+                continue;
+            }
+
+            sb.append("Thread: ").append(entry.getKey().getName()).append(":\n");
+            for (StackTraceElement e : entry.getValue()) {
+                sb.append("\t\t").append(e).append('\n');
+            }
+        }
+
+        throw new Exception(sb.toString());
+    }
+
+    private static class TFactory implements ThreadFactory {
+
+        private final AtomicLong threadId = new AtomicLong();
+
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(r, "io_uring-" + threadId.getAndIncrement());
+            t.setDaemon(true);
+            return t;
         }
     }
 }
