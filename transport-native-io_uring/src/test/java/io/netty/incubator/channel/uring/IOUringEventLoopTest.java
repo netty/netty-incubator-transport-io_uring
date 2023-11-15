@@ -20,6 +20,9 @@ import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.testsuite.transport.AbstractSingleThreadEventLoopTest;
+import io.netty.util.concurrent.Future;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -35,6 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
+
+    private static final InternalLogger logger = InternalLoggerFactory.getInstance(IOUringEventLoopTest.class);
 
     ThreadFactory threadFactory;
 
@@ -69,13 +74,27 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
         assertTrue(group.shutdownGracefully(0L, 2L, TimeUnit.SECONDS).await(1500L));
     }
 
-    @RepeatedTest(1000)
+    @RepeatedTest(1)
     public void shutdownNonGraceful() throws Exception {
         EventLoopGroup group = newEventLoopGroup();
-        CountDownLatch latch = new CountDownLatch(1);
-        group.submit(() -> latch.countDown());
-        latch.await(5, TimeUnit.SECONDS);
-        if (!group.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS).await(2000L)) {
+        IOUringEventLoop loop = (IOUringEventLoop) group.next();
+        logger.info("Starting test");
+
+        loop.submit(() -> {}); // noop task to start thread.
+
+        // Wait for the thread to start.
+        loop.latch1.await();
+        logger.info("Continuing.");
+        // submit the task so we `hasTasks() == true` and we skip the submitAndWait() call.
+        group.submit(() -> {}); // noop task, just to hit the WAKUP state.
+
+        // Also shutdown so we skip the rest of the loop entirely.
+        Future<?> shutdownFuture = loop.shutdownGracefully(0L, 0L, TimeUnit.NANOSECONDS);
+        // let the event loop proceed now.
+        loop.latch2.countDown();
+
+
+        if (!shutdownFuture.await(2000L)) {
             dumpThreads();
         }
         // Fails with

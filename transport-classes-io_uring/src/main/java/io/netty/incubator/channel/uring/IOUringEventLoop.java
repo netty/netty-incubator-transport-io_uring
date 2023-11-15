@@ -28,6 +28,7 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 
 import java.io.IOException;
 import java.util.Queue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -151,16 +152,23 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    final CountDownLatch latch1 = new CountDownLatch(1);
+    final CountDownLatch latch2 = new CountDownLatch(1);
+
     @Override
     protected void run() {
         final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
         final IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
 
+        logger.info("loop starting");
+
         // Let's add the eventfd related events before starting to do any real work.
         // We also need to make sure we submit this work to avoid the chance that we
         // never submit the read operation in the case of short lived loops.
         addEventFdRead(submissionQueue);
-        submissionQueue.submit();
+//        submissionQueue.submit();
+
+
 
         for (;;) {
             try {
@@ -172,6 +180,16 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
                     curDeadlineNanos = NONE; // nothing on the calendar
                 }
                 nextWakeupNanos.set(curDeadlineNanos);
+
+                try {
+                    logger.debug("Hitting countdown.");
+                    latch1.countDown();
+                    logger.info("Waiting on latch 2");
+                    // waiting for a task to be submitted.
+                    latch2.await();
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
 
                 // Only submit a timeout if there are no tasks to process and do a blocking operation
                 // on the completionQueue.
