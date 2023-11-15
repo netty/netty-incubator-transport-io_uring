@@ -21,8 +21,10 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.testsuite.transport.AbstractSingleThreadEventLoopTest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -54,6 +56,15 @@ public class IOUringEventLoopTest extends AbstractSingleThreadEventLoopTest {
     public void shutdownGracefullyZeroQuietBeforeStart() throws Exception {
         EventLoopGroup group = newEventLoopGroup();
         assertTrue(group.shutdownGracefully(0L, 2L, TimeUnit.SECONDS).await(1500L));
+    }
+
+    @RepeatedTest(1000)
+    public void shutdownNonGraceful() throws Exception {
+        EventLoopGroup group = newEventLoopGroup();
+        CountDownLatch latch = new CountDownLatch(1);
+        group.submit(() -> latch.countDown());
+        latch.await(5, TimeUnit.SECONDS);
+        assertTrue(group.shutdownGracefully(0L, 0L, TimeUnit.SECONDS).await(1500L));
     }
 
     @Test
