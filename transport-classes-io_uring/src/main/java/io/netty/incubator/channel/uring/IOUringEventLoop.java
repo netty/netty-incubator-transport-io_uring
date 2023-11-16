@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Netty Project
+ * Copyright 2023 The Netty Project
  *
  * The Netty Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -154,8 +154,14 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
         final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
         final IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
 
-        // Lets add the eventfd related events before starting to do any real work.
+        // Let's add the eventfd related events before starting to do any real work.
         addEventFdRead(submissionQueue);
+        // We also need to submit this work because for short-lived event loops its possible
+        // to never enter a submitAndWait() call before shutting down.
+        final int initialFlushResult = submissionQueue.submit();
+        if (initialFlushResult != 1) {
+            throw new AssertionError("Failed to submit EventFdRead. Result: " + initialFlushResult);
+        }
 
         for (;;) {
             try {
