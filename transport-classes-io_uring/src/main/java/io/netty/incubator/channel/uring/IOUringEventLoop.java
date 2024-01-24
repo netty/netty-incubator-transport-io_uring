@@ -179,8 +179,13 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
                 try {
                     if (!hasTasks()) {
                         if (curDeadlineNanos != prevDeadlineNanos) {
+                            if (prevDeadlineNanos != NONE) {
+                                submissionQueue.removeTimeout((short) 0);
+                            }
+                            if (curDeadlineNanos != NONE) {
+                                submissionQueue.addTimeout(deadlineToDelayNanos(curDeadlineNanos), (short) 0);
+                            }
                             prevDeadlineNanos = curDeadlineNanos;
-                            submissionQueue.addTimeout(deadlineToDelayNanos(curDeadlineNanos), (short) 0);
                         }
 
                         // Check there were any completion events to process
@@ -251,6 +256,8 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
             if (res == Native.ERRNO_ETIME_NEGATIVE) {
                 prevDeadlineNanos = NONE;
             }
+        } else if (op == Native.IORING_OP_TIMEOUT_REMOVE) {
+            // do nothing
         } else {
             // Remaining events should be channel-specific
             final AbstractIOUringChannel channel = channels.get(fd);

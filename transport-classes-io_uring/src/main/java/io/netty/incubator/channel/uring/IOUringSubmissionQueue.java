@@ -155,6 +155,10 @@ final class IOUringSubmissionQueue {
         return enqueueSqe(Native.IORING_OP_TIMEOUT, 0, 0, -1, timeoutMemoryAddress, 1, 0, extraData);
     }
 
+    boolean removeTimeout(short extraData) {
+        return enqueueSqe(Native.IORING_OP_TIMEOUT_REMOVE, 0, 0, -1, encode(-1, Native.IORING_OP_TIMEOUT, extraData), 0, 0, extraData);
+    }
+
     boolean addPollIn(int fd) {
         return addPoll(fd, Native.POLLIN);
     }

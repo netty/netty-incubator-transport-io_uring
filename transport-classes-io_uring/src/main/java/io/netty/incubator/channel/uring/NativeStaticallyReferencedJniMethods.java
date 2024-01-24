@@ -68,6 +68,7 @@ final class NativeStaticallyReferencedJniMethods {
     static native byte ioringOpPollAdd();
     static native byte ioringOpPollRemove();
     static native byte ioringOpTimeout();
+    static native byte ioringOpTimeoutRemove();
     static native byte ioringOpAccept();
     static native byte ioringOpRead();
     static native byte ioringOpWrite();

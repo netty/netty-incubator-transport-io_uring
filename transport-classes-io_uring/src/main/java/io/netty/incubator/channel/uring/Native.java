@@ -140,6 +140,7 @@ final class Native {
     static final int ERRNO_ETIME_NEGATIVE = -NativeStaticallyReferencedJniMethods.etime();
     static final byte IORING_OP_POLL_ADD = NativeStaticallyReferencedJniMethods.ioringOpPollAdd();
     static final byte IORING_OP_TIMEOUT = NativeStaticallyReferencedJniMethods.ioringOpTimeout();
+    static final byte IORING_OP_TIMEOUT_REMOVE = NativeStaticallyReferencedJniMethods.ioringOpTimeoutRemove();
     static final byte IORING_OP_ACCEPT = NativeStaticallyReferencedJniMethods.ioringOpAccept();
     static final byte IORING_OP_READ = NativeStaticallyReferencedJniMethods.ioringOpRead();
     static final byte IORING_OP_WRITE = NativeStaticallyReferencedJniMethods.ioringOpWrite();
