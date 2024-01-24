@@ -165,6 +165,7 @@ public class NativeTest {
                     public void handle(int fd, int res, int flags, byte op, short mask) {
                         if (i == 0) {
                             assertEquals(Native.IORING_OP_TIMEOUT, op);
+                            // -ECANCELED
                             assertEquals(-125, res);
                         } else if (i == 1) {
                             assertEquals(Native.IORING_OP_TIMEOUT_REMOVE, op);
