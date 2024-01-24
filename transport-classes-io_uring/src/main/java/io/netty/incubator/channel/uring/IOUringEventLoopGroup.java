@@ -52,21 +52,21 @@ public final class IOUringEventLoopGroup extends MultithreadEventLoopGroup {
      * Create a new instance using the default number of threads and the given {@link ThreadFactory}.
      */
     public IOUringEventLoopGroup(ThreadFactory threadFactory) {
-        this(0, threadFactory, 0, Native.DEFAULT_IOSEQ_ASYNC_THRESHOLD);
+        this(0, threadFactory, 0, Native.DEFAULT_IOSQE_ASYNC_THRESHOLD);
     }
 
     /**
      * Create a new instance using the specified number of threads and the given {@link ThreadFactory}.
      */
     public IOUringEventLoopGroup(int nThreads, ThreadFactory threadFactory) {
-        this(nThreads, threadFactory, 0, Native.DEFAULT_IOSEQ_ASYNC_THRESHOLD);
+        this(nThreads, threadFactory, 0, Native.DEFAULT_IOSQE_ASYNC_THRESHOLD);
     }
 
     /**
      * Create a new instance using the specified number of threads and the given {@link Executor}.
      */
     public IOUringEventLoopGroup(int nThreads, Executor executor) {
-        this(nThreads, executor, 0, Native.DEFAULT_IOSEQ_ASYNC_THRESHOLD);
+        this(nThreads, executor, 0, Native.DEFAULT_IOSQE_ASYNC_THRESHOLD);
     }
 
     /**

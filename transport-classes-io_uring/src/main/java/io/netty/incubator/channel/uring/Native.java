@@ -40,8 +40,15 @@ import java.util.Locale;
 final class Native {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(Native.class);
     static final int DEFAULT_RING_SIZE = Math.max(64, SystemPropertyUtil.getInt("io.netty.iouring.ringSize", 4096));
-    static final int DEFAULT_IOSEQ_ASYNC_THRESHOLD =
-            Math.max(0, SystemPropertyUtil.getInt("io.netty.iouring.iosqeAsyncThreshold", 25));
+    /**
+     * When there are more FDs (= connections) than this setting, the FDs will be marked as IOSQE_ASYNC, under the
+     * expectation that read/write ops on the FDs will usually block. If this expectation is correct, IOSQE_ASYNC can
+     * reduce CPU usage, but if the expectation is incorrect, it may add additional, unnecessary latency.
+     * <p>
+     * Default is to never use IOSQE_ASYNC.
+     */
+    static final int DEFAULT_IOSQE_ASYNC_THRESHOLD =
+            Math.max(0, SystemPropertyUtil.getInt("io.netty.iouring.iosqeAsyncThreshold", Integer.MAX_VALUE));
 
     static {
         Selector selector = null;
@@ -195,7 +202,7 @@ final class Native {
             (TCP_FASTOPEN_MODE & TFO_ENABLED_SERVER_MASK) == TFO_ENABLED_SERVER_MASK;
 
     static RingBuffer createRingBuffer(int ringSize) {
-        return createRingBuffer(ringSize, DEFAULT_IOSEQ_ASYNC_THRESHOLD);
+        return createRingBuffer(ringSize, DEFAULT_IOSQE_ASYNC_THRESHOLD);
     }
 
     static RingBuffer createRingBuffer(int ringSize, int iosqeAsyncThreshold) {
@@ -232,7 +239,7 @@ final class Native {
     }
 
     static RingBuffer createRingBuffer() {
-        return createRingBuffer(DEFAULT_RING_SIZE, DEFAULT_IOSEQ_ASYNC_THRESHOLD);
+        return createRingBuffer(DEFAULT_RING_SIZE, DEFAULT_IOSQE_ASYNC_THRESHOLD);
     }
 
     static void checkAllIOSupported(int ringFd) {
