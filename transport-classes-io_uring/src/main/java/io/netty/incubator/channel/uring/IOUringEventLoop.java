@@ -61,6 +61,12 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
     private final Runnable submitIOTask = () -> getRingBuffer().ioUringSubmissionQueue().submit();
 
     private long prevDeadlineNanos = NONE;
+    /**
+     * This is a "generation" counter that is passed to addTimeout. It ensures that the expiry of a previous timeout
+     * doesn't make us think the current timeout has expired, which could lead to wrongly not removing the current
+     * timeout when it's adjusted again.
+     */
+    private short prevTimeoutGeneration = -1;
     private boolean pendingWakeup;
 
     IOUringEventLoop(IOUringEventLoopGroup parent, Executor executor, int ringSize, int iosqeAsyncThreshold,
@@ -180,10 +186,12 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
                     if (!hasTasks()) {
                         if (curDeadlineNanos != prevDeadlineNanos) {
                             if (prevDeadlineNanos != NONE) {
-                                submissionQueue.removeTimeout((short) 0);
+                                submissionQueue.removeTimeout(prevTimeoutGeneration);
                             }
                             if (curDeadlineNanos != NONE) {
-                                submissionQueue.addTimeout(deadlineToDelayNanos(curDeadlineNanos), (short) 0);
+                                short generation = (short) (prevTimeoutGeneration + 1);
+                                submissionQueue.addTimeout(deadlineToDelayNanos(curDeadlineNanos), generation);
+                                prevTimeoutGeneration = generation;
                             }
                             prevDeadlineNanos = curDeadlineNanos;
                         }
@@ -253,7 +261,7 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
             pendingWakeup = false;
             addEventFdRead(ringBuffer.ioUringSubmissionQueue());
         } else if (op == Native.IORING_OP_TIMEOUT) {
-            if (res == Native.ERRNO_ETIME_NEGATIVE) {
+            if (res == Native.ERRNO_ETIME_NEGATIVE && data == prevTimeoutGeneration) {
                 prevDeadlineNanos = NONE;
             }
         } else if (op == Native.IORING_OP_TIMEOUT_REMOVE) {
