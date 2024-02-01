@@ -261,8 +261,12 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
             pendingWakeup = false;
             addEventFdRead(ringBuffer.ioUringSubmissionQueue());
         } else if (op == Native.IORING_OP_TIMEOUT) {
-            if (res == Native.ERRNO_ETIME_NEGATIVE && data == prevTimeoutGeneration) {
-                prevDeadlineNanos = NONE;
+            if (res == Native.ERRNO_ETIME_NEGATIVE) {
+                if (data == prevTimeoutGeneration) {
+                    prevDeadlineNanos = NONE;
+                } else {
+                    logger.trace("Timeout of previous generation timer");
+                }
             }
         } else if (op == Native.IORING_OP_TIMEOUT_REMOVE) {
             // do nothing
