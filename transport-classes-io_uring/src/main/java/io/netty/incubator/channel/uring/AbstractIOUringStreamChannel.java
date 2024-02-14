@@ -211,12 +211,13 @@ abstract class AbstractIOUringStreamChannel extends AbstractIOUringChannel imple
 
         private ByteBuf readBuffer;
         private IovArray iovArray;
+        private final ByteBuf iovArrayBuffer = alloc().directBuffer(Limits.IOV_MAX * IovArray.IOV_SIZE);
 
         @Override
         protected int scheduleWriteMultiple(ChannelOutboundBuffer in) {
             assert iovArray == null;
             int numElements = Math.min(in.size(), Limits.IOV_MAX);
-            ByteBuf iovArrayBuffer = alloc().directBuffer(numElements * IovArray.IOV_SIZE);
+            iovArrayBuffer.capacity(numElements * IovArray.IOV_SIZE);
             iovArray = new IovArray(iovArrayBuffer);
             try {
                 int offset = iovArray.count();
@@ -335,6 +336,7 @@ abstract class AbstractIOUringStreamChannel extends AbstractIOUringChannel imple
             if (iovArray != null) {
                 this.iovArray = null;
                 iovArray.release();
+                iovArrayBuffer.clear();
             }
             if (res >= 0) {
                 unsafe().outboundBuffer().removeBytes(res);
