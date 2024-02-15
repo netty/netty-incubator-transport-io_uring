@@ -31,13 +31,13 @@ jobs:
           ref: main
 
       - name: Set up JDK 8
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: 8
           distribution: zulu
 
       # Cache .m2/repository
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         continue-on-error: true
         env:
           cache-name: release-cache-m2-repository
@@ -68,7 +68,7 @@ jobs:
         run: ./.github/scripts/release_checkout_tag.sh release.properties
 
       - name: Upload workspace
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: prepare-release-workspace
           path: ${{ github.workspace }}/**
@@ -88,7 +88,7 @@ jobs:
     name: stage-release-${{ matrix.setup }}
     steps:
       - name: Download release-workspace
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: prepare-release-workspace
           path: ./prepare-release-workspace/
@@ -97,7 +97,7 @@ jobs:
         run: chmod 755 ./prepare-release-workspace/mvnw
 
       - name: Set up JDK 8
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: 8
           distribution: zulu
@@ -120,7 +120,7 @@ jobs:
         working-directory: ./prepare-release-workspace/
         run: docker-compose ${{ matrix.docker-compose-build }}
 
-      - uses: s4u/maven-settings-action@v2.8.0
+      - uses: s4u/maven-settings-action@v3.0.0
         with:
           servers: |
             [{
@@ -138,7 +138,7 @@ jobs:
         run: docker-compose ${{ matrix.docker-compose-run }}
 
       - name: Upload local staging directory
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.setup }}-local-staging
           path: ~/local-staging
@@ -155,7 +155,7 @@ jobs:
     needs: stage-release
     steps:
       - name: Download release-workspace
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: prepare-release-workspace
           path: ./prepare-release-workspace/
@@ -175,20 +175,20 @@ jobs:
           known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
 
       - name: Set up JDK 8
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v4
         with:
           java-version: 8
 
       # Hardcode the staging artifacts that need to be downloaded.
       # These must match the matrix setups. There is currently no way to pull this out of the config.
       - name: Download linux-aarch64 staging directory
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: linux-aarch64-local-staging
           path: ~/linux-aarch64-local-staging
 
       - name: Download linux-x86_64 staging directory
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: linux-x86_64-local-staging
           path: ~/linux-x86_64-local-staging
@@ -199,7 +199,7 @@ jobs:
         working-directory: ./prepare-release-workspace/
         run: bash ./.github/scripts/merge_local_staging.sh /home/runner/local-staging/staging ~/linux-aarch64-local-staging/staging ~/linux-x86_64-local-staging/staging
 
-      - uses: s4u/maven-settings-action@v2.8.0
+      - uses: s4u/maven-settings-action@v3.0.0
         with:
           servers: |
             [{
