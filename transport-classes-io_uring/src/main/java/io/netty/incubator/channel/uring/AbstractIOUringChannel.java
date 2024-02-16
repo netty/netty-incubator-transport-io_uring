@@ -680,7 +680,9 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
         @Override
         public void connect(
                 final SocketAddress remoteAddress, final SocketAddress localAddress, final ChannelPromise promise) {
-            if (!promise.setUncancellable() || !ensureOpen(promise)) {
+            // Don't mark the connect promise as uncancellable as in fact we can cancel it as it is using
+            // non-blocking io.
+            if (promise.isDone() || !ensureOpen(promise)) {
                 return;
             }
 
@@ -760,6 +762,8 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
             promise.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) {
+                    // If the connect future is cancelled we also cancel the timeout and close the
+                    // underlying socket.
                     if (future.isCancelled()) {
                         cancelConnectTimeoutFuture();
                         connectPromise = null;
