@@ -63,7 +63,7 @@ public final class IOUring {
     }
 
     /**
-     * Returns {@code true} if the epoll native transport is both {@linkplain #isAvailable() available} and supports
+     * Returns {@code true} if the io_uring native transport is both {@linkplain #isAvailable() available} and supports
      * {@linkplain ChannelOption#TCP_FASTOPEN_CONNECT client-side TCP FastOpen}.
      *
      * @return {@code true} if it's possible to use client-side TCP FastOpen via io_uring, otherwise {@code false}.
@@ -73,7 +73,7 @@ public final class IOUring {
     }
 
     /**
-     * Returns {@code true} if the epoll native transport is both {@linkplain #isAvailable() available} and supports
+     * Returns {@code true} if the io_uring native transport is both {@linkplain #isAvailable() available} and supports
      * {@linkplain ChannelOption#TCP_FASTOPEN server-side TCP FastOpen}.
      *
      * @return {@code true} if it's possible to use server-side TCP FastOpen via io_uring, otherwise {@code false}.
