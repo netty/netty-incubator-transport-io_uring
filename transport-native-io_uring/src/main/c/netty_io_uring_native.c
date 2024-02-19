@@ -491,6 +491,10 @@ static jbyte netty_io_uring_ioringOpTimeout(JNIEnv* env, jclass clazz) {
     return IORING_OP_TIMEOUT;
 }
 
+static jbyte netty_io_uring_ioringOpTimeoutRemove(JNIEnv* env, jclass clazz) {
+    return IORING_OP_TIMEOUT_REMOVE;
+}
+
 static jbyte netty_io_uring_ioringOpAccept(JNIEnv* env, jclass clazz) {
     return IORING_OP_ACCEPT;
 }
@@ -601,6 +605,7 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
   { "ioringOpPollAdd", "()B", (void *) netty_io_uring_ioringOpPollAdd },
   { "ioringOpPollRemove", "()B", (void *) netty_io_uring_ioringOpPollRemove },
   { "ioringOpTimeout", "()B", (void *) netty_io_uring_ioringOpTimeout },
+  { "ioringOpTimeoutRemove", "()B", (void *) netty_io_uring_ioringOpTimeoutRemove },
   { "ioringOpAccept", "()B", (void *) netty_io_uring_ioringOpAccept },
   { "ioringOpRead", "()B", (void *) netty_io_uring_ioringOpRead },
   { "ioringOpWrite", "()B", (void *) netty_io_uring_ioringOpWrite },

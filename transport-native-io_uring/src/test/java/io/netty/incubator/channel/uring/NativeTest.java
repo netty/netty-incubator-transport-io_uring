@@ -19,6 +19,7 @@ import io.netty.channel.unix.FileDescriptor;
 
 import java.nio.charset.Charset;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -139,6 +140,67 @@ public class NativeTest {
         submissionQueue.submit();
 
         thread.join();
+        ringBuffer.close();
+    }
+
+    @Test
+    public void timeoutRemoveTest() throws Exception {
+
+        RingBuffer ringBuffer = Native.createRingBuffer(32);
+        IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
+        final IOUringCompletionQueue completionQueue = ringBuffer.ioUringCompletionQueue();
+
+        assertNotNull(ringBuffer);
+        assertNotNull(submissionQueue);
+        assertNotNull(completionQueue);
+
+        Thread thread = new Thread() {
+            @Override
+            public void run() {
+                completionQueue.ioUringWaitCqe();
+                completionQueue.process(new IOUringCompletionQueueCallback() {
+                    boolean seenTimeout = false;
+                    boolean seenTimeoutRemove = false;
+
+                    @Override
+                    public void handle(int fd, int res, int flags, byte op, short mask) {
+                        if (op == Native.IORING_OP_TIMEOUT) {
+                            assertFalse(seenTimeout);
+                            seenTimeout = true;
+                            // -ECANCELED
+                            assertEquals(-125, res);
+                        } else if (op == Native.IORING_OP_TIMEOUT_REMOVE) {
+                            assertFalse(seenTimeoutRemove);
+                            seenTimeoutRemove = true;
+                        } else {
+                            fail();
+                        }
+                    }
+                });
+                completionQueue.ioUringWaitCqe();
+                completionQueue.process(new IOUringCompletionQueueCallback() {
+                    @Override
+                    public void handle(int fd, int res, int flags, byte op, short mask) {
+                        System.out.println("evt " + op);
+                    }
+                });
+            }
+        };
+        thread.start();
+        try {
+            Thread.sleep(80);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        Duration d = Duration.ofSeconds(5);
+        submissionQueue.addTimeout(d.toNanos(), (short) 0);
+        submissionQueue.removeTimeout((short) 0);
+        submissionQueue.submit();
+
+        thread.join(d.multipliedBy(2).toMillis());
+        assertTrue(thread.isAlive());
+        thread.interrupt();
         ringBuffer.close();
     }
 
