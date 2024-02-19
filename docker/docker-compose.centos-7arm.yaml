@@ -8,7 +8,7 @@ services:
       context: ../
       dockerfile: docker/Dockerfile.centos7arm64v8
       args:
-        java_version: "8.0.392-zulu"
+        java_version: "8.0.402-zulu"
 
   compile-aarch64-common: &compile-aarch64-common
     depends_on: [ compile-aarch64-runtime-setup ]
