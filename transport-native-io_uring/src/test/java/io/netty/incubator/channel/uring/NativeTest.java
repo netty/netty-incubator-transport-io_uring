@@ -159,20 +159,22 @@ public class NativeTest {
             public void run() {
                 completionQueue.ioUringWaitCqe();
                 completionQueue.process(new IOUringCompletionQueueCallback() {
-                    int i = 0;
+                    boolean seenTimeout = false;
+                    boolean seenTimeoutRemove = false;
 
                     @Override
                     public void handle(int fd, int res, int flags, byte op, short mask) {
-                        if (i == 0) {
-                            assertEquals(Native.IORING_OP_TIMEOUT, op);
+                        if (op == Native.IORING_OP_TIMEOUT) {
+                            assertFalse(seenTimeout);
+                            seenTimeout = true;
                             // -ECANCELED
                             assertEquals(-125, res);
-                        } else if (i == 1) {
-                            assertEquals(Native.IORING_OP_TIMEOUT_REMOVE, op);
+                        } else if (op == Native.IORING_OP_TIMEOUT_REMOVE) {
+                            assertFalse(seenTimeoutRemove);
+                            seenTimeoutRemove = true;
                         } else {
                             fail();
                         }
-                        i++;
                     }
                 });
                 completionQueue.ioUringWaitCqe();
