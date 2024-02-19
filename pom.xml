@@ -24,7 +24,7 @@
 
   <groupId>io.netty.incubator</groupId>
   <artifactId>netty-incubator-transport-parent-io_uring</artifactId>
-  <version>0.0.26.Final-SNAPSHOT</version>
+  <version>0.0.25.Final-SNAPSHOT</version>
   <name>Netty/Incubator/Transport/Parent/io_uring</name>
   <packaging>pom</packaging>
   <url>https://netty.io/</url>
