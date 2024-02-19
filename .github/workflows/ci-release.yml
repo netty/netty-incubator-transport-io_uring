@@ -178,6 +178,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: 8
+          distribution: zulu
 
       # Hardcode the staging artifacts that need to be downloaded.
       # These must match the matrix setups. There is currently no way to pull this out of the config.
