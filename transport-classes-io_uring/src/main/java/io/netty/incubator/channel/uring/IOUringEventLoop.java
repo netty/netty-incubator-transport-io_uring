@@ -257,6 +257,22 @@ public final class IOUringEventLoop extends SingleThreadEventLoop {
     }
 
     private void handle(int fd, int res, int flags, byte op, short data) {
+        try {
+            handle0(fd, res, flags, op, data);
+        } catch (Error error) {
+            throw error;
+        } catch (Throwable throwable) {
+            logger.warn("Unexpected exception in the IO event loop.", throwable);
+            // Prevent possible consecutive immediate failures that lead to
+            // excessive CPU consumption.
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ignore) {
+            }
+        }
+    }
+
+    private void handle0(int fd, int res, int flags, byte op, short data) {
         if (op == Native.IORING_OP_READ && eventfd.intValue() == fd) {
             pendingWakeup = false;
             addEventFdRead(ringBuffer.ioUringSubmissionQueue());
