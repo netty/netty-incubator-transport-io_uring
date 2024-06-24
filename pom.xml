@@ -83,7 +83,7 @@
     <build-helper-maven-plugin.version>3.2.0</build-helper-maven-plugin.version>
     <maven-bundle-plugin.version>5.1.1</maven-bundle-plugin.version>
     <maven-checkstyle-plugin.version>3.1.1</maven-checkstyle-plugin.version>
-    <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
+    <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
     <maven-dependency-plugin.version>3.1.2</maven-dependency-plugin.version>
     <maven-enforcer-plugin.version>1.4.1</maven-enforcer-plugin.version>
     <hawtjni-maven-plugin.version>1.18</hawtjni-maven-plugin.version>
@@ -129,6 +129,7 @@
             <fork>true</fork>
             <source>1.8</source>
             <target>1.8</target>
+            <release>8</release>
             <debug>true</debug>
             <optimize>true</optimize>
             <showDeprecation>true</showDeprecation>
