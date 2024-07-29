@@ -16,6 +16,8 @@ services:
       - ~/.m2/repository:/root/.m2/repository
       - ..:/code:delegated
     working_dir: /code
+    security_opt:
+      - seccomp:unconfined
 
   build-leak:
     <<: *common

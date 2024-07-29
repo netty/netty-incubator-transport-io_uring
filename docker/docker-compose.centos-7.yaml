@@ -19,6 +19,8 @@ services:
       - ~/.m2/repository:/root/.m2/repository
       - ..:/code:delegated
     working_dir: /code
+    security_opt:
+      - seccomp:unconfined
 
   cross-compile-aarch64-deploy:
     <<: *cross-compile-aarch64-common
