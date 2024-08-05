@@ -55,10 +55,10 @@ jobs:
             build-${{ matrix.setup }}-cache-m2-repository-
 
       - name: Build docker image
-        run: docker-compose ${{ matrix.docker-compose-build }}
+        run: docker compose ${{ matrix.docker-compose-build }}
 
       - name: Build project without leak detection
-        run: docker-compose ${{ matrix.docker-compose-run }}
+        run: docker compose ${{ matrix.docker-compose-run }}
 
       - uses: actions/upload-artifact@v3
         if: ${{ failure() }}
