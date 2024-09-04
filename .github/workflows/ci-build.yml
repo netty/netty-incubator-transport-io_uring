@@ -60,7 +60,7 @@ jobs:
       - name: Build project without leak detection
         run: docker compose ${{ matrix.docker-compose-run }}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
           name: build-target
