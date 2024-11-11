@@ -1,4 +1,4 @@
-FROM arm64v8/centos:7.6.1810
+FROM --platform=linux/amd64 arm64v8/centos:7.6.1810
 
 ENV MAVEN_VERSION 3.9.1
 
