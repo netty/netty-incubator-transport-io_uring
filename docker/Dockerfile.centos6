@@ -1,4 +1,4 @@
-FROM centos:6.10
+FROM --platform=linux/amd64 centos:6.10
 
 ENV MAVEN_VERSION 3.9.1
 
