@@ -19,11 +19,11 @@
   <parent>
     <groupId>io.netty.incubator</groupId>
     <artifactId>netty-incubator-transport-parent-io_uring</artifactId>
-    <version>0.0.26.Final</version>
+    <version>0.0.27.Final-SNAPSHOT</version>
   </parent>
 
   <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-  <version>0.0.26.Final</version>
+  <version>0.0.27.Final-SNAPSHOT</version>
   <name>Netty/Incubator/Transport/Native/io_uring</name>
   <packaging>jar</packaging>
 
