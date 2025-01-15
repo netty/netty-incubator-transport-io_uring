@@ -261,7 +261,8 @@ final class IOUringSubmissionQueue {
             if (ret < 0) {
                 throw new RuntimeException("ioUringEnter syscall returned " + ret);
             }
-            logger.warn("Not all submissions succeeded");
+            // some submission might fail if these are done inline and failed.
+            logger.trace("Not all submissions succeeded. Only {} of {} SQEs were submitted.", ret, toSubmit);
         }
         return ret;
     }
