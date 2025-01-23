@@ -152,7 +152,7 @@ final class IOUringSubmissionQueue {
 
     boolean addTimeout(long nanoSeconds, short extraData) {
         setTimeout(nanoSeconds);
-        return enqueueSqe(Native.IORING_OP_TIMEOUT, 0, 0, -1, timeoutMemoryAddress, 1, 0, extraData);
+        return enqueueSqe(Native.IORING_OP_TIMEOUT, 0, 0, -1, timeoutMemoryAddress, 1, 1, extraData);
     }
 
     boolean removeTimeout(short extraData) {
