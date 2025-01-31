@@ -370,7 +370,6 @@
       <id>oss-fuzz</id>
       <properties>
         <jni.compiler.args.cflags>CFLAGS=${env.CFLAGS} -I${unix.common.include.unpacked.dir}</jni.compiler.args.cflags>
-        <jni.compiler.args.ldflags>LDFLAGS=-L${unix.common.lib.unpacked.dir} -Wl,--no-as-needed -lrt -ldl -Wl,--whole-archive -l${unix.common.lib.name} -l:/usr/lib/libFuzzingEngine.a -Wl,--no-whole-archive</jni.compiler.args.ldflags>
       </properties>
     </profile>
   </profiles>
