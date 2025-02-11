@@ -86,7 +86,7 @@ jobs:
       - name: Checking for detected leak
         run: ./.github/scripts/check_leak.sh build-leak.output
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
           name: target
